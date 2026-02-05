@@ -123,18 +123,10 @@ serve(async (req) => {
         });
       }
 
-      // Get auth user ID for P2P operations
-      const telegramEmail = `telegram_${tgId}@pezkuwichain.io`;
-      const {
-        data: { users: authUsers },
-      } = await supabase.auth.admin.listUsers();
-      const authUser = authUsers?.find((u) => u.email === telegramEmail);
-
       return new Response(
         JSON.stringify({
           user: userData,
           session_token: generateSessionToken(tgId),
-          auth_user_id: authUser?.id || null,
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -142,9 +134,6 @@ serve(async (req) => {
 
     // Method 2: Mini-app redirect (telegram_id from URL params)
     if (from_miniapp && telegram_id) {
-      // For mini-app redirects, we trust the telegram_id since it comes from our own mini-app
-      // The user was already authenticated in the mini-app context
-
       // Check if user exists
       const { data: existingUser } = await supabase
         .from('users')
@@ -168,18 +157,10 @@ serve(async (req) => {
         existingUser.wallet_address = wallet_address;
       }
 
-      // Get auth user ID for P2P operations
-      const telegramEmail = `telegram_${telegram_id}@pezkuwichain.io`;
-      const {
-        data: { users: authUsers },
-      } = await supabase.auth.admin.listUsers();
-      const authUser = authUsers?.find((u) => u.email === telegramEmail);
-
       return new Response(
         JSON.stringify({
           user: existingUser,
           session_token: generateSessionToken(telegram_id),
-          auth_user_id: authUser?.id || null,
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -210,8 +191,6 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
-
-    // Supabase client already created above
 
     // Check if user exists
     const { data: existingUser } = await supabase
@@ -261,36 +240,6 @@ serve(async (req) => {
       userId = newUser.id;
     }
 
-    // Get or create auth user for P2P operations
-    const telegramEmail = `telegram_${telegramUser.id}@pezkuwichain.io`;
-    let authUserId: string | null = null;
-
-    // Try to get existing auth user
-    const {
-      data: { users: existingAuthUsers },
-    } = await supabase.auth.admin.listUsers();
-    const existingAuthUser = existingAuthUsers?.find((u) => u.email === telegramEmail);
-
-    if (existingAuthUser) {
-      authUserId = existingAuthUser.id;
-    } else {
-      // Create auth user
-      const { data: authData, error: signInError } = await supabase.auth.admin.createUser({
-        email: telegramEmail,
-        email_confirm: true,
-        user_metadata: {
-          telegram_id: telegramUser.id,
-          username: telegramUser.username,
-          first_name: telegramUser.first_name,
-          photo_url: telegramUser.photo_url,
-        },
-      });
-
-      if (!signInError && authData?.user) {
-        authUserId = authData.user.id;
-      }
-    }
-
     // Get the user data
     const { data: userData } = await supabase.from('users').select('*').eq('id', userId).single();
 
@@ -299,7 +248,6 @@ serve(async (req) => {
         user: userData,
         telegram_user: telegramUser,
         session_token: generateSessionToken(telegramUser.id),
-        auth_user_id: authUserId, // For P2P balance queries
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
