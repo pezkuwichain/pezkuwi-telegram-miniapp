@@ -1,0 +1,86 @@
+{
+  "name": "pezkuwi-telegram-miniapp",
+  "version": "1.0.112",
+  "type": "module",
+  "description": "Pezkuwichain Telegram Mini App - Forum, Announcements, Rewards",
+  "author": "Pezkuwichain Team",
+  "license": "MIT",
+  "scripts": {
+    "dev": "vite",
+    "build": "node scripts/bump-version.mjs && tsc && vite build",
+    "build:major": "node scripts/bump-version.mjs major && tsc && vite build",
+    "build:minor": "node scripts/bump-version.mjs minor && tsc && vite build",
+    "build:patch": "node scripts/bump-version.mjs patch && tsc && vite build",
+    "build:no-bump": "tsc && vite build",
+    "preview": "vite preview",
+    "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 30",
+    "lint:fix": "eslint . --ext ts,tsx --fix",
+    "format": "prettier --write \"src/**/*.{ts,tsx,css}\"",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "test:unit": "vitest run --grep 'P2P Fiat Trading E2E' --invert",
+    "test:e2e": "./scripts/run-e2e-tests.sh",
+    "test:p2p": "vitest run --grep 'P2P'",
+    "test:coverage": "vitest run --coverage",
+    "prepare": "husky",
+    "validate": "npm run typecheck && npm run lint && npm run test:run && npm run build:no-bump",
+    "version": "node scripts/bump-version.mjs"
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{json,md,css}": [
+      "prettier --write"
+    ]
+  },
+  "dependencies": {
+    "@pezkuwi/api": "^16.5.36",
+    "@pezkuwi/keyring": "^14.0.25",
+    "@pezkuwi/util-crypto": "^14.0.25",
+    "@supabase/supabase-js": "^2.93.1",
+    "@tanstack/react-query": "^5.56.2",
+    "@types/qrcode": "^1.5.6",
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
+    "date-fns": "^3.6.0",
+    "lucide-react": "^0.462.0",
+    "qrcode": "^1.5.4",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "tailwind-merge": "^2.5.2",
+    "tailwindcss-animate": "^1.0.7",
+    "vite-plugin-node-polyfills": "^0.25.0"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/react": "^18.3.3",
+    "@types/react-dom": "^18.3.0",
+    "@typescript-eslint/eslint-plugin": "^8.54.0",
+    "@typescript-eslint/parser": "^8.54.0",
+    "@vitejs/plugin-react-swc": "^3.5.0",
+    "@vitest/coverage-v8": "^4.0.18",
+    "autoprefixer": "^10.4.20",
+    "eslint": "^9.39.2",
+    "eslint-config-prettier": "^10.1.8",
+    "eslint-plugin-prettier": "^5.5.5",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^7.0.1",
+    "husky": "^9.1.7",
+    "jsdom": "^27.4.0",
+    "lint-staged": "^16.2.7",
+    "pg": "^8.18.0",
+    "postcss": "^8.4.47",
+    "prettier": "^3.8.1",
+    "tailwindcss": "^3.4.11",
+    "typescript": "^5.5.3",
+    "vite": "^5.4.1",
+    "vitest": "^4.0.18"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
