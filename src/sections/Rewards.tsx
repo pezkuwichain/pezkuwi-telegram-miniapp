@@ -696,7 +696,7 @@ export function RewardsSection() {
                     </p>
                     <div className="mt-3 p-2 bg-yellow-500/10 rounded-lg border border-yellow-500/20">
                       <p className="text-yellow-300 text-xs">
-                        Staking 0 ise Trust pûan 0 dibe. Berî her tiştî stake bike!
+                        Staking 0 be, Trust pûan jî 0 dibe. Berî her tiştî stake bike!
                       </p>
                     </div>
                   </div>

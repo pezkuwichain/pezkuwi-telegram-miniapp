@@ -150,10 +150,10 @@ export function LPStakingModal({ isOpen, onClose }: LPStakingModalProps) {
       showAlert(`Stake serket! Hash: ${hash.toString().slice(0, 16)}...`);
       setStakeAmount('');
 
-      // Refresh pools
+      // Close modal after success
       setTimeout(() => {
-        window.location.reload();
-      }, 2000);
+        onClose();
+      }, 1500);
     } catch (err) {
       console.error('Stake error:', err);
       setError(err instanceof Error ? err.message : 'Stake neserketî');
@@ -181,8 +181,8 @@ export function LPStakingModal({ isOpen, onClose }: LPStakingModalProps) {
       setUnstakeAmount('');
 
       setTimeout(() => {
-        window.location.reload();
-      }, 2000);
+        onClose();
+      }, 1500);
     } catch (err) {
       console.error('Unstake error:', err);
       setError(err instanceof Error ? err.message : 'Unstake neserketî');
@@ -207,8 +207,8 @@ export function LPStakingModal({ isOpen, onClose }: LPStakingModalProps) {
       showAlert(`Xelat hat stendin! Hash: ${hash.toString().slice(0, 16)}...`);
 
       setTimeout(() => {
-        window.location.reload();
-      }, 2000);
+        onClose();
+      }, 1500);
     } catch (err) {
       console.error('Claim error:', err);
       setError(err instanceof Error ? err.message : 'Xelat stendin neserketî');
