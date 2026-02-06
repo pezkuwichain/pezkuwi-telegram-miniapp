@@ -7,6 +7,7 @@ interface AuthContextType {
   sessionToken: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
+  authError: string | null;
   signIn: () => Promise<void>;
 }
 
@@ -16,11 +17,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [authError, setAuthError] = useState<string | null>(null);
 
   const signIn = async () => {
     const tg = window.Telegram?.WebApp;
+    setAuthError(null);
+    setIsLoading(true);
 
     if (!tg?.initData) {
+      setAuthError('No Telegram initData');
       setIsLoading(false);
       return;
     }
@@ -29,13 +34,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const result = await signInWithTelegram(tg.initData);
       if (result?.user) {
         setUser(result.user);
+        setAuthError(null);
       }
       // Store session token for P2P and other cross-app auth
       if (result?.session_token) {
         setSessionToken(result.session_token);
       }
     } catch (error) {
-      // Auth failed silently - user will see unauthenticated state
+      // Capture error message for debugging
+      const errorMsg = error instanceof Error ? error.message : String(error);
+      setAuthError(errorMsg);
       if (import.meta.env.DEV) {
         console.error('[Auth] Error:', error);
       }
@@ -56,6 +64,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         sessionToken,
         isLoading,
         isAuthenticated: !!user,
+        authError,
         signIn,
       }}
     >

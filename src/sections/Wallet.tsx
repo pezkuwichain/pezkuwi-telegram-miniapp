@@ -22,7 +22,7 @@ type UserScreen = 'create' | 'import' | null;
 
 export function WalletSection() {
   const { isInitialized, isConnected, hasWallet, deleteWalletData } = useWallet();
-  const { isAuthenticated, isLoading: authLoading, signIn } = useAuth();
+  const { isAuthenticated, isLoading: authLoading, authError, signIn } = useAuth();
   const [userScreen, setUserScreen] = useState<UserScreen>(null);
 
   // Derive screen from wallet state and user navigation
@@ -80,17 +80,20 @@ export function WalletSection() {
               <AlertTriangle className="w-8 h-8 text-red-400" />
             </div>
             <div>
-              <h2 className="text-xl font-semibold mb-2">Têketin Têk Çû</h2>
+              <h2 className="text-xl font-semibold mb-2">Teketin Tek Cu</h2>
               <p className="text-muted-foreground text-sm">
-                Ji kerema xwe piştrast bikin ku hûn vê app-ê di nav Telegram de vedikin
+                Ji kerema xwe pistrast bikin ku hun ve app-e di nav Telegram de vedikin
               </p>
+              {authError && (
+                <p className="text-xs text-red-400 mt-2 font-mono break-all px-4">{authError}</p>
+              )}
             </div>
             <button
               onClick={handleRetryAuth}
               className="px-6 py-3 bg-primary text-primary-foreground rounded-xl font-semibold flex items-center gap-2 mx-auto"
             >
               <RefreshCw className="w-4 h-4" />
-              Dîsa Biceribîne
+              Disa Biceribine
             </button>
           </div>
         </div>
