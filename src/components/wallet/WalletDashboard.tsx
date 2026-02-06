@@ -17,11 +17,14 @@ import {
   ScanLine,
   ArrowLeftRight,
   Droplets,
+  Coins,
+  Rocket,
 } from 'lucide-react';
 import QRCode from 'qrcode';
 import { TokensCard } from './TokensCard';
 import { SwapModal } from './SwapModal';
 import { PoolsModal } from './PoolsModal';
+import { LPStakingModal } from './LPStakingModal';
 import { useWallet } from '@/contexts/WalletContext';
 import { useTelegram } from '@/hooks/useTelegram';
 import { formatAddress } from '@/lib/wallet-service';
@@ -45,7 +48,7 @@ interface Transaction {
 
 export function WalletDashboard({ onDisconnect }: Props) {
   const { address, balance, api, assetHubApi, disconnect, isLoading } = useWallet();
-  const { hapticImpact, hapticNotification } = useTelegram();
+  const { hapticImpact, hapticNotification, showAlert } = useTelegram();
 
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<'main' | 'send' | 'receive' | 'history'>('main');
@@ -55,6 +58,7 @@ export function WalletDashboard({ onDisconnect }: Props) {
   const [isLoadingTxs, setIsLoadingTxs] = useState(false);
   const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
   const [isPoolsModalOpen, setIsPoolsModalOpen] = useState(false);
+  const [isStakingModalOpen, setIsStakingModalOpen] = useState(false);
 
   // Subscribe to PEZ balance (Asset ID: 1) - Uses Asset Hub API
   useEffect(() => {
@@ -547,20 +551,19 @@ export function WalletDashboard({ onDisconnect }: Props) {
         </div>
       </div>
 
-      {/* Quick Actions - 2x2 Grid */}
-      <div className="px-4 pb-4 grid grid-cols-2 gap-3">
+      {/* Quick Actions - 2x3 Grid */}
+      <div className="px-4 pb-4 grid grid-cols-3 gap-2">
         <button
           onClick={() => {
             hapticImpact('light');
             setActiveTab('send');
           }}
-          className="flex flex-col items-center gap-1 p-4 bg-gradient-to-r from-green-600/20 to-yellow-500/20 border border-green-500/30 rounded-xl"
+          className="flex flex-col items-center gap-1 p-3 bg-gradient-to-r from-green-600/20 to-yellow-500/20 border border-green-500/30 rounded-xl"
         >
-          <div className="w-10 h-10 bg-green-500/20 rounded-full flex items-center justify-center">
-            <Send className="w-5 h-5 text-green-400" />
+          <div className="w-8 h-8 bg-green-500/20 rounded-full flex items-center justify-center">
+            <Send className="w-4 h-4 text-green-400" />
           </div>
-          <span className="text-sm font-medium">Bişîne</span>
-          <span className="text-xs text-gray-500">(send)</span>
+          <span className="text-xs font-medium">Bişîne</span>
         </button>
 
         <button
@@ -568,13 +571,12 @@ export function WalletDashboard({ onDisconnect }: Props) {
             hapticImpact('light');
             setActiveTab('receive');
           }}
-          className="flex flex-col items-center gap-1 p-4 bg-muted rounded-xl border border-border"
+          className="flex flex-col items-center gap-1 p-3 bg-muted rounded-xl border border-border"
         >
-          <div className="w-10 h-10 bg-cyan-500/20 rounded-full flex items-center justify-center">
-            <QrCode className="w-5 h-5 text-cyan-400" />
+          <div className="w-8 h-8 bg-cyan-500/20 rounded-full flex items-center justify-center">
+            <QrCode className="w-4 h-4 text-cyan-400" />
           </div>
-          <span className="text-sm font-medium">Werbigire</span>
-          <span className="text-xs text-gray-500">(receive)</span>
+          <span className="text-xs font-medium">Werbigire</span>
         </button>
 
         <button
@@ -582,13 +584,12 @@ export function WalletDashboard({ onDisconnect }: Props) {
             hapticImpact('light');
             setIsSwapModalOpen(true);
           }}
-          className="flex flex-col items-center gap-1 p-4 bg-gradient-to-r from-blue-600/20 to-purple-500/20 border border-blue-500/30 rounded-xl"
+          className="flex flex-col items-center gap-1 p-3 bg-gradient-to-r from-blue-600/20 to-purple-500/20 border border-blue-500/30 rounded-xl"
         >
-          <div className="w-10 h-10 bg-blue-500/20 rounded-full flex items-center justify-center">
-            <ArrowLeftRight className="w-5 h-5 text-blue-400" />
+          <div className="w-8 h-8 bg-blue-500/20 rounded-full flex items-center justify-center">
+            <ArrowLeftRight className="w-4 h-4 text-blue-400" />
           </div>
-          <span className="text-sm font-medium">Swap</span>
-          <span className="text-xs text-gray-500">(guhertin)</span>
+          <span className="text-xs font-medium">Swap</span>
         </button>
 
         <button
@@ -596,13 +597,38 @@ export function WalletDashboard({ onDisconnect }: Props) {
             hapticImpact('light');
             setIsPoolsModalOpen(true);
           }}
-          className="flex flex-col items-center gap-1 p-4 bg-gradient-to-r from-purple-600/20 to-pink-500/20 border border-purple-500/30 rounded-xl"
+          className="flex flex-col items-center gap-1 p-3 bg-gradient-to-r from-purple-600/20 to-pink-500/20 border border-purple-500/30 rounded-xl"
         >
-          <div className="w-10 h-10 bg-purple-500/20 rounded-full flex items-center justify-center">
-            <Droplets className="w-5 h-5 text-purple-400" />
+          <div className="w-8 h-8 bg-purple-500/20 rounded-full flex items-center justify-center">
+            <Droplets className="w-4 h-4 text-purple-400" />
           </div>
-          <span className="text-sm font-medium">Pools</span>
-          <span className="text-xs text-gray-500">(hewz)</span>
+          <span className="text-xs font-medium">Pools</span>
+        </button>
+
+        <button
+          onClick={() => {
+            hapticImpact('light');
+            setIsStakingModalOpen(true);
+          }}
+          className="flex flex-col items-center gap-1 p-3 bg-gradient-to-r from-yellow-600/20 to-orange-500/20 border border-yellow-500/30 rounded-xl"
+        >
+          <div className="w-8 h-8 bg-yellow-500/20 rounded-full flex items-center justify-center">
+            <Coins className="w-4 h-4 text-yellow-400" />
+          </div>
+          <span className="text-xs font-medium">Staking</span>
+        </button>
+
+        <button
+          onClick={() => {
+            hapticImpact('light');
+            showAlert('Presale tê de ye! Zûtirîn demekê de dê bête vekirin.');
+          }}
+          className="flex flex-col items-center gap-1 p-3 bg-gradient-to-r from-pink-600/20 to-red-500/20 border border-pink-500/30 rounded-xl"
+        >
+          <div className="w-8 h-8 bg-pink-500/20 rounded-full flex items-center justify-center">
+            <Rocket className="w-4 h-4 text-pink-400" />
+          </div>
+          <span className="text-xs font-medium">Presale</span>
         </button>
       </div>
 
@@ -698,6 +724,7 @@ export function WalletDashboard({ onDisconnect }: Props) {
       {/* Modals */}
       <SwapModal isOpen={isSwapModalOpen} onClose={() => setIsSwapModalOpen(false)} />
       <PoolsModal isOpen={isPoolsModalOpen} onClose={() => setIsPoolsModalOpen(false)} />
+      <LPStakingModal isOpen={isStakingModalOpen} onClose={() => setIsStakingModalOpen(false)} />
     </div>
   );
 }
