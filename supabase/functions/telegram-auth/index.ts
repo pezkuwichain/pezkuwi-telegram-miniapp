@@ -2,18 +2,12 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { createHmac } from 'https://deno.land/std@0.177.0/node/crypto.ts';
 
-// CORS - Production domain only
-const ALLOWED_ORIGINS = [
-  'https://telegram.pezkuwichain.io',
-  'https://t.me', // Telegram WebApp iframe
-];
+// CORS - Only allow our Telegram MiniApp domain
+const ALLOWED_ORIGIN = 'https://telegram.pezkuwichain.io';
 
 function getCorsHeaders(origin: string | null): Record<string, string> {
-  const allowedOrigin =
-    origin && ALLOWED_ORIGINS.some((o) => origin.startsWith(o)) ? origin : ALLOWED_ORIGINS[0];
-
   return {
-    'Access-Control-Allow-Origin': allowedOrigin,
+    'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
     'Access-Control-Allow-Headers':
       'authorization, x-client-info, apikey, content-type, x-supabase-client-platform',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -145,8 +139,7 @@ function verifySessionToken(token: string, botToken: string): number | null {
 }
 
 serve(async (req) => {
-  const origin = req.headers.get('origin');
-  const corsHeaders = getCorsHeaders(origin);
+  const corsHeaders = getCorsHeaders(req.headers.get('origin'));
 
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {

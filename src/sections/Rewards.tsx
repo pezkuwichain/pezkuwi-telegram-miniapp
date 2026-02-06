@@ -207,7 +207,7 @@ export function RewardsSection() {
           {[
             { id: 'overview' as const, label: 'Geşbîn' },
             { id: 'referrals' as const, label: 'Referral' },
-            { id: 'scores' as const, label: 'Puanlar' },
+            { id: 'scores' as const, label: 'Xal' },
           ].map(({ id, label }) => (
             <button
               key={id}

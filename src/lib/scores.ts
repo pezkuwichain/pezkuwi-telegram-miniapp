@@ -389,7 +389,7 @@ export async function getAllScoresWithFallback(
   const stakingScore = stakingResult.score;
   const referralScore = calculateReferralScore(referralCount);
 
-  // If staking score is 0, trust score is 0 (matches pallet logic)
+  // Ger staking 0 be, trust jî 0 be (matches pallet logic)
   if (stakingScore === 0) {
     return {
       ...emptyResult,
