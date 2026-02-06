@@ -16,8 +16,32 @@ export async function signInWithTelegram(initData: string) {
   });
 
   if (error) {
-    console.error('[Auth] Telegram sign-in failed:', error);
-    throw error;
+    // Extract more detailed error message
+    let errorMessage = error.message || 'Unknown error';
+
+    // Check if there's additional context in the error
+    if (error.context?.body) {
+      try {
+        const bodyError = JSON.parse(error.context.body);
+        if (bodyError.error) {
+          errorMessage = bodyError.error;
+        }
+      } catch {
+        // Body is not JSON, use as-is
+        if (typeof error.context.body === 'string') {
+          errorMessage = error.context.body;
+        }
+      }
+    }
+
+    console.error('[Auth] Telegram sign-in failed:', errorMessage);
+    throw new Error(errorMessage);
+  }
+
+  // Check if edge function returned an error in data
+  if (data?.error) {
+    console.error('[Auth] Edge function error:', data.error);
+    throw new Error(data.error);
   }
 
   if (data?.session) {
