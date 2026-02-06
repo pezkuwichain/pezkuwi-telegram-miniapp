@@ -76,14 +76,20 @@ export function LPStakingModal({ isOpen, onClose }: LPStakingModalProps) {
 
           if (address) {
             try {
+              // poolStakers takes two separate arguments: (poolId, address)
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
-              const stakeInfo = await (assetHubApi.query.assetRewards as any).poolStakers([
+              const stakeInfo = await (assetHubApi.query.assetRewards as any).poolStakers(
                 poolId,
-                address,
-              ]);
-              if (stakeInfo && stakeInfo.isSome) {
-                const stakeData = stakeInfo.unwrap().toJSON();
-                userStaked = stakeData.amount || '0';
+                address
+              );
+              console.log('[LP Staking] Pool', poolId, 'stakeInfo:', stakeInfo.toString());
+              if (stakeInfo && !stakeInfo.isEmpty && !stakeInfo.isNone) {
+                const stakeData = stakeInfo.isSome
+                  ? stakeInfo.unwrap().toJSON()
+                  : stakeInfo.toJSON();
+                userStaked = stakeData.amount?.toString() || '0';
+                pendingRewards = stakeData.rewards?.toString() || '0';
+                console.log('[LP Staking] User staked in pool', poolId, ':', userStaked);
               }
             } catch (err) {
               console.error('Error fetching stake info:', err);
