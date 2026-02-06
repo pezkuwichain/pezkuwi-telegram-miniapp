@@ -37,10 +37,9 @@ const ASSET_IDS = {
   WHEZ: 0, // Wrapped HEZ (12 decimals)
   PEZ: 1, // PEZ token (12 decimals)
   WUSDT: 1000, // Wrapped USDT (6 decimals) - displayed as USDT
-  BTC: 4, // wBTC
-  ETH: 5, // wETH
-  DOT: 6, // wDOT
-  BNB: 7, // wBNB (assumed)
+  DOT: 1001, // wDOT (10 decimals)
+  ETH: 1002, // wETH (18 decimals)
+  BTC: 1003, // wBTC (8 decimals)
 };
 
 // LP Token IDs (from poolAssets pallet)
@@ -54,7 +53,6 @@ const COINGECKO_IDS: Record<string, string> = {
   DOT: 'polkadot',
   BTC: 'bitcoin',
   ETH: 'ethereum',
-  BNB: 'binancecoin',
   USDT: 'tether',
   HEZ: 'hez-token', // Will fallback to DOT/3 if not found
   PEZ: 'pez-token', // Will fallback to DOT/10 if not found
@@ -113,7 +111,7 @@ const DEFAULT_TOKENS: TokenConfig[] = [
     symbol: 'wDOT',
     displaySymbol: 'DOT',
     name: 'Polkadot',
-    decimals: 12,
+    decimals: 10,
     logo: '/tokens/DOT.png',
     isDefault: true,
     priority: 3,
@@ -123,7 +121,7 @@ const DEFAULT_TOKENS: TokenConfig[] = [
     symbol: 'wBTC',
     displaySymbol: 'BTC',
     name: 'Bitcoin',
-    decimals: 12,
+    decimals: 8,
     logo: '/tokens/BTC.png',
     isDefault: true,
     priority: 4,
@@ -133,20 +131,10 @@ const DEFAULT_TOKENS: TokenConfig[] = [
     symbol: 'wETH',
     displaySymbol: 'ETH',
     name: 'Ethereum',
-    decimals: 12,
+    decimals: 18,
     logo: '/tokens/ETH.png',
     isDefault: true,
     priority: 5,
-  },
-  {
-    assetId: ASSET_IDS.BNB,
-    symbol: 'wBNB',
-    displaySymbol: 'BNB',
-    name: 'BNB',
-    decimals: 12,
-    logo: '/tokens/BNB.png',
-    isDefault: true,
-    priority: 6,
   },
 ];
 
@@ -552,7 +540,6 @@ export function TokensCard({ onSendToken }: Props) {
       DOT: 'from-pink-500/20 to-purple-500/20 border-pink-500/30',
       BTC: 'from-orange-500/20 to-yellow-500/20 border-orange-500/30',
       ETH: 'from-blue-500/20 to-indigo-500/20 border-blue-500/30',
-      BNB: 'from-yellow-500/20 to-orange-500/20 border-yellow-500/30',
       'HEZ-PEZ LP': 'from-green-500/20 to-blue-500/20 border-cyan-500/30',
       'HEZ-USDT LP': 'from-green-500/20 to-emerald-500/20 border-teal-500/30',
     };
