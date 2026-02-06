@@ -72,26 +72,32 @@ export function SwapModal({ isOpen, onClose }: SwapModalProps) {
         const hezFree = hezAccount.data.free.toString();
         const hezBalance = (parseInt(hezFree) / 1e12).toFixed(4);
 
+        // Helper to extract balance from asset query result
+        const getAssetBalance = (result: any, decimals: number, fractionDigits: number): string => {
+          if (!result || result.isEmpty) return '0'.padEnd(fractionDigits + 2, '0');
+          const data = result.isSome ? result.unwrap().toJSON() : result.toJSON();
+          if (data && data.balance) {
+            return (parseInt(data.balance.toString()) / Math.pow(10, decimals)).toFixed(
+              fractionDigits
+            );
+          }
+          return '0'.padEnd(fractionDigits + 2, '0');
+        };
+
         // PEZ balance (Asset 1)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const pezResult = await (assetHubApi.query.assets as any).account(1, keypair.address);
-        const pezBalance = pezResult.isSome
-          ? (parseInt(pezResult.unwrap().balance.toString()) / 1e12).toFixed(4)
-          : '0.0000';
+        const pezBalance = getAssetBalance(pezResult, 12, 4);
 
         // USDT balance (Asset 1000)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const usdtResult = await (assetHubApi.query.assets as any).account(1000, keypair.address);
-        const usdtBalance = usdtResult.isSome
-          ? (parseInt(usdtResult.unwrap().balance.toString()) / 1e6).toFixed(2)
-          : '0.00';
+        const usdtBalance = getAssetBalance(usdtResult, 6, 2);
 
         // DOT balance (Asset 1001, 10 decimals)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const dotResult = await (assetHubApi.query.assets as any).account(1001, keypair.address);
-        const dotBalance = dotResult.isSome
-          ? (parseInt(dotResult.unwrap().balance.toString()) / 1e10).toFixed(4)
-          : '0.0000';
+        const dotBalance = getAssetBalance(dotResult, 10, 4);
 
         // Update all balances at once
         setBalances({
