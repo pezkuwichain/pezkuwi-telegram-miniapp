@@ -64,6 +64,7 @@ function saveStakingTrackingData(data: StakingTrackingData): void {
 
 /**
  * Fetch staking details directly from Relay Chain
+ * In newer Substrate versions, ledger is keyed by stash address
  */
 export async function fetchRelayStakingDetails(
   relayApi: ApiPromise,
@@ -71,36 +72,64 @@ export async function fetchRelayStakingDetails(
 ): Promise<{ stakedAmount: bigint; nominationsCount: number } | null> {
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if (!(relayApi?.query as any)?.staking) return null;
+    if (!(relayApi?.query as any)?.staking) {
+      console.log('[Staking] staking pallet not found');
+      return null;
+    }
 
+    let stashAddress = address;
+    let active = 0n;
+
+    // In newer Substrate, ledger is keyed by stash address directly
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let ledger = await (relayApi.query.staking as any).ledger?.(address);
-    let stashAddress = address;
 
-    // If no ledger, check if this is a stash account
-    if (!ledger || ledger.isEmpty || ledger.isNone) {
+    // Check if ledger exists and has data
+    if (ledger && !ledger.isEmpty && !ledger.isNone) {
+      // Ledger might be wrapped in Option
+      const unwrapped = ledger.isSome ? ledger.unwrap() : ledger;
+      const ledgerJson = unwrapped.toJSON() as { active?: string | number; stash?: string };
+      console.log('[Staking] Ledger found for', address, ':', ledgerJson);
+      active = BigInt(ledgerJson?.active || 0);
+      if (ledgerJson?.stash) {
+        stashAddress = ledgerJson.stash;
+      }
+    } else {
+      // Fallback: check if this is a stash account with a controller
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const bonded = await (relayApi.query.staking as any).bonded?.(address);
       if (bonded && !bonded.isEmpty && !bonded.isNone) {
         const controller = bonded.toString();
+        console.log('[Staking] Address', address, 'is stash, controller:', controller);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         ledger = await (relayApi.query.staking as any).ledger?.(controller);
-        stashAddress = address;
+        if (ledger && !ledger.isEmpty && !ledger.isNone) {
+          const unwrapped = ledger.isSome ? ledger.unwrap() : ledger;
+          const ledgerJson = unwrapped.toJSON() as { active?: string | number };
+          console.log('[Staking] Ledger from controller:', ledgerJson);
+          active = BigInt(ledgerJson?.active || 0);
+        }
+      } else {
+        console.log('[Staking] No ledger or bonded found for', address);
       }
     }
 
-    if (!ledger || ledger.isEmpty || ledger.isNone) {
+    if (active === 0n) {
       return null;
     }
 
-    const ledgerJson = ledger.toJSON() as { active?: string | number };
-    const active = BigInt(ledgerJson?.active || 0);
-
+    // Get nominations
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const nominations = await (relayApi.query.staking as any).nominators?.(stashAddress);
     const nominationsJson = nominations?.toJSON() as { targets?: unknown[] } | null;
     const nominationsCount = nominationsJson?.targets?.length || 0;
 
+    console.log(
+      '[Staking] Final result - active:',
+      active.toString(),
+      'nominations:',
+      nominationsCount
+    );
     return {
       stakedAmount: active,
       nominationsCount,
@@ -224,25 +253,68 @@ const TIKI_ROLE_SCORES: Record<number, number> = {
 };
 
 /**
- * Fetch user's tiki roles from People Chain
+ * Tiki role name to score mapping
+ * Welati (citizen) is the basic role with score 10
+ */
+const TIKI_NAME_SCORES: Record<string, number> = {
+  welati: 10,
+  parlementer: 30,
+  serokimeclise: 40,
+  serok: 50,
+  wezir: 40,
+  endamediwane: 30,
+  dadger: 35,
+  dozger: 35,
+  mamoste: 25,
+  perwerdekar: 25,
+  bazargan: 20,
+};
+
+/**
+ * Fetch user's tikis from People Chain
+ * Storage: tiki.userTikis(address) -> Vec<TikiRole>
  */
 export async function fetchUserTikis(peopleApi: ApiPromise, address: string): Promise<TikiInfo[]> {
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if (!(peopleApi?.query as any)?.tiki) return [];
+    if (!(peopleApi?.query as any)?.tiki) {
+      console.log('[Tiki] tiki pallet not found');
+      return [];
+    }
 
+    // Try userTikis first (actual storage name)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const result = await (peopleApi.query.tiki as any).userRoles?.(address);
+    let result = await (peopleApi.query.tiki as any).userTikis?.(address);
 
-    if (!result || result.isEmpty) return [];
+    // Fallback to userRoles if userTikis doesn't exist
+    if (!result && (peopleApi.query.tiki as any).userRoles) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      result = await (peopleApi.query.tiki as any).userRoles?.(address);
+    }
 
+    if (!result || result.isEmpty) {
+      console.log('[Tiki] No tikis found for', address);
+      return [];
+    }
+
+    // Result is Vec<TikiRole> which are enum variants as strings
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const roles = result.toJSON() as any[];
-    return roles.map((role) => ({
-      roleId: role.roleId || role.role_id || 0,
-      level: role.level || 0,
-      name: role.name || 'Unknown',
-    }));
+    const tikis = result.toJSON() as any[];
+    console.log('[Tiki] Raw tikis for', address, ':', tikis);
+
+    return tikis.map((tiki, index) => {
+      // Tiki can be a string (enum variant name) or object
+      const name = typeof tiki === 'string' ? tiki : tiki.name || tiki.role || 'Unknown';
+      const nameLower = name.toLowerCase();
+      const score = TIKI_NAME_SCORES[nameLower] || 10; // Default to 10 if unknown
+
+      return {
+        roleId: index + 1,
+        level: 1,
+        name: name,
+        score: score,
+      };
+    });
   } catch (err) {
     console.error('Failed to fetch tiki roles:', err);
     return [];
@@ -250,7 +322,8 @@ export async function fetchUserTikis(peopleApi: ApiPromise, address: string): Pr
 }
 
 /**
- * Calculate tiki score from user's roles
+ * Calculate tiki score from user's tikis
+ * Uses the score property set during fetch, or looks up by name
  */
 export function calculateTikiScore(tikis: TikiInfo[]): number {
   if (!tikis.length) return 0;
@@ -258,10 +331,16 @@ export function calculateTikiScore(tikis: TikiInfo[]): number {
   // Get highest role score
   let maxScore = 0;
   for (const tiki of tikis) {
-    const roleScore = TIKI_ROLE_SCORES[tiki.roleId] || 0;
-    maxScore = Math.max(maxScore, roleScore);
+    // Use score from tiki if available, otherwise lookup by roleId or name
+    const tikiScore =
+      (tiki as TikiInfo & { score?: number }).score ||
+      TIKI_ROLE_SCORES[tiki.roleId] ||
+      TIKI_NAME_SCORES[tiki.name.toLowerCase()] ||
+      10; // Default welati score
+    maxScore = Math.max(maxScore, tikiScore);
   }
 
+  console.log('[Tiki] Calculated score:', maxScore, 'from tikis:', tikis);
   return Math.min(maxScore, 50); // Capped at 50
 }
 

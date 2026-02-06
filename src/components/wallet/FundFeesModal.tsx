@@ -45,7 +45,7 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
   const { hapticImpact, showAlert } = useTelegram();
 
   const [targetChain, setTargetChain] = useState<TargetChain>('asset-hub');
-  const [amount, setAmount] = useState('0.5');
+  const [amount, setAmount] = useState('');
   const [isTransferring, setIsTransferring] = useState(false);
   const [txStatus, setTxStatus] = useState<'idle' | 'signing' | 'pending' | 'success' | 'error'>(
     'idle'
@@ -244,7 +244,7 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
 
             // Reset after success
             setTimeout(() => {
-              setAmount('0.5');
+              setAmount('');
               setTxStatus('idle');
               onClose();
             }, 2000);
@@ -405,7 +405,7 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
                 step="0.0001"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                placeholder="0.5"
+                placeholder="Mîqdar"
                 className="w-full px-4 py-3 bg-muted rounded-xl text-lg font-mono"
                 disabled={isTransferring}
               />

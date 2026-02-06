@@ -19,6 +19,7 @@ const TOKENS = [
   { symbol: 'HEZ', name: 'Hezkurd', assetId: -1, decimals: 12, icon: '/tokens/HEZ.png' },
   { symbol: 'PEZ', name: 'Pezkuwi', assetId: 1, decimals: 12, icon: '/tokens/PEZ.png' },
   { symbol: 'USDT', name: 'Tether', assetId: 1000, decimals: 6, icon: '/tokens/USDT.png' },
+  { symbol: 'DOT', name: 'Polkadot', assetId: 1001, decimals: 10, icon: '/tokens/DOT.png' },
 ];
 
 // Native token ID for relay chain HEZ
@@ -51,6 +52,7 @@ export function SwapModal({ isOpen, onClose }: SwapModalProps) {
     HEZ: '0',
     PEZ: '0',
     USDT: '0',
+    DOT: '0',
   });
 
   // Fetch balances from Asset Hub (where swaps happen)
@@ -84,11 +86,19 @@ export function SwapModal({ isOpen, onClose }: SwapModalProps) {
           ? (parseInt(usdtResult.unwrap().balance.toString()) / 1e6).toFixed(2)
           : '0.00';
 
+        // DOT balance (Asset 1001, 10 decimals)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const dotResult = await (assetHubApi.query.assets as any).account(1001, keypair.address);
+        const dotBalance = dotResult.isSome
+          ? (parseInt(dotResult.unwrap().balance.toString()) / 1e10).toFixed(4)
+          : '0.0000';
+
         // Update all balances at once
         setBalances({
           HEZ: hezBalance,
           PEZ: pezBalance,
           USDT: usdtBalance,
+          DOT: dotBalance,
         });
       } catch (err) {
         console.error('Failed to fetch balances:', err);
@@ -127,8 +137,14 @@ export function SwapModal({ isOpen, onClose }: SwapModalProps) {
 
       if (poolInfo && !poolInfo.isEmpty) {
         // Get quote from runtime API
-        const decimals1 = asset1 === 1000 ? 6 : 12;
-        const decimals2 = asset2 === 1000 ? 6 : 12;
+        // USDT has 6 decimals, DOT has 10 decimals, others have 12
+        const getDecimals = (id: number) => {
+          if (id === 1000) return 6; // USDT
+          if (id === 1001) return 10; // DOT
+          return 12; // HEZ, PEZ
+        };
+        const decimals1 = getDecimals(asset1);
+        const decimals2 = getDecimals(asset2);
         const oneUnit = BigInt(Math.pow(10, decimals1));
 
         const quote = await (

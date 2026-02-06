@@ -67,7 +67,8 @@ export function LPStakingModal({ isOpen, onClose }: LPStakingModalProps) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const poolData = value.toJSON() as any;
 
-          const lpTokenId = poolData.stakedAssetId?.interior?.x2?.[1]?.generalIndex ?? poolId;
+          // LP token ID in poolAssets pallet matches the pool ID (0, 1, 2)
+          const lpTokenId = poolId;
 
           let userStaked = '0';
           let pendingRewards = '0';
@@ -84,16 +85,23 @@ export function LPStakingModal({ isOpen, onClose }: LPStakingModalProps) {
                 const stakeData = stakeInfo.unwrap().toJSON();
                 userStaked = stakeData.amount || '0';
               }
+            } catch (err) {
+              console.error('Error fetching stake info:', err);
+            }
 
-              // Fetch LP balance
+            // Fetch LP balance from poolAssets pallet
+            try {
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               const lpBal = await (assetHubApi.query.poolAssets as any).account(lpTokenId, address);
-              if (lpBal && lpBal.isSome) {
-                const lpData = lpBal.unwrap().toJSON();
-                lpBalance = lpData.balance || '0';
+              if (lpBal) {
+                // Handle both Option<AccountData> and direct AccountData
+                const lpData = lpBal.isSome ? lpBal.unwrap().toJSON() : lpBal.toJSON();
+                if (lpData && lpData.balance) {
+                  lpBalance = lpData.balance.toString();
+                }
               }
-            } catch {
-              // Ignore errors
+            } catch (err) {
+              console.error('Error fetching LP balance for pool', poolId, ':', err);
             }
           }
 

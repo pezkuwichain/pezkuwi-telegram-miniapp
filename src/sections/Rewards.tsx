@@ -101,12 +101,16 @@ export function RewardsSection() {
       return;
     }
 
+    console.log('[Scores] Fetching scores for', address);
+    console.log('[Scores] API connected:', !!api, 'People API:', !!peopleApi);
+
     setScoresLoading(true);
     try {
       const [scores, staking] = await Promise.all([
         getAllScoresWithFallback(peopleApi, api, address),
         api ? getFrontendStakingScore(api, address) : Promise.resolve(null),
       ]);
+      console.log('[Scores] Results:', { scores, staking });
       setUserScores(scores);
       setStakingDetails(staking);
     } catch (err) {
