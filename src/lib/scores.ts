@@ -73,7 +73,7 @@ export async function fetchRelayStakingDetails(
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (!(relayApi?.query as any)?.staking) {
-      console.log('[Staking] staking pallet not found');
+      console.warn('[Staking] staking pallet not found');
       return null;
     }
 
@@ -89,7 +89,7 @@ export async function fetchRelayStakingDetails(
       // Ledger might be wrapped in Option
       const unwrapped = ledger.isSome ? ledger.unwrap() : ledger;
       const ledgerJson = unwrapped.toJSON() as { active?: string | number; stash?: string };
-      console.log('[Staking] Ledger found for', address, ':', ledgerJson);
+      console.warn('[Staking] Ledger found for', address, ':', ledgerJson);
       active = BigInt(ledgerJson?.active || 0);
       if (ledgerJson?.stash) {
         stashAddress = ledgerJson.stash;
@@ -100,17 +100,17 @@ export async function fetchRelayStakingDetails(
       const bonded = await (relayApi.query.staking as any).bonded?.(address);
       if (bonded && !bonded.isEmpty && !bonded.isNone) {
         const controller = bonded.toString();
-        console.log('[Staking] Address', address, 'is stash, controller:', controller);
+        console.warn('[Staking] Address', address, 'is stash, controller:', controller);
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         ledger = await (relayApi.query.staking as any).ledger?.(controller);
         if (ledger && !ledger.isEmpty && !ledger.isNone) {
           const unwrapped = ledger.isSome ? ledger.unwrap() : ledger;
           const ledgerJson = unwrapped.toJSON() as { active?: string | number };
-          console.log('[Staking] Ledger from controller:', ledgerJson);
+          console.warn('[Staking] Ledger from controller:', ledgerJson);
           active = BigInt(ledgerJson?.active || 0);
         }
       } else {
-        console.log('[Staking] No ledger or bonded found for', address);
+        console.warn('[Staking] No ledger or bonded found for', address);
       }
     }
 
@@ -278,7 +278,7 @@ export async function fetchUserTikis(peopleApi: ApiPromise, address: string): Pr
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (!(peopleApi?.query as any)?.tiki) {
-      console.log('[Tiki] tiki pallet not found');
+      console.warn('[Tiki] tiki pallet not found');
       return [];
     }
 
@@ -293,14 +293,14 @@ export async function fetchUserTikis(peopleApi: ApiPromise, address: string): Pr
     }
 
     if (!result || result.isEmpty) {
-      console.log('[Tiki] No tikis found for', address);
+      console.warn('[Tiki] No tikis found for', address);
       return [];
     }
 
     // Result is Vec<TikiRole> which are enum variants as strings
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const tikis = result.toJSON() as any[];
-    console.log('[Tiki] Raw tikis for', address, ':', tikis);
+    console.warn('[Tiki] Raw tikis for', address, ':', tikis);
 
     return tikis.map((tiki, index) => {
       // Tiki can be a string (enum variant name) or object
@@ -340,7 +340,7 @@ export function calculateTikiScore(tikis: TikiInfo[]): number {
     maxScore = Math.max(maxScore, tikiScore);
   }
 
-  console.log('[Tiki] Calculated score:', maxScore, 'from tikis:', tikis);
+  console.warn('[Tiki] Calculated score:', maxScore, 'from tikis:', tikis);
   return Math.min(maxScore, 50); // Capped at 50
 }
 

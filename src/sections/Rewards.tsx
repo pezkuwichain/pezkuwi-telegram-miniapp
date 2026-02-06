@@ -101,8 +101,8 @@ export function RewardsSection() {
       return;
     }
 
-    console.log('[Scores] Fetching scores for', address);
-    console.log('[Scores] API connected:', !!api, 'People API:', !!peopleApi);
+    console.warn('[Scores] Fetching scores for', address);
+    console.warn('[Scores] API connected:', !!api, 'People API:', !!peopleApi);
 
     setScoresLoading(true);
     try {
@@ -110,7 +110,7 @@ export function RewardsSection() {
         getAllScoresWithFallback(peopleApi, api, address),
         api ? getFrontendStakingScore(api, address) : Promise.resolve(null),
       ]);
-      console.log('[Scores] Results:', { scores, staking });
+      console.warn('[Scores] Results:', { scores, staking });
       setUserScores(scores);
       setStakingDetails(staking);
     } catch (err) {

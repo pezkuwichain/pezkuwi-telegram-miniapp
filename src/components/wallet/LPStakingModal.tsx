@@ -82,14 +82,14 @@ export function LPStakingModal({ isOpen, onClose }: LPStakingModalProps) {
                 poolId,
                 address
               );
-              console.log('[LP Staking] Pool', poolId, 'stakeInfo:', stakeInfo.toString());
+              console.warn('[LP Staking] Pool', poolId, 'stakeInfo:', stakeInfo.toString());
               if (stakeInfo && !stakeInfo.isEmpty && !stakeInfo.isNone) {
                 const stakeData = stakeInfo.isSome
                   ? stakeInfo.unwrap().toJSON()
                   : stakeInfo.toJSON();
                 userStaked = stakeData.amount?.toString() || '0';
                 pendingRewards = stakeData.rewards?.toString() || '0';
-                console.log('[LP Staking] User staked in pool', poolId, ':', userStaked);
+                console.warn('[LP Staking] User staked in pool', poolId, ':', userStaked);
               }
             } catch (err) {
               console.error('Error fetching stake info:', err);
