@@ -4,6 +4,7 @@ import type { User } from '@/hooks/useSupabase';
 
 interface AuthContextType {
   user: User | null;
+  sessionToken: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
   signIn: () => Promise<void>;
@@ -13,6 +14,7 @@ const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   const signIn = async () => {
@@ -27,6 +29,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const result = await signInWithTelegram(tg.initData);
       if (result?.user) {
         setUser(result.user);
+      }
+      // Store session token for P2P and other cross-app auth
+      if (result?.session_token) {
+        setSessionToken(result.session_token);
       }
     } catch (error) {
       // Auth failed silently - user will see unauthenticated state
@@ -47,6 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider
       value={{
         user,
+        sessionToken,
         isLoading,
         isAuthenticated: !!user,
         signIn,

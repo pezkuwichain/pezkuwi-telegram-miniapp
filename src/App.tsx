@@ -53,29 +53,28 @@ const P2P_WEB_URL = 'https://telegram.pezkuwichain.io/p2p';
 export default function App() {
   const [activeSection, setActiveSection] = useState<Section>('announcements');
   const [showP2PModal, setShowP2PModal] = useState(false);
-  const { user } = useAuth();
+  const { sessionToken } = useAuth();
   const { address } = useWallet();
 
   // Open P2P in popup with auth params
   const openP2P = useCallback(() => {
     window.Telegram?.WebApp.HapticFeedback.impactOccurred('medium');
 
-    // Build auth URL with params
+    // Build auth URL with session token
     const params = new URLSearchParams();
-    if (user?.telegram_id) {
-      params.set('tg_id', user.telegram_id.toString());
+    if (sessionToken) {
+      params.set('session_token', sessionToken);
     }
     if (address) {
       params.set('wallet', address);
     }
-    params.set('ts', Date.now().toString());
     params.set('from', 'miniapp');
 
     const url = `${P2P_WEB_URL}?${params.toString()}`;
 
     // Open in new window/tab
     window.open(url, '_blank');
-  }, [user, address]);
+  }, [sessionToken, address]);
 
   const handleNavClick = (item: NavItem) => {
     window.Telegram?.WebApp.HapticFeedback.selectionChanged();
