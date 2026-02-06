@@ -1,11 +1,21 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import { createHmac } from 'https://deno.land/std@0.177.0/node/crypto.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers':
-    'authorization, x-client-info, apikey, content-type, x-supabase-client-platform',
-};
+// CORS - Production domain only
+const ALLOWED_ORIGINS = ['https://telegram.pezkuwichain.io', 'https://t.me'];
+
+function getCorsHeaders(origin: string | null): Record<string, string> {
+  const allowedOrigin =
+    origin && ALLOWED_ORIGINS.some((o) => origin.startsWith(o)) ? origin : ALLOWED_ORIGINS[0];
+
+  return {
+    'Access-Control-Allow-Origin': allowedOrigin,
+    'Access-Control-Allow-Headers':
+      'authorization, x-client-info, apikey, content-type, x-supabase-client-platform',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  };
+}
 
 interface CreateOfferRequest {
   sessionToken: string;
@@ -18,11 +28,49 @@ interface CreateOfferRequest {
   minOrderAmount?: number;
   maxOrderAmount?: number;
   timeLimitMinutes?: number;
-  adType?: 'buy' | 'sell'; // Default: 'sell'
+  adType?: 'buy' | 'sell';
 }
 
-// Verify session token and get telegram_id
-function verifySessionToken(token: string): number | null {
+// Session token secret (derived from bot token)
+function getSessionSecret(botToken: string): Uint8Array {
+  return createHmac('sha256', 'SessionTokenSecret').update(botToken).digest();
+}
+
+// Verify HMAC-signed session token
+function verifySessionToken(token: string, botToken: string): number | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 2) {
+      // Try legacy format for backwards compatibility
+      return verifyLegacyToken(token);
+    }
+
+    const [payloadB64, signature] = parts;
+
+    // Verify signature
+    const secret = getSessionSecret(botToken);
+    const expectedSig = createHmac('sha256', secret).update(payloadB64).digest('hex');
+
+    if (signature !== expectedSig) {
+      return null;
+    }
+
+    // Parse payload
+    const payload = JSON.parse(atob(payloadB64));
+
+    // Check expiration
+    if (Date.now() > payload.exp) {
+      return null;
+    }
+
+    return payload.tgId;
+  } catch {
+    return null;
+  }
+}
+
+// Legacy token format (Base64 only) - for backwards compatibility
+function verifyLegacyToken(token: string): number | null {
   try {
     const decoded = atob(token);
     const [telegramId, timestamp] = decoded.split(':');
@@ -38,6 +86,9 @@ function verifySessionToken(token: string): number | null {
 }
 
 serve(async (req) => {
+  const origin = req.headers.get('origin');
+  const corsHeaders = getCorsHeaders(origin);
+
   // Handle CORS
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -59,6 +110,15 @@ serve(async (req) => {
       adType = 'sell',
     } = body;
 
+    // Get bot token for session verification
+    const botToken = Deno.env.get('TELEGRAM_BOT_TOKEN');
+    if (!botToken) {
+      return new Response(JSON.stringify({ error: 'Server configuration error' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // Validate session token
     if (!sessionToken) {
       return new Response(JSON.stringify({ error: 'Missing session token' }), {
@@ -67,7 +127,7 @@ serve(async (req) => {
       });
     }
 
-    const telegramId = verifySessionToken(sessionToken);
+    const telegramId = verifySessionToken(sessionToken, botToken);
     if (!telegramId) {
       return new Response(JSON.stringify({ error: 'Invalid or expired session' }), {
         status: 401,
@@ -140,7 +200,7 @@ serve(async (req) => {
       .from('p2p_fiat_offers')
       .insert({
         seller_id: userId,
-        seller_wallet: '', // No longer needed with internal ledger
+        seller_wallet: '',
         token,
         amount_crypto: amountCrypto,
         fiat_currency: fiatCurrency,
@@ -208,11 +268,12 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error('Error:', error);
+    const origin = req.headers.get('origin');
     return new Response(
       JSON.stringify({ error: error instanceof Error ? error.message : 'Internal server error' }),
       {
         status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...getCorsHeaders(origin), 'Content-Type': 'application/json' },
       }
     );
   }

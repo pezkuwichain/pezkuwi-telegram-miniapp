@@ -5,11 +5,21 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { ApiPromise, WsProvider } from 'npm:@pezkuwi/api@16.5.36';
+import { createHmac } from 'https://deno.land/std@0.177.0/node/crypto.ts';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+// CORS - Production domain only
+const ALLOWED_ORIGINS = ['https://telegram.pezkuwichain.io', 'https://t.me'];
+
+function getCorsHeaders(origin: string | null): Record<string, string> {
+  const allowedOrigin =
+    origin && ALLOWED_ORIGINS.some((o) => origin.startsWith(o)) ? origin : ALLOWED_ORIGINS[0];
+
+  return {
+    'Access-Control-Allow-Origin': allowedOrigin,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  };
+}
 
 // Platform hot wallet address (PRODUCTION) - Treasury_3
 const PLATFORM_WALLET = '5H18ZZBU4LwPYbeEZ1JBGvibCU2edhhM8HNUtFi7GgC36CgS';
@@ -31,8 +41,46 @@ interface DepositRequest {
   blockNumber?: number; // Optional: for faster verification of old transactions
 }
 
-// Verify session token (same logic as telegram-auth)
-function verifySessionToken(token: string): number | null {
+// Session token secret (derived from bot token)
+function getSessionSecret(botToken: string): Uint8Array {
+  return createHmac('sha256', 'SessionTokenSecret').update(botToken).digest();
+}
+
+// Verify HMAC-signed session token
+function verifySessionToken(token: string, botToken: string): number | null {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 2) {
+      // Try legacy format for backwards compatibility
+      return verifyLegacyToken(token);
+    }
+
+    const [payloadB64, signature] = parts;
+
+    // Verify signature
+    const secret = getSessionSecret(botToken);
+    const expectedSig = createHmac('sha256', secret).update(payloadB64).digest('hex');
+
+    if (signature !== expectedSig) {
+      return null;
+    }
+
+    // Parse payload
+    const payload = JSON.parse(atob(payloadB64));
+
+    // Check expiration
+    if (Date.now() > payload.exp) {
+      return null;
+    }
+
+    return payload.tgId;
+  } catch {
+    return null;
+  }
+}
+
+// Legacy token format (Base64 only) - for backwards compatibility
+function verifyLegacyToken(token: string): number | null {
   try {
     const decoded = atob(token);
     const [telegramId, timestamp] = decoded.split(':');
@@ -243,6 +291,9 @@ async function verifyTransactionOnChain(
 }
 
 serve(async (req) => {
+  const origin = req.headers.get('origin');
+  const corsHeaders = getCorsHeaders(origin);
+
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -263,6 +314,15 @@ serve(async (req) => {
     }
     const { sessionToken, txHash, token, expectedAmount, blockNumber } = body;
 
+    // Get bot token for session verification
+    const botToken = Deno.env.get('TELEGRAM_BOT_TOKEN');
+    if (!botToken) {
+      return new Response(JSON.stringify({ success: false, error: 'Server configuration error' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // Validate session token
     if (!sessionToken) {
       return new Response(JSON.stringify({ success: false, error: 'Missing session token' }), {
@@ -271,7 +331,7 @@ serve(async (req) => {
       });
     }
 
-    const telegramId = verifySessionToken(sessionToken);
+    const telegramId = verifySessionToken(sessionToken, botToken);
     if (!telegramId) {
       return new Response(
         JSON.stringify({ success: false, error: 'Invalid or expired session token' }),
@@ -500,9 +560,10 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error('Edge function error:', error);
+    const origin = req.headers.get('origin');
     return new Response(JSON.stringify({ success: false, error: 'Internal server error' }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...getCorsHeaders(origin), 'Content-Type': 'application/json' },
     });
   }
 });

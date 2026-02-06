@@ -1,16 +1,26 @@
 // process-withdraw Edge Function
 // Processes pending withdrawal requests by sending tokens from platform wallet to user wallets
 // This should be called by a cron job or manually by admins
+// SECURITY: This is a backend-only function - no user session needed
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { ApiPromise, WsProvider, Keyring } from 'npm:@pezkuwi/api@16.5.36';
 import { cryptoWaitReady } from 'npm:@pezkuwi/util-crypto@14.0.25';
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+// CORS - Restricted for security (cron/admin only)
+const ALLOWED_ORIGINS = ['https://telegram.pezkuwichain.io', 'https://supabase.com'];
+
+function getCorsHeaders(origin: string | null): Record<string, string> {
+  const allowedOrigin =
+    origin && ALLOWED_ORIGINS.some((o) => origin.startsWith(o)) ? origin : ALLOWED_ORIGINS[0];
+
+  return {
+    'Access-Control-Allow-Origin': allowedOrigin,
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  };
+}
 
 // RPC endpoint for PezkuwiChain
 const RPC_ENDPOINT = 'wss://rpc.pezkuwichain.io';
@@ -41,6 +51,9 @@ interface ProcessWithdrawRequest {
 }
 
 serve(async (req) => {
+  const origin = req.headers.get('origin');
+  const corsHeaders = getCorsHeaders(origin);
+
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -286,12 +299,13 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error('Process withdraw error:', error);
+    const origin = req.headers.get('origin');
     return new Response(
       JSON.stringify({
         success: false,
         error: error instanceof Error ? error.message : 'Internal server error',
       }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: { ...getCorsHeaders(origin), 'Content-Type': 'application/json' } }
     );
   }
 });
