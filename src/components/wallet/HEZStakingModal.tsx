@@ -1,0 +1,616 @@
+/**
+ * HEZ Staking Modal for Telegram Mini App
+ * Allows users to stake HEZ on Relay Chain for Trust Score
+ */
+
+import { useState, useEffect, useCallback } from 'react';
+import { X, Lock, Unlock, Users, AlertCircle, Loader2, Shield, TrendingUp } from 'lucide-react';
+import { useWallet } from '@/contexts/WalletContext';
+import { useTelegram } from '@/hooks/useTelegram';
+import { cn } from '@/lib/utils';
+
+interface StakingInfo {
+  stash: string;
+  totalBonded: bigint;
+  active: bigint;
+  unlocking: { value: bigint; era: number }[];
+  nominations: string[];
+  rewardDestination: string;
+}
+
+interface ValidatorInfo {
+  address: string;
+  commission: number;
+  blocked: boolean;
+  identity?: string;
+}
+
+interface HEZStakingModalProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
+
+const UNITS = 1_000_000_000_000; // 10^12
+
+export function HEZStakingModal({ isOpen, onClose }: HEZStakingModalProps) {
+  const { api, keypair, address, balance } = useWallet();
+  const { hapticImpact, hapticNotification, showAlert } = useTelegram();
+
+  const [stakingInfo, setStakingInfo] = useState<StakingInfo | null>(null);
+  const [validators, setValidators] = useState<ValidatorInfo[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<'status' | 'bond' | 'nominate' | 'unbond'>('status');
+  const [bondAmount, setBondAmount] = useState('');
+  const [unbondAmount, setUnbondAmount] = useState('');
+  const [selectedValidators, setSelectedValidators] = useState<string[]>([]);
+
+  // Fetch staking info
+  const fetchStakingInfo = useCallback(async () => {
+    if (!api || !address) return;
+
+    setIsLoading(true);
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const stakingPallet = api.query.staking as any;
+      if (!stakingPallet) {
+        setError('Staking palleti bulunamadı');
+        setIsLoading(false);
+        return;
+      }
+
+      // Check if user has bonded
+      const ledger = await stakingPallet.ledger(address);
+
+      if (ledger && !ledger.isEmpty && !ledger.isNone) {
+        const ledgerData = ledger.isSome ? ledger.unwrap().toJSON() : ledger.toJSON();
+
+        // Get nominations
+        const nominations = await stakingPallet.nominators(address);
+        const nominationsData = nominations?.toJSON() as { targets?: string[] } | null;
+
+        // Get payee
+        const payee = await stakingPallet.payee(address);
+        const payeeStr = payee?.toString() || 'Staked';
+
+        setStakingInfo({
+          stash: ledgerData.stash || address,
+          totalBonded: BigInt(ledgerData.total || 0),
+          active: BigInt(ledgerData.active || 0),
+          unlocking: (ledgerData.unlocking || []).map(
+            (u: { value: string | number; era: number }) => ({
+              value: BigInt(u.value),
+              era: u.era,
+            })
+          ),
+          nominations: nominationsData?.targets || [],
+          rewardDestination: payeeStr,
+        });
+      } else {
+        setStakingInfo(null);
+      }
+
+      // Fetch validators
+      const validatorEntries = await stakingPallet.validators.entries();
+      const validatorList: ValidatorInfo[] = validatorEntries
+        .slice(0, 20) // Limit to 20 validators
+        .map(
+          ([key, value]: [
+            { args: [{ toString: () => string }] },
+            { toJSON: () => { commission?: number; blocked?: boolean } },
+          ]) => {
+            const addr = key.args[0].toString();
+            const prefs = value.toJSON();
+            return {
+              address: addr,
+              commission: (prefs.commission || 0) / 10000000, // Convert from Perbill
+              blocked: prefs.blocked || false,
+            };
+          }
+        )
+        .filter((v: ValidatorInfo) => !v.blocked);
+
+      setValidators(validatorList);
+    } catch (err) {
+      console.error('Error fetching staking info:', err);
+      setError('Staking bilgileri alınamadı');
+    } finally {
+      setIsLoading(false);
+    }
+  }, [api, address]);
+
+  useEffect(() => {
+    if (isOpen && api && address) {
+      fetchStakingInfo();
+    }
+  }, [isOpen, api, address, fetchStakingInfo]);
+
+  const formatHEZ = (amount: bigint): string => {
+    const hez = Number(amount) / UNITS;
+    return hez.toLocaleString(undefined, { maximumFractionDigits: 4 });
+  };
+
+  const handleBond = async () => {
+    if (!api || !keypair || !bondAmount) return;
+
+    setIsProcessing(true);
+    setError(null);
+
+    try {
+      const amountBN = BigInt(Math.floor(parseFloat(bondAmount) * UNITS));
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const stakingPallet = api.tx.staking as any;
+
+      let tx;
+      if (stakingInfo) {
+        // Already bonded, add to existing stake
+        tx = stakingPallet.bondExtra(amountBN.toString());
+      } else {
+        // First time bonding - set payee to Staked (compound rewards)
+        tx = stakingPallet.bond(amountBN.toString(), 'Staked');
+      }
+
+      await new Promise<void>((resolve, reject) => {
+        tx.signAndSend(
+          keypair,
+          ({
+            status,
+            dispatchError,
+          }: {
+            status: { isFinalized: boolean };
+            dispatchError?: { isModule: boolean; asModule: unknown; toString: () => string };
+          }) => {
+            if (status.isFinalized) {
+              if (dispatchError) {
+                let errorMsg = 'Bond neserketî';
+                if (dispatchError.isModule) {
+                  const decoded = api.registry.findMetaError(dispatchError.asModule);
+                  errorMsg = `${decoded.section}.${decoded.name}`;
+                }
+                reject(new Error(errorMsg));
+              } else {
+                resolve();
+              }
+            }
+          }
+        ).catch(reject);
+      });
+
+      hapticNotification('success');
+      showAlert(`${bondAmount} HEZ stake kirin serketî!`);
+      setBondAmount('');
+      fetchStakingInfo();
+      setActiveTab('status');
+    } catch (err) {
+      console.error('Bond error:', err);
+      setError(err instanceof Error ? err.message : 'Bond neserketî');
+      hapticNotification('error');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleNominate = async () => {
+    if (!api || !keypair || selectedValidators.length === 0) return;
+
+    setIsProcessing(true);
+    setError(null);
+
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const tx = (api.tx.staking as any).nominate(selectedValidators);
+
+      await new Promise<void>((resolve, reject) => {
+        tx.signAndSend(
+          keypair,
+          ({
+            status,
+            dispatchError,
+          }: {
+            status: { isFinalized: boolean };
+            dispatchError?: { isModule: boolean; asModule: unknown; toString: () => string };
+          }) => {
+            if (status.isFinalized) {
+              if (dispatchError) {
+                let errorMsg = 'Nominate neserketî';
+                if (dispatchError.isModule) {
+                  const decoded = api.registry.findMetaError(dispatchError.asModule);
+                  errorMsg = `${decoded.section}.${decoded.name}`;
+                }
+                reject(new Error(errorMsg));
+              } else {
+                resolve();
+              }
+            }
+          }
+        ).catch(reject);
+      });
+
+      hapticNotification('success');
+      showAlert(`${selectedValidators.length} validator nominate kirin serketî!`);
+      fetchStakingInfo();
+      setActiveTab('status');
+    } catch (err) {
+      console.error('Nominate error:', err);
+      setError(err instanceof Error ? err.message : 'Nominate neserketî');
+      hapticNotification('error');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const handleUnbond = async () => {
+    if (!api || !keypair || !unbondAmount) return;
+
+    setIsProcessing(true);
+    setError(null);
+
+    try {
+      const amountBN = BigInt(Math.floor(parseFloat(unbondAmount) * UNITS));
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const tx = (api.tx.staking as any).unbond(amountBN.toString());
+
+      await new Promise<void>((resolve, reject) => {
+        tx.signAndSend(
+          keypair,
+          ({
+            status,
+            dispatchError,
+          }: {
+            status: { isFinalized: boolean };
+            dispatchError?: { isModule: boolean; asModule: unknown; toString: () => string };
+          }) => {
+            if (status.isFinalized) {
+              if (dispatchError) {
+                let errorMsg = 'Unbond neserketî';
+                if (dispatchError.isModule) {
+                  const decoded = api.registry.findMetaError(dispatchError.asModule);
+                  errorMsg = `${decoded.section}.${decoded.name}`;
+                }
+                reject(new Error(errorMsg));
+              } else {
+                resolve();
+              }
+            }
+          }
+        ).catch(reject);
+      });
+
+      hapticNotification('success');
+      showAlert(`${unbondAmount} HEZ unbond kirin serketî! (28 roj li bendê)`);
+      setUnbondAmount('');
+      fetchStakingInfo();
+      setActiveTab('status');
+    } catch (err) {
+      console.error('Unbond error:', err);
+      setError(err instanceof Error ? err.message : 'Unbond neserketî');
+      hapticNotification('error');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
+
+  const toggleValidator = (addr: string) => {
+    hapticImpact('light');
+    setSelectedValidators((prev) =>
+      prev.includes(addr) ? prev.filter((v) => v !== addr) : [...prev, addr].slice(0, 16)
+    );
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/80 flex items-end justify-center">
+      <div className="bg-background w-full max-w-lg rounded-t-3xl max-h-[90vh] overflow-hidden flex flex-col animate-in slide-in-from-bottom duration-300">
+        {/* Header */}
+        <div className="flex items-center justify-between p-4 border-b border-border">
+          <div className="flex items-center gap-2">
+            <Shield className="w-5 h-5 text-green-400" />
+            <h2 className="text-lg font-semibold">HEZ Staking</h2>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-secondary rounded-lg transition-colors">
+            <X className="w-5 h-5" />
+          </button>
+        </div>
+
+        {/* Content */}
+        <div className="flex-1 overflow-y-auto p-4">
+          {isLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            </div>
+          ) : (
+            <>
+              {/* Tabs */}
+              <div className="flex gap-1 bg-secondary/50 rounded-lg p-1 mb-4">
+                {[
+                  { id: 'status' as const, label: 'Durum', icon: TrendingUp },
+                  { id: 'bond' as const, label: 'Bond', icon: Lock },
+                  { id: 'nominate' as const, label: 'Nominate', icon: Users },
+                  { id: 'unbond' as const, label: 'Unbond', icon: Unlock },
+                ].map(({ id, label, icon: Icon }) => (
+                  <button
+                    key={id}
+                    onClick={() => {
+                      hapticImpact('light');
+                      setActiveTab(id);
+                    }}
+                    className={cn(
+                      'flex-1 py-2 rounded-md text-xs flex items-center justify-center gap-1 transition-colors',
+                      activeTab === id
+                        ? 'bg-background text-foreground shadow-sm'
+                        : 'text-muted-foreground'
+                    )}
+                  >
+                    <Icon className="w-3 h-3" />
+                    {label}
+                  </button>
+                ))}
+              </div>
+
+              {/* Error */}
+              {error && (
+                <div className="bg-red-500/10 border border-red-500/30 rounded-lg p-3 mb-4 text-sm text-red-400 flex items-center gap-2">
+                  <AlertCircle className="w-4 h-4" />
+                  {error}
+                </div>
+              )}
+
+              {/* Status Tab */}
+              {activeTab === 'status' && (
+                <div className="space-y-4">
+                  {stakingInfo ? (
+                    <>
+                      <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30 rounded-xl p-4">
+                        <div className="text-sm text-muted-foreground mb-1">Aktîf Stake</div>
+                        <div className="text-2xl font-bold text-green-400">
+                          {formatHEZ(stakingInfo.active)} HEZ
+                        </div>
+                      </div>
+
+                      <div className="bg-secondary/50 rounded-xl p-4 space-y-3">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Giştî Bonded</span>
+                          <span>{formatHEZ(stakingInfo.totalBonded)} HEZ</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Nominations</span>
+                          <span>{stakingInfo.nominations.length} validator</span>
+                        </div>
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Xelat Armanc</span>
+                          <span>{stakingInfo.rewardDestination}</span>
+                        </div>
+                        {stakingInfo.unlocking.length > 0 && (
+                          <div className="flex justify-between text-sm">
+                            <span className="text-muted-foreground">Unbonding</span>
+                            <span className="text-yellow-400">
+                              {stakingInfo.unlocking.length} chunk
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      {stakingInfo.nominations.length > 0 && (
+                        <div className="bg-secondary/50 rounded-xl p-4">
+                          <div className="text-sm text-muted-foreground mb-2">
+                            Nominated Validators
+                          </div>
+                          <div className="space-y-1 max-h-32 overflow-y-auto">
+                            {stakingInfo.nominations.map((addr, i) => (
+                              <div key={i} className="text-xs font-mono text-muted-foreground">
+                                {addr.slice(0, 8)}...{addr.slice(-8)}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                        <p className="text-blue-400 text-xs">
+                          💡 HEZ stake kirin Trust Score zêde dike. Herî kêm 1 meh stake bikî ji bo
+                          bonusê.
+                        </p>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="text-center py-8">
+                      <Shield className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
+                      <h3 className="text-lg font-medium mb-2">Hîn Stake Nekiriye</h3>
+                      <p className="text-muted-foreground text-sm mb-4">
+                        HEZ stake bike ji bo Trust Score qezenckirin
+                      </p>
+                      <button
+                        onClick={() => setActiveTab('bond')}
+                        className="px-6 py-2 bg-green-600 text-white rounded-lg text-sm"
+                      >
+                        Dest Pê Bike
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* Bond Tab */}
+              {activeTab === 'bond' && (
+                <div className="space-y-4">
+                  <div className="bg-secondary/50 rounded-xl p-4">
+                    <div className="flex justify-between text-sm mb-2">
+                      <span className="text-muted-foreground">Bakiyê Te</span>
+                      <span>{balance || '0'} HEZ</span>
+                    </div>
+                    {stakingInfo && (
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Niha Staked</span>
+                        <span className="text-green-400">{formatHEZ(stakingInfo.active)} HEZ</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div>
+                    <label className="text-sm text-muted-foreground mb-2 block">Mîqdar (HEZ)</label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        value={bondAmount}
+                        onChange={(e) => setBondAmount(e.target.value)}
+                        placeholder="0.0000"
+                        className="w-full bg-secondary border border-border rounded-xl p-4 pr-20 text-lg"
+                      />
+                      <button
+                        onClick={() => setBondAmount(balance || '0')}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-primary"
+                      >
+                        MAX
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                    <p className="text-yellow-400 text-xs">
+                      ⚠️ Stake kirinê paşê 28 roj li bendê ye ji bo vekişandinê.
+                    </p>
+                  </div>
+
+                  <button
+                    onClick={handleBond}
+                    disabled={isProcessing || !bondAmount || parseFloat(bondAmount) <= 0}
+                    className="w-full py-4 bg-green-600 text-white rounded-xl font-medium disabled:opacity-50 flex items-center justify-center gap-2"
+                  >
+                    {isProcessing ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <Lock className="w-5 h-5" />
+                    )}
+                    {isProcessing ? 'Tê bond kirin...' : stakingInfo ? 'Zêde Bike' : 'Bond Bike'}
+                  </button>
+                </div>
+              )}
+
+              {/* Nominate Tab */}
+              {activeTab === 'nominate' && (
+                <div className="space-y-4">
+                  {!stakingInfo ? (
+                    <div className="text-center py-8">
+                      <AlertCircle className="w-12 h-12 text-yellow-400 mx-auto mb-4" />
+                      <p className="text-muted-foreground">
+                        Pêşî HEZ bond bike, paşê nominate bike
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="text-sm text-muted-foreground mb-2">
+                        Validator hilbijêre (max 16): {selectedValidators.length}/16
+                      </div>
+
+                      <div className="space-y-2 max-h-64 overflow-y-auto">
+                        {validators.map((v) => (
+                          <button
+                            key={v.address}
+                            onClick={() => toggleValidator(v.address)}
+                            className={cn(
+                              'w-full p-3 rounded-xl border text-left transition-all',
+                              selectedValidators.includes(v.address)
+                                ? 'border-green-500 bg-green-500/10'
+                                : 'border-border bg-secondary/50'
+                            )}
+                          >
+                            <div className="font-mono text-xs truncate">
+                              {v.address.slice(0, 16)}...{v.address.slice(-8)}
+                            </div>
+                            <div className="text-xs text-muted-foreground mt-1">
+                              Komîsyon: {v.commission.toFixed(2)}%
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+
+                      <button
+                        onClick={handleNominate}
+                        disabled={isProcessing || selectedValidators.length === 0}
+                        className="w-full py-4 bg-blue-600 text-white rounded-xl font-medium disabled:opacity-50 flex items-center justify-center gap-2"
+                      >
+                        {isProcessing ? (
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                        ) : (
+                          <Users className="w-5 h-5" />
+                        )}
+                        {isProcessing ? 'Tê nominate kirin...' : 'Nominate Bike'}
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+
+              {/* Unbond Tab */}
+              {activeTab === 'unbond' && (
+                <div className="space-y-4">
+                  {!stakingInfo ? (
+                    <div className="text-center py-8">
+                      <AlertCircle className="w-12 h-12 text-yellow-400 mx-auto mb-4" />
+                      <p className="text-muted-foreground">Tu hîn stake nekiriye</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="bg-secondary/50 rounded-xl p-4">
+                        <div className="flex justify-between text-sm">
+                          <span className="text-muted-foreground">Aktîf Stake</span>
+                          <span className="text-green-400">
+                            {formatHEZ(stakingInfo.active)} HEZ
+                          </span>
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-sm text-muted-foreground mb-2 block">
+                          Mîqdar (HEZ)
+                        </label>
+                        <div className="relative">
+                          <input
+                            type="number"
+                            value={unbondAmount}
+                            onChange={(e) => setUnbondAmount(e.target.value)}
+                            placeholder="0.0000"
+                            className="w-full bg-secondary border border-border rounded-xl p-4 pr-20 text-lg"
+                          />
+                          <button
+                            onClick={() => setUnbondAmount(formatHEZ(stakingInfo.active))}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-primary"
+                          >
+                            MAX
+                          </button>
+                        </div>
+                      </div>
+
+                      <div className="p-3 bg-orange-500/10 border border-orange-500/30 rounded-lg">
+                        <p className="text-orange-400 text-xs">
+                          ⚠️ Unbond kirin 28 roj digire. Paşê dikare vekişîne.
+                        </p>
+                      </div>
+
+                      <button
+                        onClick={handleUnbond}
+                        disabled={isProcessing || !unbondAmount || parseFloat(unbondAmount) <= 0}
+                        className="w-full py-4 bg-orange-500 text-white rounded-xl font-medium disabled:opacity-50 flex items-center justify-center gap-2"
+                      >
+                        {isProcessing ? (
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                        ) : (
+                          <Unlock className="w-5 h-5" />
+                        )}
+                        {isProcessing ? 'Tê unbond kirin...' : 'Unbond Bike'}
+                      </button>
+                    </>
+                  )}
+                </div>
+              )}
+            </>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}

@@ -25,6 +25,7 @@ import { TokensCard } from './TokensCard';
 import { SwapModal } from './SwapModal';
 import { PoolsModal } from './PoolsModal';
 import { LPStakingModal } from './LPStakingModal';
+import { HEZStakingModal } from './HEZStakingModal';
 import { useWallet } from '@/contexts/WalletContext';
 import { useTelegram } from '@/hooks/useTelegram';
 import { formatAddress } from '@/lib/wallet-service';
@@ -58,7 +59,9 @@ export function WalletDashboard({ onDisconnect }: Props) {
   const [isLoadingTxs, setIsLoadingTxs] = useState(false);
   const [isSwapModalOpen, setIsSwapModalOpen] = useState(false);
   const [isPoolsModalOpen, setIsPoolsModalOpen] = useState(false);
-  const [isStakingModalOpen, setIsStakingModalOpen] = useState(false);
+  const [isLPStakingModalOpen, setIsLPStakingModalOpen] = useState(false);
+  const [isHEZStakingModalOpen, setIsHEZStakingModalOpen] = useState(false);
+  const [isStakingSelectorOpen, setIsStakingSelectorOpen] = useState(false);
 
   // Subscribe to PEZ balance (Asset ID: 1) - Uses Asset Hub API
   useEffect(() => {
@@ -608,7 +611,7 @@ export function WalletDashboard({ onDisconnect }: Props) {
         <button
           onClick={() => {
             hapticImpact('light');
-            setIsStakingModalOpen(true);
+            setIsStakingSelectorOpen(true);
           }}
           className="flex flex-col items-center gap-1 p-3 bg-gradient-to-r from-yellow-600/20 to-orange-500/20 border border-yellow-500/30 rounded-xl"
         >
@@ -724,7 +727,61 @@ export function WalletDashboard({ onDisconnect }: Props) {
       {/* Modals */}
       <SwapModal isOpen={isSwapModalOpen} onClose={() => setIsSwapModalOpen(false)} />
       <PoolsModal isOpen={isPoolsModalOpen} onClose={() => setIsPoolsModalOpen(false)} />
-      <LPStakingModal isOpen={isStakingModalOpen} onClose={() => setIsStakingModalOpen(false)} />
+      <LPStakingModal
+        isOpen={isLPStakingModalOpen}
+        onClose={() => setIsLPStakingModalOpen(false)}
+      />
+      <HEZStakingModal
+        isOpen={isHEZStakingModalOpen}
+        onClose={() => setIsHEZStakingModalOpen(false)}
+      />
+
+      {/* Staking Selector */}
+      {isStakingSelectorOpen && (
+        <div className="fixed inset-0 z-50 bg-black/80 flex items-end justify-center">
+          <div className="bg-background w-full max-w-lg rounded-t-3xl p-6 animate-in slide-in-from-bottom duration-300">
+            <h2 className="text-lg font-semibold mb-4 text-center">Staking Hilbijêre</h2>
+            <div className="grid grid-cols-2 gap-4">
+              <button
+                onClick={() => {
+                  setIsStakingSelectorOpen(false);
+                  setIsHEZStakingModalOpen(true);
+                }}
+                className="p-4 bg-gradient-to-br from-green-600/20 to-emerald-500/20 border border-green-500/30 rounded-xl"
+              >
+                <div className="w-12 h-12 bg-green-500/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <Coins className="w-6 h-6 text-green-400" />
+                </div>
+                <div className="font-medium">HEZ Staking</div>
+                <div className="text-xs text-muted-foreground mt-1">Validator nominate bike</div>
+                <div className="text-xs text-green-400 mt-2">Trust Score +</div>
+              </button>
+
+              <button
+                onClick={() => {
+                  setIsStakingSelectorOpen(false);
+                  setIsLPStakingModalOpen(true);
+                }}
+                className="p-4 bg-gradient-to-br from-purple-600/20 to-pink-500/20 border border-purple-500/30 rounded-xl"
+              >
+                <div className="w-12 h-12 bg-purple-500/20 rounded-full flex items-center justify-center mx-auto mb-3">
+                  <Droplets className="w-6 h-6 text-purple-400" />
+                </div>
+                <div className="font-medium">LP Staking</div>
+                <div className="text-xs text-muted-foreground mt-1">LP token stake bike</div>
+                <div className="text-xs text-purple-400 mt-2">PEZ Xelat +</div>
+              </button>
+            </div>
+
+            <button
+              onClick={() => setIsStakingSelectorOpen(false)}
+              className="w-full mt-4 py-3 bg-secondary text-muted-foreground rounded-xl"
+            >
+              Paşve
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
