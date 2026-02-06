@@ -46,6 +46,7 @@ const ASSET_IDS = {
 const LP_TOKEN_IDS = {
   HEZ_PEZ: 0, // HEZ-PEZ LP (12 decimals)
   HEZ_USDT: 1, // HEZ-USDT LP (12 decimals)
+  HEZ_DOT: 2, // HEZ-DOT LP (12 decimals)
 };
 
 // CoinGecko ID mapping for tokens
@@ -159,6 +160,16 @@ const LP_TOKENS: TokenConfig[] = [
     logo: '', // Uses initials fallback
     isDefault: true,
     priority: 11,
+  },
+  {
+    assetId: -100 - LP_TOKEN_IDS.HEZ_DOT, // -102
+    symbol: 'HEZ-DOT-LP',
+    displaySymbol: 'HEZ-DOT LP',
+    name: 'HEZ-DOT Liquidity Pool',
+    decimals: 12,
+    logo: '', // Uses initials fallback
+    isDefault: true,
+    priority: 12,
   },
 ];
 
@@ -542,6 +553,7 @@ export function TokensCard({ onSendToken }: Props) {
       ETH: 'from-blue-500/20 to-indigo-500/20 border-blue-500/30',
       'HEZ-PEZ LP': 'from-green-500/20 to-blue-500/20 border-cyan-500/30',
       'HEZ-USDT LP': 'from-green-500/20 to-emerald-500/20 border-teal-500/30',
+      'HEZ-DOT LP': 'from-green-500/20 to-pink-500/20 border-pink-500/30',
     };
     return gradients[symbol] || 'from-gray-500/20 to-gray-600/20 border-gray-500/30';
   };

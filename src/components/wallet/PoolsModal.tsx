@@ -38,6 +38,7 @@ const TOKEN_INFO: Record<number, { symbol: string; decimals: number; icon: strin
   [-1]: { symbol: 'HEZ', decimals: 12, icon: '/tokens/HEZ.png' },
   1: { symbol: 'PEZ', decimals: 12, icon: '/tokens/PEZ.png' },
   1000: { symbol: 'USDT', decimals: 6, icon: '/tokens/USDT.png' },
+  1001: { symbol: 'DOT', decimals: 10, icon: '/tokens/DOT.png' },
 };
 
 // Helper to convert asset ID to XCM Location format
@@ -140,6 +141,7 @@ export function PoolsModal({ isOpen, onClose }: PoolsModalProps) {
         const poolPairs: [number, number][] = [
           [NATIVE_TOKEN_ID, 1], // HEZ-PEZ
           [NATIVE_TOKEN_ID, 1000], // HEZ-USDT
+          [NATIVE_TOKEN_ID, 1001], // HEZ-DOT
         ];
 
         const fetchedPools: Pool[] = [];
