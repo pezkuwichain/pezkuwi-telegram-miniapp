@@ -703,7 +703,7 @@ export function WalletDashboard({ onDisconnect }: Props) {
 }
 
 // Token types for send
-type SendToken = 'HEZ' | 'PEZ' | 'USDT';
+type SendToken = 'HEZ' | 'PEZ' | 'USDT' | 'DOT';
 
 interface TokenOption {
   symbol: SendToken;
@@ -738,6 +738,14 @@ const SEND_TOKENS: TokenOption[] = [
     assetId: 1000,
     decimals: 6,
   },
+  {
+    symbol: 'DOT',
+    name: 'Polkadot',
+    chain: 'Asset Hub',
+    icon: '/tokens/DOT.png',
+    assetId: 1001,
+    decimals: 10,
+  },
 ];
 
 // Send Tab
@@ -754,6 +762,7 @@ function SendTab({ onBack }: { onBack: () => void }) {
   const [txHash, setTxHash] = useState('');
   const [pezBalance, setPezBalance] = useState<string>('0.0000');
   const [usdtBalance, setUsdtBalance] = useState<string>('0.00');
+  const [dotBalance, setDotBalance] = useState<string>('0.0000');
 
   // Fetch PEZ and USDT balances when Asset Hub is available
   useEffect(() => {
@@ -778,6 +787,15 @@ function SendTab({ onBack }: { onBack: () => void }) {
           const usdtAmount = assetData.balance.toString();
           setUsdtBalance((parseInt(usdtAmount) / 1e6).toFixed(2));
         }
+
+        // Fetch DOT balance (Asset ID: 1001, 10 decimals)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const dotResult = await (assetHubApi.query.assets as any).account(1001, keypair.address);
+        if (dotResult.isSome) {
+          const assetData = dotResult.unwrap();
+          const dotAmount = assetData.balance.toString();
+          setDotBalance((parseInt(dotAmount) / 1e10).toFixed(4));
+        }
       } catch (err) {
         console.error('Failed to fetch asset balances:', err);
       }
@@ -790,6 +808,7 @@ function SendTab({ onBack }: { onBack: () => void }) {
     if (selectedToken === 'HEZ') return balance ?? '0.0000';
     if (selectedToken === 'PEZ') return pezBalance;
     if (selectedToken === 'USDT') return usdtBalance;
+    if (selectedToken === 'DOT') return dotBalance;
     return '0.0000';
   };
 
@@ -857,7 +876,10 @@ function SendTab({ onBack }: { onBack: () => void }) {
       setError('Mainnet API amade nîne');
       return;
     }
-    if ((selectedToken === 'PEZ' || selectedToken === 'USDT') && !assetHubApi) {
+    if (
+      (selectedToken === 'PEZ' || selectedToken === 'USDT' || selectedToken === 'DOT') &&
+      !assetHubApi
+    ) {
       setError('Asset Hub API amade nîne');
       return;
     }

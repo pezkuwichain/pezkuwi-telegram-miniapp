@@ -17,6 +17,10 @@ import {
   Award,
   Zap,
   Coins,
+  Shield,
+  Target,
+  Sparkles,
+  GraduationCap,
 } from 'lucide-react';
 import { cn, formatAddress } from '@/lib/utils';
 import { useTelegram } from '@/hooks/useTelegram';
@@ -24,6 +28,15 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useReferral } from '@/contexts/ReferralContext';
 import { useWallet } from '@/contexts/WalletContext';
 import { SocialLinks } from '@/components/SocialLinks';
+import {
+  getAllScoresWithFallback,
+  getFrontendStakingScore,
+  formatStakedAmount,
+  getScoreColor,
+  getScoreRating,
+  type FrontendTrustScoreResult,
+  type FrontendStakingScoreResult,
+} from '@/lib/scores';
 
 // Activity tracking constants
 const ACTIVITY_STORAGE_KEY = 'pezkuwi_last_active';
@@ -33,12 +46,17 @@ export function RewardsSection() {
   const { hapticImpact, hapticNotification, shareUrl, showAlert } = useTelegram();
   const { user: authUser } = useAuth();
   const { stats, myReferrals, loading, refreshStats } = useReferral();
-  const { isConnected } = useWallet();
+  const { isConnected, address, api, peopleApi } = useWallet();
 
   const [copied, setCopied] = useState(false);
-  const [activeTab, setActiveTab] = useState<'overview' | 'referrals'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'referrals' | 'scores'>('overview');
   const [isActive, setIsActive] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState<string | null>(null);
+  const [userScores, setUserScores] = useState<
+    (FrontendTrustScoreResult & { isFromFrontend: boolean }) | null
+  >(null);
+  const [stakingDetails, setStakingDetails] = useState<FrontendStakingScoreResult | null>(null);
+  const [scoresLoading, setScoresLoading] = useState(false);
 
   // Check activity status
   const checkActivityStatus = useCallback(() => {
@@ -74,6 +92,36 @@ export function RewardsSection() {
       clearInterval(interval);
     };
   }, [checkActivityStatus]);
+
+  // Fetch user scores when on scores tab
+  const fetchUserScores = useCallback(async () => {
+    if (!address) {
+      setUserScores(null);
+      setStakingDetails(null);
+      return;
+    }
+
+    setScoresLoading(true);
+    try {
+      const [scores, staking] = await Promise.all([
+        getAllScoresWithFallback(peopleApi, api, address),
+        api ? getFrontendStakingScore(api, address) : Promise.resolve(null),
+      ]);
+      setUserScores(scores);
+      setStakingDetails(staking);
+    } catch (err) {
+      console.error('Error fetching scores:', err);
+    } finally {
+      setScoresLoading(false);
+    }
+  }, [api, peopleApi, address]);
+
+  // Fetch scores when tab changes to scores or on initial load
+  useEffect(() => {
+    if (activeTab === 'scores' && address) {
+      fetchUserScores();
+    }
+  }, [activeTab, address, fetchUserScores]);
 
   const handleActivate = () => {
     hapticNotification('success');
@@ -159,6 +207,7 @@ export function RewardsSection() {
           {[
             { id: 'overview' as const, label: 'Geşbîn' },
             { id: 'referrals' as const, label: 'Referral' },
+            { id: 'scores' as const, label: 'Puanlar' },
           ].map(({ id, label }) => (
             <button
               key={id}
@@ -490,6 +539,179 @@ export function RewardsSection() {
                   Parve bike
                 </button>
               </div>
+            )}
+          </div>
+        )}
+
+        {/* Scores Tab */}
+        {activeTab === 'scores' && (
+          <div className="p-4 space-y-4">
+            {scoresLoading ? (
+              <div className="space-y-4">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="bg-secondary/50 rounded-xl p-4 animate-pulse">
+                    <div className="h-6 bg-secondary rounded w-1/2 mb-2" />
+                    <div className="h-8 bg-secondary rounded w-1/3" />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <>
+                {/* Trust Score - Main Card */}
+                <div className="bg-gradient-to-br from-purple-600 to-indigo-600 rounded-2xl p-5 text-white">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <p className="text-purple-100 text-sm flex items-center gap-2">
+                        <Shield className="w-4 h-4" />
+                        Pûana Pêbaweriyê (Trust)
+                      </p>
+                      <p
+                        className={cn(
+                          'text-5xl font-bold mt-1',
+                          getScoreColor(userScores?.trustScore || 0)
+                        )}
+                      >
+                        {userScores?.trustScore ?? 0}
+                      </p>
+                    </div>
+                    <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center">
+                      <Trophy className="w-8 h-8" />
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-purple-100">
+                      Rêze: {getScoreRating(userScores?.trustScore || 0)}
+                    </span>
+                    {userScores?.isCitizen && (
+                      <span className="bg-green-500/30 text-green-200 px-2 py-1 rounded-full text-xs">
+                        Welatî
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Score Components Grid */}
+                <div className="grid grid-cols-2 gap-3">
+                  {/* Staking Score */}
+                  <div className="bg-secondary/30 rounded-xl p-4 border border-border/50">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Target className="w-4 h-4 text-blue-400" />
+                      <span className="text-xs text-muted-foreground">Staking</span>
+                    </div>
+                    <p className="text-2xl font-bold text-blue-400">
+                      {userScores?.stakingScore ?? 0}
+                    </p>
+                    {stakingDetails && stakingDetails.stakedAmount > 0n && (
+                      <p className="text-xs text-muted-foreground mt-1">
+                        {formatStakedAmount(stakingDetails.stakedAmount)} HEZ
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Referral Score */}
+                  <div className="bg-secondary/30 rounded-xl p-4 border border-border/50">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Users className="w-4 h-4 text-green-400" />
+                      <span className="text-xs text-muted-foreground">Referral</span>
+                    </div>
+                    <p className="text-2xl font-bold text-green-400">
+                      {userScores?.referralScore ?? 0}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {stats?.referralCount ?? 0} kes
+                    </p>
+                  </div>
+
+                  {/* Tiki Score */}
+                  <div className="bg-secondary/30 rounded-xl p-4 border border-border/50">
+                    <div className="flex items-center gap-2 mb-2">
+                      <Sparkles className="w-4 h-4 text-yellow-400" />
+                      <span className="text-xs text-muted-foreground">Tiki</span>
+                    </div>
+                    <p className="text-2xl font-bold text-yellow-400">
+                      {userScores?.tikiScore ?? 0}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">Rola NFT</p>
+                  </div>
+
+                  {/* Perwerde Score */}
+                  <div className="bg-secondary/30 rounded-xl p-4 border border-border/50">
+                    <div className="flex items-center gap-2 mb-2">
+                      <GraduationCap className="w-4 h-4 text-pink-400" />
+                      <span className="text-xs text-muted-foreground">Perwerde</span>
+                    </div>
+                    <p className="text-2xl font-bold text-pink-400">
+                      {userScores?.perwerdeScore ?? 0}
+                    </p>
+                    <p className="text-xs text-muted-foreground mt-1">Xwendin</p>
+                  </div>
+                </div>
+
+                {/* Staking Details Card */}
+                {stakingDetails && stakingDetails.stakedAmount > 0n && (
+                  <div className="bg-secondary/30 rounded-xl p-4 border border-border/50">
+                    <h3 className="font-medium text-foreground mb-3 flex items-center gap-2">
+                      <TrendingUp className="w-4 h-4 text-blue-400" />
+                      Staking Hûrgelan
+                    </h3>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between py-2 border-b border-border/30">
+                        <span className="text-muted-foreground">HEZ Staked</span>
+                        <span className="text-foreground font-medium">
+                          {formatStakedAmount(stakingDetails.stakedAmount)} HEZ
+                        </span>
+                      </div>
+                      <div className="flex justify-between py-2 border-b border-border/30">
+                        <span className="text-muted-foreground">Demjimêr</span>
+                        <span className="text-foreground font-medium">
+                          {stakingDetails.monthsStaked} meh
+                        </span>
+                      </div>
+                      <div className="flex justify-between py-2 border-b border-border/30">
+                        <span className="text-muted-foreground">Pir Zêdeker</span>
+                        <span className="text-foreground font-medium">
+                          {stakingDetails.timeMultiplier}x
+                        </span>
+                      </div>
+                      <div className="flex justify-between py-2">
+                        <span className="text-muted-foreground">Nominasyon</span>
+                        <span className="text-foreground font-medium">
+                          {stakingDetails.nominationsCount}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Score Formula Info */}
+                <div className="bg-secondary/30 rounded-xl p-4 border border-border/50">
+                  <h3 className="font-medium text-foreground mb-3 flex items-center gap-2">
+                    <Star className="w-4 h-4 text-yellow-400" />
+                    Formûla Pûanê
+                  </h3>
+                  <div className="text-sm text-muted-foreground space-y-2">
+                    <p>Trust = (Staking × Weighted Sum) / 100</p>
+                    <p className="text-xs">
+                      Weighted Sum = Staking×100 + Referral×300 + Perwerde×300 + Tiki×300
+                    </p>
+                    <div className="mt-3 p-2 bg-yellow-500/10 rounded-lg border border-yellow-500/20">
+                      <p className="text-yellow-300 text-xs">
+                        Staking 0 ise Trust pûan 0 dibe. Berî her tiştî stake bike!
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Refresh Button */}
+                <button
+                  onClick={fetchUserScores}
+                  disabled={scoresLoading}
+                  className="w-full py-3 bg-primary rounded-lg text-primary-foreground font-medium flex items-center justify-center gap-2"
+                >
+                  <RefreshCw className={cn('w-4 h-4', scoresLoading && 'animate-spin')} />
+                  Pûanan Nûve Bike
+                </button>
+              </>
             )}
           </div>
         )}
