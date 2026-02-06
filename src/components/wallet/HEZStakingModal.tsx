@@ -160,7 +160,8 @@ export function HEZStakingModal({ isOpen, onClose }: HEZStakingModalProps) {
             dispatchError,
           }: {
             status: { isFinalized: boolean };
-            dispatchError?: { isModule: boolean; asModule: unknown; toString: () => string };
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            dispatchError?: { isModule: boolean; asModule: any; toString: () => string };
           }) => {
             if (status.isFinalized) {
               if (dispatchError) {
@@ -210,7 +211,8 @@ export function HEZStakingModal({ isOpen, onClose }: HEZStakingModalProps) {
             dispatchError,
           }: {
             status: { isFinalized: boolean };
-            dispatchError?: { isModule: boolean; asModule: unknown; toString: () => string };
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            dispatchError?: { isModule: boolean; asModule: any; toString: () => string };
           }) => {
             if (status.isFinalized) {
               if (dispatchError) {
@@ -261,7 +263,8 @@ export function HEZStakingModal({ isOpen, onClose }: HEZStakingModalProps) {
             dispatchError,
           }: {
             status: { isFinalized: boolean };
-            dispatchError?: { isModule: boolean; asModule: unknown; toString: () => string };
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            dispatchError?: { isModule: boolean; asModule: any; toString: () => string };
           }) => {
             if (status.isFinalized) {
               if (dispatchError) {
