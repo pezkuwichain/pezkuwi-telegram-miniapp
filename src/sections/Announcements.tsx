@@ -14,10 +14,10 @@ import { useAuth } from '@/contexts/AuthContext';
 
 export function AnnouncementsSection() {
   const { hapticImpact, hapticNotification, openLink } = useTelegram();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, sessionToken } = useAuth();
 
   const { data: announcements, isLoading, refetch, isRefetching } = useAnnouncements();
-  const reactionMutation = useAnnouncementReaction();
+  const reactionMutation = useAnnouncementReaction(sessionToken);
 
   const handleReaction = (id: string, reaction: 'like' | 'dislike') => {
     if (!isAuthenticated) {

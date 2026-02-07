@@ -3,10 +3,8 @@ import { supabase } from '@/lib/supabase';
 import type {
   DbUser,
   DbAnnouncementWithAuthor,
-  DbAnnouncementReaction,
   DbThreadWithAuthor,
   DbReplyWithAuthor,
-  AnnouncementCounters,
   ThreadCounters,
   ReplyCounters,
 } from '@/types/database';
@@ -146,9 +144,8 @@ export function useAnnouncements() {
   });
 }
 
-export function useAnnouncementReaction() {
+export function useAnnouncementReaction(sessionToken: string | null) {
   const queryClient = useQueryClient();
-  const { data: currentUser } = useCurrentUser();
 
   return useMutation({
     mutationFn: async ({
@@ -158,89 +155,23 @@ export function useAnnouncementReaction() {
       announcementId: string;
       reaction: 'like' | 'dislike';
     }) => {
-      if (!currentUser) throw new Error('Not authenticated');
+      if (!sessionToken) throw new Error('Not authenticated');
 
-      // Check existing reaction
-      const { data: existing } = await supabase
-        .from('tg_announcement_reactions')
-        .select('*')
-        .eq('announcement_id', announcementId)
-        .eq('user_id', currentUser.id)
-        .single();
+      // Call Edge Function for secure reaction handling
+      const { data, error } = await supabase.functions.invoke('announcement-reaction', {
+        body: { sessionToken, announcementId, reaction },
+      });
 
-      const existingReaction = existing as DbAnnouncementReaction | null;
-
-      if (existingReaction) {
-        if (existingReaction.reaction === reaction) {
-          // Remove reaction
-          await supabase.from('tg_announcement_reactions').delete().eq('id', existingReaction.id);
-
-          // Decrement counter
-          const { data: ann } = await supabase
-            .from('tg_announcements')
-            .select(reaction === 'like' ? 'likes' : 'dislikes')
-            .eq('id', announcementId)
-            .single();
-
-          const counters = ann as Partial<AnnouncementCounters> | null;
-          const currentCount = counters?.[reaction === 'like' ? 'likes' : 'dislikes'] ?? 0;
-          await supabase
-            .from('tg_announcements')
-            .update({ [reaction === 'like' ? 'likes' : 'dislikes']: Math.max(0, currentCount - 1) })
-            .eq('id', announcementId);
-        } else {
-          // Change reaction
-          const oldReaction = existingReaction.reaction;
-          await supabase
-            .from('tg_announcement_reactions')
-            .update({ reaction })
-            .eq('id', existingReaction.id);
-
-          // Update counters
-          const { data: ann } = await supabase
-            .from('tg_announcements')
-            .select('likes, dislikes')
-            .eq('id', announcementId)
-            .single();
-
-          const counters = ann as AnnouncementCounters | null;
-          const updates: Partial<AnnouncementCounters> = {};
-
-          if (oldReaction === 'like') {
-            updates.likes = Math.max(0, (counters?.likes ?? 0) - 1);
-          } else {
-            updates.dislikes = Math.max(0, (counters?.dislikes ?? 0) - 1);
-          }
-          if (reaction === 'like') {
-            updates.likes = (counters?.likes ?? 0) + (oldReaction === 'like' ? 0 : 1);
-          } else {
-            updates.dislikes = (counters?.dislikes ?? 0) + (oldReaction === 'dislike' ? 0 : 1);
-          }
-
-          await supabase.from('tg_announcements').update(updates).eq('id', announcementId);
-        }
-      } else {
-        // Add new reaction
-        await supabase.from('tg_announcement_reactions').insert({
-          announcement_id: announcementId,
-          user_id: currentUser.id,
-          reaction,
-        });
-
-        // Increment counter
-        const { data: ann } = await supabase
-          .from('tg_announcements')
-          .select(reaction === 'like' ? 'likes' : 'dislikes')
-          .eq('id', announcementId)
-          .single();
-
-        const counters = ann as Partial<AnnouncementCounters> | null;
-        const currentCount = counters?.[reaction === 'like' ? 'likes' : 'dislikes'] ?? 0;
-        await supabase
-          .from('tg_announcements')
-          .update({ [reaction === 'like' ? 'likes' : 'dislikes']: currentCount + 1 })
-          .eq('id', announcementId);
+      if (error) {
+        console.error('[useAnnouncementReaction] Edge function error:', error);
+        throw new Error(error.message || 'Failed to process reaction');
       }
+
+      if (data?.error) {
+        throw new Error(data.error);
+      }
+
+      return data;
     },
     onMutate: async ({ announcementId, reaction }) => {
       // Cancel any outgoing refetches (so they don't overwrite our optimistic update)
