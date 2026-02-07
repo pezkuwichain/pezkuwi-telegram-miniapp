@@ -218,6 +218,9 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let assets: any;
 
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let feeAssetId: any;
+
       if (direction === 'to-parachain') {
         // Relay Chain → Teyrchain
         const targetTeyrchainId = selectedChain.teyrchainId;
@@ -236,7 +239,7 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
             parents: 0,
             interior: {
               X1: {
-                AccountId32: {
+                accountid32: {
                   network: null,
                   id: sourceApi.createType('AccountId32', address).toHex(),
                 },
@@ -261,8 +264,18 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
             },
           ],
         };
+
+        // Fee asset: Native HEZ on relay
+        feeAssetId = {
+          V3: {
+            Concrete: {
+              parents: 0,
+              interior: 'Here',
+            },
+          },
+        };
       } else {
-        // Parachain → Relay Chain
+        // Teyrchain → Relay Chain
         dest = {
           V3: {
             parents: 1,
@@ -275,7 +288,7 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
             parents: 0,
             interior: {
               X1: {
-                AccountId32: {
+                accountid32: {
                   network: null,
                   id: sourceApi.createType('AccountId32', address).toHex(),
                 },
@@ -284,7 +297,7 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
           },
         };
 
-        // Native token from parachain's perspective (parent chain's token)
+        // Native token from teyrchain's perspective (parent chain's token)
         assets = {
           V3: [
             {
@@ -300,31 +313,28 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
             },
           ],
         };
+
+        // Fee asset: Parent chain's native token
+        feeAssetId = {
+          V3: {
+            Concrete: {
+              parents: 1,
+              interior: 'Here',
+            },
+          },
+        };
       }
 
       const weightLimit = 'Unlimited';
 
-      // Create teleport transaction using polkadotXcm pallet on parachains
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let tx: any;
-      if (direction === 'to-parachain') {
-        tx = sourceApi.tx.xcmPallet.limitedTeleportAssets(
-          dest,
-          beneficiary,
-          assets,
-          0,
-          weightLimit
-        );
-      } else {
-        // Parachains use polkadotXcm pallet
-        tx = sourceApi.tx.polkadotXcm.limitedTeleportAssets(
-          dest,
-          beneficiary,
-          assets,
-          0,
-          weightLimit
-        );
-      }
+      // Create teleport transaction - xcmPallet is used on all Pezkuwi chains
+      const tx = sourceApi.tx.xcmPallet.limitedTeleportAssets(
+        dest,
+        beneficiary,
+        assets,
+        feeAssetId,
+        weightLimit
+      );
 
       setTxStatus('pending');
 
