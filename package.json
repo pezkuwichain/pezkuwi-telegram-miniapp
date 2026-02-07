@@ -1,6 +1,6 @@
 {
   "name": "pezkuwi-telegram-miniapp",
-  "version": "1.0.168",
+  "version": "1.0.169",
   "type": "module",
   "description": "Pezkuwichain Telegram Mini App - Forum, Announcements, Rewards",
   "author": "Pezkuwichain Team",
@@ -76,6 +76,7 @@
     "postcss": "^8.4.47",
     "prettier": "^3.8.1",
     "tailwindcss": "^3.4.11",
+    "tronweb": "^6.2.0",
     "typescript": "^5.5.3",
     "vite": "^5.4.1",
     "vitest": "^4.0.18"

@@ -31,6 +31,7 @@ import {
   getConnectionState,
 } from '@/lib/rpc-manager';
 import { FundFeesModal } from './FundFeesModal';
+import { DepositUSDTModal } from './DepositUSDTModal';
 
 // Asset IDs matching pwap/web configuration
 const ASSET_IDS = {
@@ -280,6 +281,7 @@ export function TokensCard({ onSendToken }: Props) {
   const [assetHubHezBalance, setAssetHubHezBalance] = useState<string>('--');
   const [peopleHezBalance, setPeopleHezBalance] = useState<string>('--');
   const [showFundFeesModal, setShowFundFeesModal] = useState(false);
+  const [showDepositModal, setShowDepositModal] = useState(false);
 
   // Fetch prices from CoinGecko
   const fetchPrices = useCallback(async () => {
@@ -909,19 +911,34 @@ export function TokensCard({ onSendToken }: Props) {
                             )}
                           </div>
                         ) : (
-                          onSendToken &&
-                          token.balance !== '--' &&
-                          parseFloat(token.balance) > 0 && (
-                            <button
-                              onClick={() => {
-                                hapticImpact('light');
-                                onSendToken(token);
-                              }}
-                              className="p-2 text-muted-foreground hover:text-white hover:bg-white/10 rounded-lg"
-                            >
-                              <Send className="w-4 h-4" />
-                            </button>
-                          )
+                          <div className="flex items-center gap-1">
+                            {/* Deposit button for USDT */}
+                            {token.displaySymbol === 'USDT' && (
+                              <button
+                                onClick={() => {
+                                  hapticImpact('light');
+                                  setShowDepositModal(true);
+                                }}
+                                className="p-2 text-green-400 hover:text-green-300 hover:bg-green-500/10 rounded-lg"
+                                title="USDT Depo Bike"
+                              >
+                                <Plus className="w-4 h-4" />
+                              </button>
+                            )}
+                            {onSendToken &&
+                              token.balance !== '--' &&
+                              parseFloat(token.balance) > 0 && (
+                                <button
+                                  onClick={() => {
+                                    hapticImpact('light');
+                                    onSendToken(token);
+                                  }}
+                                  className="p-2 text-muted-foreground hover:text-white hover:bg-white/10 rounded-lg"
+                                >
+                                  <Send className="w-4 h-4" />
+                                </button>
+                              )}
+                          </div>
                         )}
                       </div>
                     </div>
@@ -935,6 +952,13 @@ export function TokensCard({ onSendToken }: Props) {
 
       {/* Fund Fees Modal for XCM Teleport */}
       <FundFeesModal isOpen={showFundFeesModal} onClose={() => setShowFundFeesModal(false)} />
+
+      {/* Deposit USDT Modal */}
+      <DepositUSDTModal
+        isOpen={showDepositModal}
+        onClose={() => setShowDepositModal(false)}
+        userId={null}
+      />
     </div>
   );
 }
