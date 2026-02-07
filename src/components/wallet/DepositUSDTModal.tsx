@@ -1,6 +1,6 @@
 /**
  * Deposit USDT Modal
- * Allows users to deposit USDT (TRC20 or Polkadot) to get wUSDT on Asset Hub
+ * Supports TON, Polkadot (recommended) and TRC20 (with fee warning)
  */
 
 import { useState, useEffect } from 'react';
@@ -13,43 +13,57 @@ import {
   Loader2,
   History,
   Plus,
+  AlertTriangle,
 } from 'lucide-react';
 import { useTelegram } from '@/hooks/useTelegram';
 import { supabase } from '@/lib/supabase';
 
-type Network = 'trc20' | 'polkadot';
+type Network = 'ton' | 'polkadot' | 'trc20';
 
 interface NetworkInfo {
   id: Network;
   name: string;
   description: string;
-  address: string;
-  explorer: string;
   icon: string;
-  minAmount: number;
-  confirmations: number;
+  recommended: boolean;
+  fee: number;
+  feeWarning?: string;
+  explorer: string;
+  minDeposit: number;
 }
 
 const NETWORKS: NetworkInfo[] = [
   {
-    id: 'trc20',
-    name: 'TRC20 (TRON)',
-    description: 'USDT li ser tora TRON',
-    address: import.meta.env.VITE_DEPOSIT_TRON_ADDRESS || '',
-    explorer: 'https://tronscan.org/#/transaction/',
-    icon: '🔴',
-    minAmount: 10,
-    confirmations: 20,
+    id: 'ton',
+    name: 'TON',
+    description: 'Telegram Wallet',
+    icon: '💎',
+    recommended: true,
+    fee: 0.05,
+    explorer: 'https://tonviewer.com/transaction/',
+    minDeposit: 10,
   },
   {
     id: 'polkadot',
-    name: 'Polkadot Asset Hub',
-    description: 'USDT li ser Polkadot',
-    address: import.meta.env.VITE_DEPOSIT_POLKADOT_ADDRESS || '',
-    explorer: 'https://assethub-polkadot.subscan.io/extrinsic/',
+    name: 'Polkadot',
+    description: 'Asset Hub',
     icon: '⚪',
-    minAmount: 10,
-    confirmations: 1,
+    recommended: true,
+    fee: 0.05,
+    explorer: 'https://assethub-polkadot.subscan.io/extrinsic/',
+    minDeposit: 10,
+  },
+  {
+    id: 'trc20',
+    name: 'TRC20',
+    description: 'TRON Network',
+    icon: '🔴',
+    recommended: false,
+    fee: 3,
+    feeWarning:
+      'TRC20 ağ masrafı yaklaşık $3 civarındadır. 1000 USDT altındaki gönderimlerde verimli değildir. TON veya Polkadot ağını öneriyoruz.',
+    explorer: 'https://tronscan.org/#/transaction/',
+    minDeposit: 10,
   },
 ];
 
@@ -71,18 +85,35 @@ interface Props {
 export function DepositUSDTModal({ isOpen, onClose }: Props) {
   const { hapticImpact, showAlert } = useTelegram();
 
-  const [selectedNetwork, setSelectedNetwork] = useState<Network>('trc20');
+  const [selectedNetwork, setSelectedNetwork] = useState<Network>('ton');
   const [depositCode, setDepositCode] = useState<string>('');
+  const [depositAddress, setDepositAddress] = useState<string>('');
   const [copied, setCopied] = useState<'address' | 'memo' | null>(null);
   const [deposits, setDeposits] = useState<Deposit[]>([]);
   const [showHistory, setShowHistory] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [trc20Accepted, setTrc20Accepted] = useState(false);
 
   const network = NETWORKS.find((n) => n.id === selectedNetwork) || NETWORKS[0];
 
-  // Fetch user's deposit code via edge function
+  // Get deposit address based on network
+  const getNetworkAddress = (networkId: Network): string => {
+    switch (networkId) {
+      case 'ton':
+        return import.meta.env.VITE_DEPOSIT_TON_ADDRESS || '';
+      case 'polkadot':
+        return import.meta.env.VITE_DEPOSIT_POLKADOT_ADDRESS || '';
+      case 'trc20':
+        // TRC20 uses HD wallet - address comes from backend
+        return depositAddress;
+      default:
+        return '';
+    }
+  };
+
+  // Fetch user's deposit code and TRC20 address
   useEffect(() => {
-    const fetchDepositCode = async () => {
+    const fetchDepositInfo = async () => {
       if (!isOpen) return;
 
       const initData = window.Telegram?.WebApp?.initData;
@@ -93,25 +124,26 @@ export function DepositUSDTModal({ isOpen, onClose }: Props) {
 
       setIsLoading(true);
       try {
-        const { data, error } = await supabase.functions.invoke('get-deposit-code', {
+        const { data, error } = await supabase.functions.invoke('get-deposit-info', {
           body: { initData },
         });
 
         if (error) {
-          console.error('Error fetching deposit code:', error);
+          console.error('Error fetching deposit info:', error);
           setDepositCode('---');
-        } else if (data?.code) {
-          setDepositCode(data.code);
+        } else {
+          if (data?.code) setDepositCode(data.code);
+          if (data?.trc20Address) setDepositAddress(data.trc20Address);
         }
       } catch (err) {
-        console.error('Error fetching deposit code:', err);
+        console.error('Error fetching deposit info:', err);
         setDepositCode('---');
       } finally {
         setIsLoading(false);
       }
     };
 
-    fetchDepositCode();
+    fetchDepositInfo();
   }, [isOpen]);
 
   // Fetch deposits history
@@ -179,6 +211,9 @@ export function DepositUSDTModal({ isOpen, onClose }: Props) {
     }
   };
 
+  const currentAddress = getNetworkAddress(selectedNetwork);
+  const showTrc20Warning = selectedNetwork === 'trc20' && !trc20Accepted;
+
   if (!isOpen) return null;
 
   return (
@@ -223,7 +258,13 @@ export function DepositUSDTModal({ isOpen, onClose }: Props) {
                   <div className="flex justify-between items-start">
                     <div>
                       <div className="flex items-center gap-2">
-                        <span>{deposit.network === 'trc20' ? '🔴' : '⚪'}</span>
+                        <span>
+                          {deposit.network === 'ton'
+                            ? '💎'
+                            : deposit.network === 'polkadot'
+                              ? '⚪'
+                              : '🔴'}
+                        </span>
                         <span className="font-mono">{deposit.amount} USDT</span>
                       </div>
                       <p className="text-xs text-muted-foreground mt-1">
@@ -260,128 +301,210 @@ export function DepositUSDTModal({ isOpen, onClose }: Props) {
             {/* Network Selection */}
             <div>
               <label className="text-sm text-muted-foreground mb-2 block">Torê Hilbijêre</label>
-              <div className="flex gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 {NETWORKS.map((net) => (
                   <button
                     key={net.id}
                     onClick={() => {
                       setSelectedNetwork(net.id);
+                      setTrc20Accepted(false);
                       hapticImpact('light');
                     }}
-                    className={`flex-1 p-3 rounded-xl border transition-all ${
+                    className={`p-3 rounded-xl border transition-all relative ${
                       selectedNetwork === net.id
-                        ? 'border-green-500 bg-green-500/10'
+                        ? net.recommended
+                          ? 'border-green-500 bg-green-500/10'
+                          : 'border-yellow-500 bg-yellow-500/10'
                         : 'border-border bg-muted/50'
                     }`}
                   >
+                    {net.recommended && (
+                      <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[10px] bg-green-500 text-white px-1.5 py-0.5 rounded">
+                        Pêşniyar
+                      </span>
+                    )}
                     <div className="text-xl mb-1">{net.icon}</div>
                     <div className="text-sm font-medium">{net.name}</div>
-                    <div className="text-xs text-muted-foreground">{net.description}</div>
+                    <div className="text-[10px] text-muted-foreground">{net.description}</div>
+                    <div
+                      className={`text-[10px] mt-1 ${net.fee > 1 ? 'text-yellow-400' : 'text-green-400'}`}
+                    >
+                      ~${net.fee} fee
+                    </div>
                   </button>
                 ))}
               </div>
             </div>
 
-            {/* Important Notice */}
-            <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-              <div className="flex gap-2">
-                <AlertCircle className="w-5 h-5 text-yellow-400 flex-shrink-0" />
-                <div className="text-sm text-yellow-400">
-                  <p className="font-medium">Girîng!</p>
-                  <ul className="list-disc list-inside text-xs mt-1 space-y-1">
-                    <li>
-                      Kêmtirîn: <strong>{network.minAmount} USDT</strong>
-                    </li>
-                    <li>Memo/Not qada de koda xwe binivîse</li>
-                    <li>Tenê USDT bişîne, tokenên din winda dibin</li>
-                  </ul>
+            {/* TRC20 Warning */}
+            {showTrc20Warning && (
+              <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl">
+                <div className="flex gap-3">
+                  <AlertTriangle className="w-6 h-6 text-yellow-400 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm text-yellow-400 font-medium mb-2">Dikkkat!</p>
+                    <p className="text-xs text-yellow-400/80 mb-3">{network.feeWarning}</p>
+                    <p className="text-xs text-yellow-400/80 mb-3">
+                      Mînak: 10 USDT bişîne → 7 wUSDT werbigire ($3 masraf)
+                    </p>
+                    <button
+                      onClick={() => {
+                        setTrc20Accepted(true);
+                        hapticImpact('medium');
+                      }}
+                      className="w-full py-2 bg-yellow-500/20 border border-yellow-500/50 rounded-lg text-yellow-400 text-sm font-medium"
+                    >
+                      Qebûl dikim, bi TRC20 bişîne
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
+            )}
 
-            {/* Deposit Address */}
-            <div className="bg-muted/50 rounded-xl p-4 space-y-4">
-              {/* Address */}
-              <div>
-                <label className="text-xs text-muted-foreground">Navnîşana Depoyê</label>
-                <div className="flex items-center gap-2 mt-1">
-                  <code className="flex-1 text-sm font-mono bg-background p-2 rounded-lg break-all">
-                    {network.address || 'Amade nîne'}
-                  </code>
-                  <button
-                    onClick={() => copyToClipboard(network.address, 'address')}
-                    disabled={!network.address}
-                    className="p-2 bg-background rounded-lg hover:bg-muted transition-colors"
-                  >
-                    {copied === 'address' ? (
-                      <CheckCircle className="w-5 h-5 text-green-400" />
-                    ) : (
-                      <Copy className="w-5 h-5" />
-                    )}
-                  </button>
-                </div>
-              </div>
-
-              {/* Memo/Reference */}
-              <div>
-                <label className="text-xs text-muted-foreground">Memo / Referans (PÊWÎST)</label>
-                <div className="flex items-center gap-2 mt-1">
-                  {isLoading ? (
-                    <div className="flex-1 p-2 bg-background rounded-lg flex justify-center">
-                      <Loader2 className="w-5 h-5 animate-spin" />
+            {/* Deposit Info - Show only when TRC20 is accepted or other networks */}
+            {(selectedNetwork !== 'trc20' || trc20Accepted) && (
+              <>
+                {/* Important Notice */}
+                <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                  <div className="flex gap-2">
+                    <AlertCircle className="w-5 h-5 text-blue-400 flex-shrink-0" />
+                    <div className="text-sm text-blue-400">
+                      <p className="font-medium">Girîng!</p>
+                      <ul className="list-disc list-inside text-xs mt-1 space-y-1">
+                        <li>
+                          Kêmtirîn: <strong>{network.minDeposit} USDT</strong>
+                        </li>
+                        {selectedNetwork !== 'trc20' && (
+                          <li>Memo/Comment qada de koda xwe binivîse</li>
+                        )}
+                        <li>Tenê USDT bişîne, tokenên din winda dibin</li>
+                        {selectedNetwork === 'trc20' && (
+                          <li className="text-yellow-400">
+                            $3 masraf dê ji mîqdara we bê kêmkirin
+                          </li>
+                        )}
+                      </ul>
                     </div>
-                  ) : (
-                    <code className="flex-1 text-lg font-mono font-bold bg-background p-2 rounded-lg text-center text-green-400">
-                      {depositCode || '---'}
-                    </code>
-                  )}
-                  <button
-                    onClick={() => copyToClipboard(depositCode, 'memo')}
-                    disabled={!depositCode || depositCode === '---'}
-                    className="p-2 bg-background rounded-lg hover:bg-muted transition-colors"
-                  >
-                    {copied === 'memo' ? (
-                      <CheckCircle className="w-5 h-5 text-green-400" />
-                    ) : (
-                      <Copy className="w-5 h-5" />
-                    )}
-                  </button>
+                  </div>
                 </div>
-                <p className="text-xs text-red-400 mt-1">
-                  ⚠️ Vê kodê di memo/not de binivîse, wekî din depoya te nayê nas kirin!
+
+                {/* Deposit Address */}
+                <div className="bg-muted/50 rounded-xl p-4 space-y-4">
+                  {/* Address */}
+                  <div>
+                    <label className="text-xs text-muted-foreground">Navnîşana Depoyê</label>
+                    <div className="flex items-center gap-2 mt-1">
+                      {isLoading && selectedNetwork === 'trc20' ? (
+                        <div className="flex-1 p-2 bg-background rounded-lg flex justify-center">
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                        </div>
+                      ) : (
+                        <code className="flex-1 text-xs font-mono bg-background p-2 rounded-lg break-all">
+                          {currentAddress || 'Amade nîne'}
+                        </code>
+                      )}
+                      <button
+                        onClick={() => copyToClipboard(currentAddress, 'address')}
+                        disabled={!currentAddress}
+                        className="p-2 bg-background rounded-lg hover:bg-muted transition-colors"
+                      >
+                        {copied === 'address' ? (
+                          <CheckCircle className="w-5 h-5 text-green-400" />
+                        ) : (
+                          <Copy className="w-5 h-5" />
+                        )}
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Memo/Reference - Not needed for TRC20 (unique address) */}
+                  {selectedNetwork !== 'trc20' && (
+                    <div>
+                      <label className="text-xs text-muted-foreground">
+                        Memo / Comment (PÊWÎST)
+                      </label>
+                      <div className="flex items-center gap-2 mt-1">
+                        {isLoading ? (
+                          <div className="flex-1 p-2 bg-background rounded-lg flex justify-center">
+                            <Loader2 className="w-5 h-5 animate-spin" />
+                          </div>
+                        ) : (
+                          <code className="flex-1 text-lg font-mono font-bold bg-background p-2 rounded-lg text-center text-green-400">
+                            {depositCode || '---'}
+                          </code>
+                        )}
+                        <button
+                          onClick={() => copyToClipboard(depositCode, 'memo')}
+                          disabled={!depositCode || depositCode === '---'}
+                          className="p-2 bg-background rounded-lg hover:bg-muted transition-colors"
+                        >
+                          {copied === 'memo' ? (
+                            <CheckCircle className="w-5 h-5 text-green-400" />
+                          ) : (
+                            <Copy className="w-5 h-5" />
+                          )}
+                        </button>
+                      </div>
+                      <p className="text-xs text-red-400 mt-1">
+                        ⚠️ Vê kodê di memo de binivîse, wekî din depoya te nayê nas kirin!
+                      </p>
+                    </div>
+                  )}
+
+                  {selectedNetwork === 'trc20' && (
+                    <p className="text-xs text-green-400">
+                      ✅ Ev navnîşan tenê ya te ye. Memo ne pêwîst e.
+                    </p>
+                  )}
+                </div>
+
+                {/* Steps */}
+                <div className="bg-muted/30 rounded-xl p-4">
+                  <h4 className="text-sm font-medium mb-3">Çawa Depo Bikim?</h4>
+                  <ol className="text-xs text-muted-foreground space-y-2">
+                    <li className="flex gap-2">
+                      <span className="text-green-400 font-bold">1.</span>
+                      <span>Navnîşan kopî bike</span>
+                    </li>
+                    {selectedNetwork !== 'trc20' && (
+                      <li className="flex gap-2">
+                        <span className="text-green-400 font-bold">2.</span>
+                        <span>Memo kodê kopî bike</span>
+                      </li>
+                    )}
+                    <li className="flex gap-2">
+                      <span className="text-green-400 font-bold">
+                        {selectedNetwork === 'trc20' ? '2' : '3'}.
+                      </span>
+                      <span>
+                        {selectedNetwork === 'ton'
+                          ? 'Telegram Wallet an cîzdana xwe veke'
+                          : selectedNetwork === 'polkadot'
+                            ? 'Polkadot cîzdana xwe veke'
+                            : 'TronLink an cîzdana xwe veke'}
+                      </span>
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="text-green-400 font-bold">
+                        {selectedNetwork === 'trc20' ? '3' : '4'}.
+                      </span>
+                      <span>USDT bişîne navnîşana jorîn</span>
+                    </li>
+                    <li className="flex gap-2">
+                      <span className="text-green-400 font-bold">
+                        {selectedNetwork === 'trc20' ? '4' : '5'}.
+                      </span>
+                      <span>wUSDT dê di nav çend hûrdeman de li hesabê te be</span>
+                    </li>
+                  </ol>
+                </div>
+
+                {/* Processing Time */}
+                <p className="text-center text-xs text-muted-foreground">
+                  Dema pêvajoyê: ~1-5 hûrdem
                 </p>
-              </div>
-            </div>
-
-            {/* Steps */}
-            <div className="bg-muted/30 rounded-xl p-4">
-              <h4 className="text-sm font-medium mb-3">Çawa Depo Bikim?</h4>
-              <ol className="text-xs text-muted-foreground space-y-2">
-                <li className="flex gap-2">
-                  <span className="text-green-400 font-bold">1.</span>
-                  <span>Navnîşan û memo kopî bike</span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="text-green-400 font-bold">2.</span>
-                  <span>Di cîzdana xwe de ({network.name}) USDT bişîne navnîşana jorîn</span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="text-green-400 font-bold">3.</span>
-                  <span>
-                    <strong>MEMO qada de koda xwe binivîse!</strong>
-                  </span>
-                </li>
-                <li className="flex gap-2">
-                  <span className="text-green-400 font-bold">4.</span>
-                  <span>Piştî {network.confirmations} pejirandinê, wUSDT dê li Asset Hub be</span>
-                </li>
-              </ol>
-            </div>
-
-            {/* Processing Time */}
-            <p className="text-center text-xs text-muted-foreground">
-              Dema pêvajoyê: ~5-30 hûrdem li gorî torê
-            </p>
+              </>
+            )}
           </div>
         )}
       </div>
