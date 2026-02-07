@@ -4,7 +4,16 @@
  */
 
 import { useState, useEffect } from 'react';
-import { X, ArrowDown, Loader2, CheckCircle, AlertCircle, Fuel, Info } from 'lucide-react';
+import {
+  X,
+  ArrowDown,
+  ArrowUpDown,
+  Loader2,
+  CheckCircle,
+  AlertCircle,
+  Fuel,
+  Info,
+} from 'lucide-react';
 import { useWallet } from '@/contexts/WalletContext';
 import { useTelegram } from '@/hooks/useTelegram';
 
@@ -45,6 +54,7 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
   const { hapticImpact, showAlert } = useTelegram();
 
   const [targetChain, setTargetChain] = useState<TargetChain>('asset-hub');
+  const [toRelay, setToRelay] = useState(false); // false = Relay→Teyrchain, true = Teyrchain→Relay
   const [amount, setAmount] = useState('');
   const [isTransferring, setIsTransferring] = useState(false);
   const [txStatus, setTxStatus] = useState<'idle' | 'signing' | 'pending' | 'success' | 'error'>(
@@ -121,13 +131,27 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
     }
   }, [api, assetHubApi, peopleApi, address, isOpen]);
 
-  const getTargetBalance = () => {
+  const getTeyrchainBalance = () => {
     return targetChain === 'asset-hub' ? assetHubBalance : peopleBalance;
   };
 
+  const getSourceBalance = () => (toRelay ? getTeyrchainBalance() : relayBalance);
+  const getDestBalance = () => (toRelay ? relayBalance : getTeyrchainBalance());
+  const getSourceName = () => (toRelay ? selectedChain.name : 'Relay Chain');
+  const getDestName = () => (toRelay ? 'Relay Chain' : selectedChain.name);
+
   const handleTeleport = async () => {
-    if (!api || !address || !keypair) {
+    if (!address || !keypair) {
       showAlert('Cizdan girêdayî nîne');
+      return;
+    }
+
+    // Get the correct API based on direction
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const sourceApi: any = toRelay ? (targetChain === 'asset-hub' ? assetHubApi : peopleApi) : api;
+
+    if (!sourceApi) {
+      showAlert('API girêdayî nîne');
       return;
     }
 
@@ -136,13 +160,14 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
       return;
     }
 
-    if (relayBalance === '--') {
-      showAlert('Relay Chain girêdayî nîne');
+    const sourceBalance = getSourceBalance();
+    if (sourceBalance === '--') {
+      showAlert('Zincîr girêdayî nîne');
       return;
     }
 
     const sendAmount = parseFloat(amount);
-    const currentBalance = parseFloat(relayBalance);
+    const currentBalance = parseFloat(sourceBalance);
 
     if (sendAmount > currentBalance) {
       showAlert('Bakiye têrê nake');
@@ -154,23 +179,88 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
     hapticImpact('medium');
 
     try {
-      // Convert to smallest unit (12 decimals)
       const amountInSmallestUnit = BigInt(Math.floor(parseFloat(amount) * 1e12));
 
-      // Get target teyrchain ID
-      const targetTeyrchainId = selectedChain.teyrchainId;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let dest: any;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let assets: any;
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let feeAssetId: any;
 
-      // Destination: Target teyrchain
-      const dest = {
-        V3: {
-          parents: 0,
-          interior: {
-            X1: { teyrchain: targetTeyrchainId },
+      if (toRelay) {
+        // Teyrchain → Relay (aynı V3 format, parents: 1)
+        dest = {
+          V3: {
+            parents: 1,
+            interior: 'Here',
           },
-        },
-      };
+        };
 
-      // Beneficiary: Same account on target chain
+        assets = {
+          V3: [
+            {
+              id: {
+                Concrete: {
+                  parents: 1,
+                  interior: 'Here',
+                },
+              },
+              fun: {
+                Fungible: amountInSmallestUnit.toString(),
+              },
+            },
+          ],
+        };
+
+        feeAssetId = {
+          V3: {
+            Concrete: {
+              parents: 1,
+              interior: 'Here',
+            },
+          },
+        };
+      } else {
+        // Relay → Teyrchain (orijinal çalışan kod)
+        const targetTeyrchainId = selectedChain.teyrchainId;
+
+        dest = {
+          V3: {
+            parents: 0,
+            interior: {
+              X1: { teyrchain: targetTeyrchainId },
+            },
+          },
+        };
+
+        assets = {
+          V3: [
+            {
+              id: {
+                Concrete: {
+                  parents: 0,
+                  interior: 'Here',
+                },
+              },
+              fun: {
+                Fungible: amountInSmallestUnit.toString(),
+              },
+            },
+          ],
+        };
+
+        feeAssetId = {
+          V3: {
+            Concrete: {
+              parents: 0,
+              interior: 'Here',
+            },
+          },
+        };
+      }
+
+      // Beneficiary: aynı format her iki yön için
       const beneficiary = {
         V3: {
           parents: 0,
@@ -178,44 +268,24 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
             X1: {
               accountid32: {
                 network: null,
-                id: api.createType('AccountId32', address).toHex(),
+                id: sourceApi.createType('AccountId32', address).toHex(),
               },
             },
-          },
-        },
-      };
-
-      // Assets: Native token (HEZ)
-      const assets = {
-        V3: [
-          {
-            id: {
-              Concrete: {
-                parents: 0,
-                interior: 'Here',
-              },
-            },
-            fun: {
-              Fungible: amountInSmallestUnit.toString(),
-            },
-          },
-        ],
-      };
-
-      // Fee asset ID: Native HEZ token
-      const feeAssetId = {
-        V3: {
-          Concrete: {
-            parents: 0,
-            interior: 'Here',
           },
         },
       };
 
       const weightLimit = 'Unlimited';
 
-      // Create teleport transaction
-      const tx = api.tx.xcmPallet.limitedTeleportAssets(
+      // Pallet: relay'de xcmPallet, teyrchain'de pezkuwiXcm
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const xcmPallet = toRelay ? (sourceApi.tx as any).pezkuwiXcm : sourceApi.tx.xcmPallet;
+
+      if (!xcmPallet?.limitedTeleportAssets) {
+        throw new Error('XCM pallet nehate dîtin');
+      }
+
+      const tx = xcmPallet.limitedTeleportAssets(
         dest,
         beneficiary,
         assets,
@@ -225,35 +295,43 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
 
       setTxStatus('pending');
 
-      const unsub = await tx.signAndSend(keypair, ({ status, dispatchError }) => {
-        if (status.isFinalized) {
-          if (dispatchError) {
-            let errorMessage = 'Teleport neserketî';
+      const unsub = await tx.signAndSend(
+        keypair,
+        ({
+          status,
+          dispatchError,
+        }: {
+          status: { isFinalized: boolean };
+          dispatchError?: { isModule: boolean; asModule: unknown };
+        }) => {
+          if (status.isFinalized) {
+            if (dispatchError) {
+              let errorMessage = 'Teleport neserketî';
 
-            if (dispatchError.isModule) {
-              const decoded = api.registry.findMetaError(dispatchError.asModule);
-              errorMessage = `${decoded.section}.${decoded.name}`;
+              if (dispatchError.isModule) {
+                const decoded = sourceApi.registry.findMetaError(dispatchError.asModule);
+                errorMessage = `${decoded.section}.${decoded.name}`;
+              }
+
+              setTxStatus('error');
+              hapticImpact('heavy');
+              showAlert(errorMessage);
+            } else {
+              setTxStatus('success');
+              hapticImpact('medium');
+
+              setTimeout(() => {
+                setAmount('');
+                setTxStatus('idle');
+                onClose();
+              }, 2000);
             }
 
-            setTxStatus('error');
-            hapticImpact('heavy');
-            showAlert(errorMessage);
-          } else {
-            setTxStatus('success');
-            hapticImpact('medium');
-
-            // Reset after success
-            setTimeout(() => {
-              setAmount('');
-              setTxStatus('idle');
-              onClose();
-            }, 2000);
+            setIsTransferring(false);
+            unsub();
           }
-
-          setIsTransferring(false);
-          unsub();
         }
-      });
+      );
     } catch (error) {
       console.error('Teleport error:', error);
       setTxStatus('error');
@@ -264,7 +342,7 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
   };
 
   const setQuickAmount = (percent: number) => {
-    const balance = parseFloat(relayBalance);
+    const balance = parseFloat(getSourceBalance());
     if (balance > 0) {
       const quickAmount = ((balance * percent) / 100).toFixed(4);
       setAmount(quickAmount);
@@ -301,7 +379,7 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
             <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
             <h3 className="text-xl font-semibold mb-2">Serketî!</h3>
             <p className="text-muted-foreground">
-              {amount} HEZ bo {selectedChain.name} hate şandin
+              {amount} HEZ bo {getDestName()} hate şandin
             </p>
           </div>
         ) : txStatus === 'error' ? (
@@ -348,14 +426,38 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
               </div>
             </div>
 
+            {/* Direction Toggle */}
+            <button
+              onClick={() => {
+                setToRelay(!toRelay);
+                setAmount('');
+                hapticImpact('light');
+              }}
+              disabled={isTransferring}
+              className="w-full flex items-center justify-center gap-2 p-2 bg-muted/50 rounded-lg hover:bg-muted transition-colors"
+            >
+              <ArrowUpDown className="w-4 h-4 text-yellow-500" />
+              <span className="text-sm">
+                {toRelay ? `${selectedChain.name} → Relay` : `Relay → ${selectedChain.name}`}
+              </span>
+            </button>
+
             {/* Balance Display */}
             <div className="bg-muted/50 rounded-xl p-4 space-y-3">
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-green-500" />
-                  <span className="text-sm text-muted-foreground">Relay Chain</span>
+                  <div
+                    className={`w-2 h-2 rounded-full ${
+                      toRelay
+                        ? targetChain === 'asset-hub'
+                          ? 'bg-blue-500'
+                          : 'bg-purple-500'
+                        : 'bg-green-500'
+                    }`}
+                  />
+                  <span className="text-sm text-muted-foreground">{getSourceName()}</span>
                 </div>
-                <span className="font-mono">{relayBalance} HEZ</span>
+                <span className="font-mono">{getSourceBalance()} HEZ</span>
               </div>
 
               <div className="flex justify-center">
@@ -366,12 +468,16 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
                 <div className="flex items-center gap-2">
                   <div
                     className={`w-2 h-2 rounded-full ${
-                      targetChain === 'asset-hub' ? 'bg-blue-500' : 'bg-purple-500'
+                      toRelay
+                        ? 'bg-green-500'
+                        : targetChain === 'asset-hub'
+                          ? 'bg-blue-500'
+                          : 'bg-purple-500'
                     }`}
                   />
-                  <span className="text-sm text-muted-foreground">{selectedChain.name}</span>
+                  <span className="text-sm text-muted-foreground">{getDestName()}</span>
                 </div>
-                <span className="font-mono">{getTargetBalance()} HEZ</span>
+                <span className="font-mono">{getDestBalance()} HEZ</span>
               </div>
             </div>
 
@@ -458,7 +564,7 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
               ) : (
                 <>
                   <Fuel className="w-5 h-5" />
-                  Bo {selectedChain.name} Bişîne
+                  Bo {getDestName()} Bişîne
                 </>
               )}
             </button>
