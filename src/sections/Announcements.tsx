@@ -29,7 +29,10 @@ export function AnnouncementsSection() {
       { announcementId: id, reaction },
       {
         onSuccess: () => hapticNotification('success'),
-        onError: () => hapticNotification('error'),
+        onError: (err) => {
+          hapticNotification('error');
+          window.Telegram?.WebApp?.showAlert(err.message || 'Çewtî');
+        },
       }
     );
   };
