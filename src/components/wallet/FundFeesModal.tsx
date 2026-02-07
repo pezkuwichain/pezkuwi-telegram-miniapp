@@ -7,7 +7,6 @@ import { useState, useEffect } from 'react';
 import {
   X,
   ArrowDown,
-  ArrowUp,
   Loader2,
   CheckCircle,
   AlertCircle,
@@ -220,14 +219,14 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
       let assets: any;
 
       if (direction === 'to-parachain') {
-        // Relay Chain → Parachain
+        // Relay Chain → Teyrchain
         const targetTeyrchainId = selectedChain.teyrchainId;
 
         dest = {
           V3: {
             parents: 0,
             interior: {
-              X1: { Parachain: targetTeyrchainId },
+              X1: { teyrchain: targetTeyrchainId },
             },
           },
         };
@@ -471,7 +470,7 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
               >
                 <ArrowLeftRight className="w-4 h-4 text-yellow-500" />
                 <span className="text-sm">
-                  {direction === 'to-parachain' ? 'Relay → Parachain' : 'Parachain → Relay'}
+                  {direction === 'to-parachain' ? 'Relay → Teyrchain' : 'Teyrchain → Relay'}
                 </span>
               </button>
             </div>
@@ -495,11 +494,7 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
               </div>
 
               <div className="flex justify-center">
-                {direction === 'to-parachain' ? (
-                  <ArrowDown className="w-5 h-5 text-yellow-500" />
-                ) : (
-                  <ArrowUp className="w-5 h-5 text-yellow-500" />
-                )}
+                <ArrowDown className="w-5 h-5 text-yellow-500" />
               </div>
 
               <div className="flex justify-between items-center">
@@ -525,7 +520,7 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
               <p className="text-sm text-yellow-400">
                 {direction === 'to-parachain'
                   ? `${selectedChain.description} kêmî 0.1 HEZ tê pêşniyarkirin.`
-                  : 'HEZ ji parachainê vedigere Relay Chainê.'}
+                  : 'HEZ ji teyrchainê vedigere Relay Chainê.'}
               </p>
             </div>
 
