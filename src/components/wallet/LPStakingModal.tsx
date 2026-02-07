@@ -26,11 +26,32 @@ interface LPStakingModalProps {
   onClose: () => void;
 }
 
+// Native token ID for Asset Hub
+const NATIVE_TOKEN_ID = -1;
+
+// Pool pairs for staking pools (staking pool ID -> [asset0, asset1])
+const STAKING_POOL_PAIRS: Record<number, [number, number]> = {
+  0: [NATIVE_TOKEN_ID, 1], // HEZ-PEZ
+  1: [NATIVE_TOKEN_ID, 1000], // HEZ-USDT
+  2: [NATIVE_TOKEN_ID, 1001], // HEZ-DOT
+};
+
 const LP_TOKEN_NAMES: Record<number, string> = {
   0: 'HEZ-PEZ LP',
   1: 'HEZ-USDT LP',
   2: 'HEZ-DOT LP',
 };
+
+// Format asset location for assetConversion queries
+function formatAssetLocation(assetId: number): object {
+  if (assetId === NATIVE_TOKEN_ID) {
+    return { parents: 0, interior: 'Here' };
+  }
+  return {
+    parents: 0,
+    interior: { X2: [{ PalletInstance: 50 }, { GeneralIndex: assetId }] },
+  };
+}
 
 export function LPStakingModal({ isOpen, onClose }: LPStakingModalProps) {
   const { assetHubApi, keypair, address } = useWallet();
@@ -67,8 +88,27 @@ export function LPStakingModal({ isOpen, onClose }: LPStakingModalProps) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const poolData = value.toJSON() as any;
 
-          // LP token ID in poolAssets pallet matches the pool ID (0, 1, 2)
-          const lpTokenId = poolId;
+          // Get LP token ID from assetConversion pool
+          let lpTokenId = poolId; // fallback
+          const poolPair = STAKING_POOL_PAIRS[poolId];
+
+          if (poolPair) {
+            try {
+              const poolKey = [formatAssetLocation(poolPair[0]), formatAssetLocation(poolPair[1])];
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              const poolInfo = await (assetHubApi.query.assetConversion as any).pools(poolKey);
+              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+              if (poolInfo && !(poolInfo as any).isEmpty) {
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const conversionPoolData = (poolInfo as any).unwrap().toJSON() as {
+                  lpToken: number;
+                };
+                lpTokenId = conversionPoolData.lpToken;
+              }
+            } catch {
+              // Use fallback lpTokenId
+            }
+          }
 
           let userStaked = '0';
           let pendingRewards = '0';
@@ -76,44 +116,44 @@ export function LPStakingModal({ isOpen, onClose }: LPStakingModalProps) {
 
           if (address) {
             try {
-              // poolStakers takes two separate arguments: (poolId, address)
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               const stakeInfo = await (assetHubApi.query.assetRewards as any).poolStakers(
                 poolId,
                 address
               );
-              console.warn('[LP Staking] Pool', poolId, 'stakeInfo:', stakeInfo.toString());
               if (stakeInfo && !stakeInfo.isEmpty && !stakeInfo.isNone) {
                 const stakeData = stakeInfo.isSome
                   ? stakeInfo.unwrap().toJSON()
                   : stakeInfo.toJSON();
                 userStaked = stakeData.amount?.toString() || '0';
                 pendingRewards = stakeData.rewards?.toString() || '0';
-                console.warn('[LP Staking] User staked in pool', poolId, ':', userStaked);
               }
-            } catch (err) {
-              console.error('Error fetching stake info:', err);
+            } catch {
+              // Ignore stake info errors
             }
 
-            // Fetch LP balance from poolAssets pallet
+            // Fetch LP balance from poolAssets using correct lpTokenId
             try {
               // eslint-disable-next-line @typescript-eslint/no-explicit-any
               const lpBal = await (assetHubApi.query.poolAssets as any).account(lpTokenId, address);
               if (lpBal) {
-                // Handle both Option<AccountData> and direct AccountData
-                const lpData = lpBal.isSome ? lpBal.unwrap().toJSON() : lpBal.toJSON();
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                const lpData = (lpBal as any).isSome
+                  ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    (lpBal as any).unwrap().toJSON()
+                  : lpBal.toJSON();
                 if (lpData && lpData.balance) {
                   lpBalance = lpData.balance.toString();
                 }
               }
-            } catch (err) {
-              console.error('Error fetching LP balance for pool', poolId, ':', err);
+            } catch {
+              // Ignore LP balance errors
             }
           }
 
           stakingPools.push({
             poolId,
-            stakedAsset: LP_TOKEN_NAMES[lpTokenId] || `LP Token #${lpTokenId}`,
+            stakedAsset: LP_TOKEN_NAMES[poolId] || `LP Token #${lpTokenId}`,
             rewardAsset: 'PEZ',
             rewardRatePerBlock: poolData.rewardRatePerBlock || '0',
             totalStaked: poolData.totalTokensStaked || '0',
