@@ -129,22 +129,39 @@ serve(async (req) => {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    // Get user by telegram_id from tg_users table
-    const { data: userData, error: userError } = await supabase
+    // Get or create user by telegram_id
+    let userId: string;
+    const { data: existingUser } = await supabase
       .from('tg_users')
       .select('id')
       .eq('telegram_id', telegramId)
       .single();
 
-    if (userError || !userData) {
-      console.error('[announcement-reaction] User not found for tgId:', telegramId);
-      return new Response(JSON.stringify({ error: 'User not found' }), {
-        status: 404,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
-    }
+    if (existingUser) {
+      userId = existingUser.id;
+    } else {
+      // Create user if not exists
+      const { data: newUser, error: createError } = await supabase
+        .from('tg_users')
+        .insert({
+          telegram_id: telegramId,
+          username: telegramUser.username || null,
+          first_name: telegramUser.first_name,
+          last_name: telegramUser.last_name || null,
+        })
+        .select('id')
+        .single();
 
-    const userId = userData.id;
+      if (createError || !newUser) {
+        console.error('[announcement-reaction] Failed to create user:', createError);
+        return new Response(JSON.stringify({ error: 'Failed to create user' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      userId = newUser.id;
+      console.log('[announcement-reaction] Created new user:', userId);
+    }
 
     // Check existing reaction
     const { data: existing } = await supabase
