@@ -10,46 +10,27 @@ import {
 import { cn, formatDate, formatNumber } from '@/lib/utils';
 import { useTelegram } from '@/hooks/useTelegram';
 import { useAnnouncements, useAnnouncementReaction } from '@/hooks/useSupabase';
-import { useAuth } from '@/contexts/AuthContext';
 
 export function AnnouncementsSection() {
   const { hapticImpact, hapticNotification, openLink } = useTelegram();
-  const {
-    isAuthenticated,
-    sessionToken,
-    user,
-    authError,
-    signIn,
-    isLoading: authLoading,
-  } = useAuth();
-
   const { data: announcements, isLoading, refetch, isRefetching } = useAnnouncements();
-  const reactionMutation = useAnnouncementReaction(sessionToken);
-
-  // Debug: Log auth state
-  console.warn('[Announcements] Auth state:', {
-    isAuthenticated,
-    hasSessionToken: !!sessionToken,
-    user: user?.first_name,
-    authError,
-  });
+  const reactionMutation = useAnnouncementReaction();
 
   const handleReaction = (id: string, reaction: 'like' | 'dislike') => {
-    if (!isAuthenticated) {
+    if (!window.Telegram?.WebApp?.initData) {
       hapticNotification('error');
-      // Show alert or toast here if UI library allows, for now using browser alert for clarity in dev
-      // In production better to use a Toast component
       if (window.Telegram?.WebApp) {
-        window.Telegram.WebApp.showAlert('Ji bo dengdanê divê tu têketî bî');
-      } else {
-        window.alert('Ji bo dengdanê divê tu têketî bî');
+        window.Telegram.WebApp.showAlert('Ji bo dengdanê divê tu di Telegramê de bî');
       }
       return;
     }
     hapticImpact('light');
     reactionMutation.mutate(
       { announcementId: id, reaction },
-      { onSuccess: () => hapticNotification('success') }
+      {
+        onSuccess: () => hapticNotification('success'),
+        onError: () => hapticNotification('error'),
+      }
     );
   };
 
@@ -80,34 +61,6 @@ export function AnnouncementsSection() {
           </button>
         </div>
       </header>
-
-      {/* Debug Banner - Remove after fixing */}
-      <div className="bg-yellow-500/20 text-yellow-300 text-xs p-2 mx-4 mt-2 rounded break-all">
-        <div>
-          Auth: {isAuthenticated ? 'YES' : 'NO'} | Token: {sessionToken ? 'YES' : 'NO'} | User:{' '}
-          {user?.first_name || 'null'}
-        </div>
-        <div>Err: {authError || 'none'}</div>
-        <div>
-          TG: {window.Telegram?.WebApp ? 'YES' : 'NO'} | initData:{' '}
-          {window.Telegram?.WebApp?.initData
-            ? window.Telegram.WebApp.initData.length + ' chars'
-            : 'EMPTY'}
-        </div>
-        <div>
-          Platform: {window.Telegram?.WebApp?.platform || 'unknown'} | Ver:{' '}
-          {window.Telegram?.WebApp?.version || '?'}
-        </div>
-        {!isAuthenticated && (
-          <button
-            onClick={() => signIn()}
-            disabled={authLoading}
-            className="mt-2 px-3 py-1 bg-yellow-500 text-black rounded text-xs font-medium"
-          >
-            {authLoading ? 'Deneniyor...' : 'Retry Auth'}
-          </button>
-        )}
-      </div>
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto hide-scrollbar">

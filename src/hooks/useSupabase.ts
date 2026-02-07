@@ -144,7 +144,7 @@ export function useAnnouncements() {
   });
 }
 
-export function useAnnouncementReaction(sessionToken: string | null) {
+export function useAnnouncementReaction() {
   const queryClient = useQueryClient();
 
   return useMutation({
@@ -155,11 +155,12 @@ export function useAnnouncementReaction(sessionToken: string | null) {
       announcementId: string;
       reaction: 'like' | 'dislike';
     }) => {
-      if (!sessionToken) throw new Error('Not authenticated');
+      const initData = window.Telegram?.WebApp?.initData;
+      if (!initData) throw new Error('Telegram not available');
 
-      // Call Edge Function for secure reaction handling
+      // Call Edge Function with initData for validation
       const { data, error } = await supabase.functions.invoke('announcement-reaction', {
-        body: { sessionToken, announcementId, reaction },
+        body: { initData, announcementId, reaction },
       });
 
       if (error) {

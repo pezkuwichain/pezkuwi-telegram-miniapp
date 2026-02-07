@@ -14,42 +14,54 @@ function getCorsHeaders(): Record<string, string> {
   };
 }
 
-// Session token secret (must match telegram-auth function)
-function getSessionSecret(botToken: string): Uint8Array {
-  return createHmac('sha256', 'SessionTokenSecret').update(botToken).digest();
+interface TelegramUser {
+  id: number;
+  first_name: string;
+  last_name?: string;
+  username?: string;
 }
 
-// Verify HMAC-signed session token
-function verifySessionToken(token: string, botToken: string): number | null {
+// Validate Telegram WebApp initData and extract user
+function validateInitData(initData: string, botToken: string): TelegramUser | null {
   try {
-    const parts = token.split('.');
-    if (parts.length !== 2) {
+    const params = new URLSearchParams(initData);
+    const hash = params.get('hash');
+    if (!hash) return null;
+
+    params.delete('hash');
+
+    // Sort parameters alphabetically
+    const sortedParams = Array.from(params.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([key, value]) => `${key}=${value}`)
+      .join('\n');
+
+    // Calculate secret key: HMAC-SHA256("WebAppData", bot_token)
+    const secretKey = createHmac('sha256', 'WebAppData').update(botToken).digest();
+
+    // Calculate hash: HMAC-SHA256(secret_key, data_check_string)
+    const calculatedHash = createHmac('sha256', secretKey).update(sortedParams).digest('hex');
+
+    if (calculatedHash !== hash) {
+      console.error('[announcement-reaction] Hash mismatch');
       return null;
     }
 
-    const [payloadB64, signature] = parts;
-
-    // Verify signature
-    const secret = getSessionSecret(botToken);
-    const expectedSig = createHmac('sha256', secret).update(payloadB64).digest('hex');
-
-    if (signature !== expectedSig) {
-      console.error('[announcement-reaction] Invalid signature');
+    // Check auth_date (allow 24 hours)
+    const authDate = parseInt(params.get('auth_date') || '0');
+    const now = Math.floor(Date.now() / 1000);
+    if (now - authDate > 86400) {
+      console.error('[announcement-reaction] Auth data expired');
       return null;
     }
 
-    // Parse payload
-    const payload = JSON.parse(atob(payloadB64));
+    // Parse user data
+    const userStr = params.get('user');
+    if (!userStr) return null;
 
-    // Check expiration
-    if (Date.now() > payload.exp) {
-      console.error('[announcement-reaction] Token expired');
-      return null;
-    }
-
-    return payload.tgId;
+    return JSON.parse(userStr) as TelegramUser;
   } catch (e) {
-    console.error('[announcement-reaction] Token verification error:', e);
+    console.error('[announcement-reaction] Validation error:', e);
     return null;
   }
 }
@@ -64,21 +76,16 @@ serve(async (req) => {
 
   try {
     const body = await req.json();
-    const { sessionToken, announcementId, reaction } = body;
+    const { initData, announcementId, reaction } = body;
 
     console.log('[announcement-reaction] Request received:', {
-      hasSessionToken: !!sessionToken,
+      hasInitData: !!initData,
       announcementId,
       reaction,
     });
 
     // Validate input
-    if (!sessionToken || !announcementId || !reaction) {
-      console.error('[announcement-reaction] Missing fields:', {
-        sessionToken: !!sessionToken,
-        announcementId,
-        reaction,
-      });
+    if (!initData || !announcementId || !reaction) {
       return new Response(JSON.stringify({ error: 'Missing required fields' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -105,16 +112,17 @@ serve(async (req) => {
       });
     }
 
-    console.log('[announcement-reaction] Bot token available, verifying session...');
-
-    // Verify session token
-    const telegramId = verifySessionToken(sessionToken, botToken);
-    if (!telegramId) {
-      return new Response(JSON.stringify({ error: 'Invalid or expired session' }), {
+    // Validate initData and get Telegram user
+    const telegramUser = validateInitData(initData, botToken);
+    if (!telegramUser) {
+      return new Response(JSON.stringify({ error: 'Invalid Telegram data' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    const telegramId = telegramUser.id;
+    console.log('[announcement-reaction] User validated:', telegramId);
 
     // Create Supabase admin client
     const supabase = createClient(supabaseUrl, supabaseServiceKey, {
