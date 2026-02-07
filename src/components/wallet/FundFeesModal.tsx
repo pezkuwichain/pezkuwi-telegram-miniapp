@@ -218,127 +218,80 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       let assets: any;
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let feeAssetId: any;
+      // isParaTeleport: true if sending FROM teyrchain
+      const isParaTeleport = direction === 'to-relay';
 
       if (direction === 'to-parachain') {
         // Relay Chain → Teyrchain
         const targetTeyrchainId = selectedChain.teyrchainId;
 
         dest = {
-          V3: {
+          V4: {
             parents: 0,
             interior: {
-              X1: { teyrchain: targetTeyrchainId },
-            },
-          },
-        };
-
-        beneficiary = {
-          V3: {
-            parents: 0,
-            interior: {
-              X1: {
-                accountid32: {
-                  network: null,
-                  id: sourceApi.createType('AccountId32', address).toHex(),
-                },
-              },
-            },
-          },
-        };
-
-        // Native token on relay chain
-        assets = {
-          V3: [
-            {
-              id: {
-                Concrete: {
-                  parents: 0,
-                  interior: 'Here',
-                },
-              },
-              fun: {
-                Fungible: amountInSmallestUnit.toString(),
-              },
-            },
-          ],
-        };
-
-        // Fee asset: Native HEZ on relay
-        feeAssetId = {
-          V3: {
-            Concrete: {
-              parents: 0,
-              interior: 'Here',
+              X1: [{ Parachain: targetTeyrchainId }],
             },
           },
         };
       } else {
         // Teyrchain → Relay Chain
         dest = {
-          V3: {
+          V4: {
             parents: 1,
             interior: 'Here',
           },
         };
+      }
 
-        beneficiary = {
-          V3: {
-            parents: 0,
-            interior: {
-              X1: {
-                accountid32: {
-                  network: null,
+      beneficiary = {
+        V4: {
+          parents: 0,
+          interior: {
+            X1: [
+              {
+                AccountId32: {
                   id: sourceApi.createType('AccountId32', address).toHex(),
+                  network: null,
                 },
               },
-            },
+            ],
           },
-        };
+        },
+      };
 
-        // Native token from teyrchain's perspective (parent chain's token)
-        assets = {
-          V3: [
-            {
-              id: {
-                Concrete: {
-                  parents: 1,
-                  interior: 'Here',
-                },
-              },
-              fun: {
-                Fungible: amountInSmallestUnit.toString(),
-              },
+      assets = {
+        V4: [
+          {
+            fun: {
+              Fungible: amountInSmallestUnit.toString(),
             },
-          ],
-        };
-
-        // Fee asset: Parent chain's native token
-        feeAssetId = {
-          V3: {
-            Concrete: {
-              parents: 1,
+            id: {
+              parents: isParaTeleport ? 1 : 0,
               interior: 'Here',
             },
           },
-        };
-      }
+        ],
+      };
 
-      const weightLimit = 'Unlimited';
+      const feeAssetItem = 0;
+      const weightLimit = { Unlimited: null };
 
-      // Relay chain uses xcmPallet, teyrchains use pezkuwiXCM
-
-      const xcmPallet = (sourceApi.tx as any).xcmPallet || (sourceApi.tx as any).pezkuwiXCM;
-      if (!xcmPallet?.limitedTeleportAssets) {
+      // Find XCM pallet: xcmPallet (relay) or pezkuwiXcm (teyrchains)
+      const XCM_PALLETS = ['xcmPallet', 'pezkuwiXcm', 'xcm'];
+      const palletName = XCM_PALLETS.find(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        (p) => (sourceApi.tx as any)[p]?.limitedTeleportAssets
+      );
+      if (!palletName) {
         throw new Error('XCM pallet nehate dîtin');
       }
 
-      const tx = xcmPallet.limitedTeleportAssets(
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const tx = (sourceApi.tx as any)[palletName].limitedTeleportAssets(
         dest,
         beneficiary,
         assets,
-        feeAssetId,
+        feeAssetItem,
         weightLimit
       );
 
