@@ -327,8 +327,15 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
 
       const weightLimit = 'Unlimited';
 
-      // Create teleport transaction - xcmPallet is used on all Pezkuwi chains
-      const tx = sourceApi.tx.xcmPallet.limitedTeleportAssets(
+      // Find which XCM pallet exists on this chain
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const xcmPallet = (sourceApi.tx as any).xcmPallet || (sourceApi.tx as any).polkadotXcm;
+      if (!xcmPallet?.limitedTeleportAssets) {
+        const available = Object.keys(sourceApi.tx).filter((p) => p.toLowerCase().includes('xcm'));
+        throw new Error(`XCM pallet nehate dîtin. Heyî: ${available.join(', ') || 'tune'}`);
+      }
+
+      const tx = xcmPallet.limitedTeleportAssets(
         dest,
         beneficiary,
         assets,
