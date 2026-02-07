@@ -1,24 +1,14 @@
 /**
- * Fund Fees Modal - XCM Teleport HEZ between Relay Chain and Parachains
- * Supports bidirectional teleport: Relay ↔ Asset Hub / People Chain
+ * Fund Fees Modal - XCM Teleport HEZ to Teyerchains
+ * Allows users to transfer HEZ from relay chain to Asset Hub or People chain for fees
  */
 
 import { useState, useEffect } from 'react';
-import {
-  X,
-  ArrowDown,
-  Loader2,
-  CheckCircle,
-  AlertCircle,
-  Fuel,
-  Info,
-  ArrowLeftRight,
-} from 'lucide-react';
+import { X, ArrowDown, Loader2, CheckCircle, AlertCircle, Fuel, Info } from 'lucide-react';
 import { useWallet } from '@/contexts/WalletContext';
 import { useTelegram } from '@/hooks/useTelegram';
 
 type TargetChain = 'asset-hub' | 'people';
-type TeleportDirection = 'to-parachain' | 'to-relay';
 
 interface ChainInfo {
   id: TargetChain;
@@ -55,7 +45,6 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
   const { hapticImpact, showAlert } = useTelegram();
 
   const [targetChain, setTargetChain] = useState<TargetChain>('asset-hub');
-  const [direction, setDirection] = useState<TeleportDirection>('to-parachain');
   const [amount, setAmount] = useState('');
   const [isTransferring, setIsTransferring] = useState(false);
   const [txStatus, setTxStatus] = useState<'idle' | 'signing' | 'pending' | 'success' | 'error'>(
@@ -66,38 +55,6 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
   const [peopleBalance, setPeopleBalance] = useState<string>('--');
 
   const selectedChain = TARGET_CHAINS.find((c) => c.id === targetChain) || TARGET_CHAINS[0];
-
-  // Get source balance based on direction
-  const getSourceBalance = () => {
-    if (direction === 'to-parachain') {
-      return relayBalance;
-    }
-    return targetChain === 'asset-hub' ? assetHubBalance : peopleBalance;
-  };
-
-  // Get destination balance based on direction
-  const getDestBalance = () => {
-    if (direction === 'to-parachain') {
-      return targetChain === 'asset-hub' ? assetHubBalance : peopleBalance;
-    }
-    return relayBalance;
-  };
-
-  // Get source chain name
-  const getSourceChainName = () => {
-    if (direction === 'to-parachain') {
-      return 'Relay Chain';
-    }
-    return selectedChain.name;
-  };
-
-  // Get destination chain name
-  const getDestChainName = () => {
-    if (direction === 'to-parachain') {
-      return selectedChain.name;
-    }
-    return 'Relay Chain';
-  };
 
   // Fetch balances
   useEffect(() => {
@@ -164,8 +121,12 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
     }
   }, [api, assetHubApi, peopleApi, address, isOpen]);
 
+  const getTargetBalance = () => {
+    return targetChain === 'asset-hub' ? assetHubBalance : peopleBalance;
+  };
+
   const handleTeleport = async () => {
-    if (!address || !keypair) {
+    if (!api || !address || !keypair) {
       showAlert('Cizdan girêdayî nîne');
       return;
     }
@@ -175,31 +136,16 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
       return;
     }
 
-    const sourceBalance = getSourceBalance();
-    if (sourceBalance === '--') {
-      showAlert('Zincîr girêdayî nîne');
+    if (relayBalance === '--') {
+      showAlert('Relay Chain girêdayî nîne');
       return;
     }
 
     const sendAmount = parseFloat(amount);
-    const currentBalance = parseFloat(sourceBalance);
+    const currentBalance = parseFloat(relayBalance);
 
     if (sendAmount > currentBalance) {
       showAlert('Bakiye têrê nake');
-      return;
-    }
-
-    // Get the appropriate API based on direction
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let sourceApi: any;
-    if (direction === 'to-parachain') {
-      sourceApi = api;
-    } else {
-      sourceApi = targetChain === 'asset-hub' ? assetHubApi : peopleApi;
-    }
-
-    if (!sourceApi) {
-      showAlert('API girêdayî nîne');
       return;
     }
 
@@ -211,125 +157,103 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
       // Convert to smallest unit (12 decimals)
       const amountInSmallestUnit = BigInt(Math.floor(parseFloat(amount) * 1e12));
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let dest: any;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let beneficiary: any;
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let assets: any;
+      // Get target teyrchain ID
+      const targetTeyrchainId = selectedChain.teyrchainId;
 
-      // isParaTeleport: true if sending FROM teyrchain
-      const isParaTeleport = direction === 'to-relay';
-
-      if (direction === 'to-parachain') {
-        // Relay Chain → Teyrchain
-        const targetTeyrchainId = selectedChain.teyrchainId;
-
-        dest = {
-          V4: {
-            parents: 0,
-            interior: {
-              X1: [{ Parachain: targetTeyrchainId }],
-            },
-          },
-        };
-      } else {
-        // Teyrchain → Relay Chain
-        dest = {
-          V4: {
-            parents: 1,
-            interior: 'Here',
-          },
-        };
-      }
-
-      beneficiary = {
-        V4: {
+      // Destination: Target teyrchain
+      const dest = {
+        V3: {
           parents: 0,
           interior: {
-            X1: [
-              {
-                AccountId32: {
-                  id: sourceApi.createType('AccountId32', address).toHex(),
-                  network: null,
-                },
-              },
-            ],
+            X1: { teyrchain: targetTeyrchainId },
           },
         },
       };
 
-      assets = {
-        V4: [
+      // Beneficiary: Same account on target chain
+      const beneficiary = {
+        V3: {
+          parents: 0,
+          interior: {
+            X1: {
+              accountid32: {
+                network: null,
+                id: api.createType('AccountId32', address).toHex(),
+              },
+            },
+          },
+        },
+      };
+
+      // Assets: Native token (HEZ)
+      const assets = {
+        V3: [
           {
+            id: {
+              Concrete: {
+                parents: 0,
+                interior: 'Here',
+              },
+            },
             fun: {
               Fungible: amountInSmallestUnit.toString(),
-            },
-            id: {
-              parents: isParaTeleport ? 1 : 0,
-              interior: 'Here',
             },
           },
         ],
       };
 
-      const feeAssetItem = 0;
-      const weightLimit = { Unlimited: null };
+      // Fee asset ID: Native HEZ token
+      const feeAssetId = {
+        V3: {
+          Concrete: {
+            parents: 0,
+            interior: 'Here',
+          },
+        },
+      };
 
-      // Find XCM pallet: xcmPallet (relay) or pezkuwiXcm (teyrchains)
-      const XCM_PALLETS = ['xcmPallet', 'pezkuwiXcm', 'xcm'];
-      const palletName = XCM_PALLETS.find(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        (p) => (sourceApi.tx as any)[p]?.limitedTeleportAssets
-      );
-      if (!palletName) {
-        throw new Error('XCM pallet nehate dîtin');
-      }
+      const weightLimit = 'Unlimited';
 
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const tx = (sourceApi.tx as any)[palletName].limitedTeleportAssets(
+      // Create teleport transaction
+      const tx = api.tx.xcmPallet.limitedTeleportAssets(
         dest,
         beneficiary,
         assets,
-        feeAssetItem,
+        feeAssetId,
         weightLimit
       );
 
       setTxStatus('pending');
 
-      const unsub = await tx.signAndSend(
-        keypair,
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ({ status, dispatchError }: any) => {
-          if (status.isFinalized) {
-            if (dispatchError) {
-              let errorMessage = 'Teleport neserketî';
+      const unsub = await tx.signAndSend(keypair, ({ status, dispatchError }) => {
+        if (status.isFinalized) {
+          if (dispatchError) {
+            let errorMessage = 'Teleport neserketî';
 
-              if (dispatchError.isModule) {
-                const decoded = sourceApi.registry.findMetaError(dispatchError.asModule);
-                errorMessage = `${decoded.section}.${decoded.name}`;
-              }
-
-              setTxStatus('error');
-              hapticImpact('heavy');
-              showAlert(errorMessage);
-            } else {
-              setTxStatus('success');
-              hapticImpact('medium');
-
-              // Reset after success
-              setTimeout(() => {
-                setAmount('');
-                setTxStatus('idle');
-                onClose();
-              }, 2000);
+            if (dispatchError.isModule) {
+              const decoded = api.registry.findMetaError(dispatchError.asModule);
+              errorMessage = `${decoded.section}.${decoded.name}`;
             }
 
-            setIsTransferring(false);
-            unsub();
+            setTxStatus('error');
+            hapticImpact('heavy');
+            showAlert(errorMessage);
+          } else {
+            setTxStatus('success');
+            hapticImpact('medium');
+
+            // Reset after success
+            setTimeout(() => {
+              setAmount('');
+              setTxStatus('idle');
+              onClose();
+            }, 2000);
           }
+
+          setIsTransferring(false);
+          unsub();
         }
-      );
+      });
     } catch (error) {
       console.error('Teleport error:', error);
       setTxStatus('error');
@@ -340,17 +264,11 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
   };
 
   const setQuickAmount = (percent: number) => {
-    const balance = parseFloat(getSourceBalance());
+    const balance = parseFloat(relayBalance);
     if (balance > 0) {
       const quickAmount = ((balance * percent) / 100).toFixed(4);
       setAmount(quickAmount);
     }
-  };
-
-  const toggleDirection = () => {
-    setDirection((prev) => (prev === 'to-parachain' ? 'to-relay' : 'to-parachain'));
-    setAmount('');
-    hapticImpact('light');
   };
 
   if (!isOpen) return null;
@@ -383,7 +301,7 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
             <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
             <h3 className="text-xl font-semibold mb-2">Serketî!</h3>
             <p className="text-muted-foreground">
-              {amount} HEZ bo {getDestChainName()} hate şandin
+              {amount} HEZ bo {selectedChain.name} hate şandin
             </p>
           </div>
         ) : txStatus === 'error' ? (
@@ -430,36 +348,14 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
               </div>
             </div>
 
-            {/* Direction Toggle */}
-            <div className="flex justify-center">
-              <button
-                onClick={toggleDirection}
-                disabled={isTransferring}
-                className="flex items-center gap-2 px-4 py-2 bg-muted/50 hover:bg-muted rounded-lg transition-colors"
-              >
-                <ArrowLeftRight className="w-4 h-4 text-yellow-500" />
-                <span className="text-sm">
-                  {direction === 'to-parachain' ? 'Relay → Teyrchain' : 'Teyrchain → Relay'}
-                </span>
-              </button>
-            </div>
-
             {/* Balance Display */}
             <div className="bg-muted/50 rounded-xl p-4 space-y-3">
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
-                  <div
-                    className={`w-2 h-2 rounded-full ${
-                      direction === 'to-parachain'
-                        ? 'bg-green-500'
-                        : targetChain === 'asset-hub'
-                          ? 'bg-blue-500'
-                          : 'bg-purple-500'
-                    }`}
-                  />
-                  <span className="text-sm text-muted-foreground">{getSourceChainName()}</span>
+                  <div className="w-2 h-2 rounded-full bg-green-500" />
+                  <span className="text-sm text-muted-foreground">Relay Chain</span>
                 </div>
-                <span className="font-mono">{getSourceBalance()} HEZ</span>
+                <span className="font-mono">{relayBalance} HEZ</span>
               </div>
 
               <div className="flex justify-center">
@@ -470,26 +366,34 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
                 <div className="flex items-center gap-2">
                   <div
                     className={`w-2 h-2 rounded-full ${
-                      direction === 'to-parachain'
-                        ? targetChain === 'asset-hub'
-                          ? 'bg-blue-500'
-                          : 'bg-purple-500'
-                        : 'bg-green-500'
+                      targetChain === 'asset-hub' ? 'bg-blue-500' : 'bg-purple-500'
                     }`}
                   />
-                  <span className="text-sm text-muted-foreground">{getDestChainName()}</span>
+                  <span className="text-sm text-muted-foreground">{selectedChain.name}</span>
                 </div>
-                <span className="font-mono">{getDestBalance()} HEZ</span>
+                <span className="font-mono">{getTargetBalance()} HEZ</span>
               </div>
             </div>
 
             {/* Info Box */}
-            <div className="p-3 rounded-lg flex gap-2 bg-yellow-500/10 border border-yellow-500/30">
-              <Info className="w-5 h-5 flex-shrink-0 text-yellow-400" />
-              <p className="text-sm text-yellow-400">
-                {direction === 'to-parachain'
-                  ? `${selectedChain.description} kêmî 0.1 HEZ tê pêşniyarkirin.`
-                  : 'HEZ ji teyrchainê vedigere Relay Chainê.'}
+            <div
+              className={`p-3 rounded-lg flex gap-2 ${
+                targetChain === 'asset-hub'
+                  ? 'bg-blue-500/10 border border-blue-500/30'
+                  : 'bg-purple-500/10 border border-purple-500/30'
+              }`}
+            >
+              <Info
+                className={`w-5 h-5 flex-shrink-0 ${
+                  targetChain === 'asset-hub' ? 'text-blue-400' : 'text-purple-400'
+                }`}
+              />
+              <p
+                className={`text-sm ${
+                  targetChain === 'asset-hub' ? 'text-blue-400' : 'text-purple-400'
+                }`}
+              >
+                {selectedChain.description} kêmî 0.1 HEZ tê pêşniyarkirin.
               </p>
             </div>
 
@@ -554,7 +458,7 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
               ) : (
                 <>
                   <Fuel className="w-5 h-5" />
-                  Bo {getDestChainName()} Bişîne
+                  Bo {selectedChain.name} Bişîne
                 </>
               )}
             </button>
