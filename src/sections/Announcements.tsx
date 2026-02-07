@@ -14,10 +14,18 @@ import { useAuth } from '@/contexts/AuthContext';
 
 export function AnnouncementsSection() {
   const { hapticImpact, hapticNotification, openLink } = useTelegram();
-  const { isAuthenticated, sessionToken } = useAuth();
+  const { isAuthenticated, sessionToken, user, authError } = useAuth();
 
   const { data: announcements, isLoading, refetch, isRefetching } = useAnnouncements();
   const reactionMutation = useAnnouncementReaction(sessionToken);
+
+  // Debug: Log auth state
+  console.log('[Announcements] Auth state:', {
+    isAuthenticated,
+    hasSessionToken: !!sessionToken,
+    user: user?.first_name,
+    authError,
+  });
 
   const handleReaction = (id: string, reaction: 'like' | 'dislike') => {
     if (!isAuthenticated) {
@@ -65,6 +73,12 @@ export function AnnouncementsSection() {
           </button>
         </div>
       </header>
+
+      {/* Debug Banner - Remove after fixing */}
+      <div className="bg-yellow-500/20 text-yellow-300 text-xs p-2 mx-4 mt-2 rounded">
+        Auth: {isAuthenticated ? 'YES' : 'NO'} | Token: {sessionToken ? 'YES' : 'NO'} | User:{' '}
+        {user?.first_name || 'null'} | Error: {authError || 'none'}
+      </div>
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto hide-scrollbar">
