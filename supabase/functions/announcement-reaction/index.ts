@@ -2,7 +2,6 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { createHmac } from 'https://deno.land/std@0.177.0/node/crypto.ts';
 
-// CORS - Only allow our Telegram MiniApp domain
 const ALLOWED_ORIGIN = 'https://telegram.pezkuwichain.io';
 
 function getCorsHeaders(): Record<string, string> {
@@ -21,7 +20,6 @@ interface TelegramUser {
   username?: string;
 }
 
-// Validate Telegram WebApp initData and extract user
 function validateInitData(initData: string, botToken: string): TelegramUser | null {
   try {
     const params = new URLSearchParams(initData);
@@ -30,38 +28,25 @@ function validateInitData(initData: string, botToken: string): TelegramUser | nu
 
     params.delete('hash');
 
-    // Sort parameters alphabetically
     const sortedParams = Array.from(params.entries())
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([key, value]) => `${key}=${value}`)
       .join('\n');
 
-    // Calculate secret key: HMAC-SHA256("WebAppData", bot_token)
     const secretKey = createHmac('sha256', 'WebAppData').update(botToken).digest();
-
-    // Calculate hash: HMAC-SHA256(secret_key, data_check_string)
     const calculatedHash = createHmac('sha256', secretKey).update(sortedParams).digest('hex');
 
-    if (calculatedHash !== hash) {
-      console.error('[announcement-reaction] Hash mismatch');
-      return null;
-    }
+    if (calculatedHash !== hash) return null;
 
-    // Check auth_date (allow 24 hours)
     const authDate = parseInt(params.get('auth_date') || '0');
     const now = Math.floor(Date.now() / 1000);
-    if (now - authDate > 86400) {
-      console.error('[announcement-reaction] Auth data expired');
-      return null;
-    }
+    if (now - authDate > 86400) return null;
 
-    // Parse user data
     const userStr = params.get('user');
     if (!userStr) return null;
 
     return JSON.parse(userStr) as TelegramUser;
-  } catch (e) {
-    console.error('[announcement-reaction] Validation error:', e);
+  } catch {
     return null;
   }
 }
@@ -69,7 +54,6 @@ function validateInitData(initData: string, botToken: string): TelegramUser | nu
 serve(async (req) => {
   const corsHeaders = getCorsHeaders();
 
-  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -78,13 +62,6 @@ serve(async (req) => {
     const body = await req.json();
     const { initData, announcementId, reaction } = body;
 
-    console.log('[announcement-reaction] Request received:', {
-      hasInitData: !!initData,
-      announcementId,
-      reaction,
-    });
-
-    // Validate input
     if (!initData || !announcementId || !reaction) {
       return new Response(JSON.stringify({ error: 'Missing required fields' }), {
         status: 400,
@@ -99,20 +76,17 @@ serve(async (req) => {
       });
     }
 
-    // Get environment variables
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const botToken = Deno.env.get('TELEGRAM_BOT_TOKEN');
 
     if (!botToken) {
-      console.error('[announcement-reaction] TELEGRAM_BOT_TOKEN not set!');
       return new Response(JSON.stringify({ error: 'Server configuration error' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    // Validate initData and get Telegram user
     const telegramUser = validateInitData(initData, botToken);
     if (!telegramUser) {
       return new Response(JSON.stringify({ error: 'Invalid Telegram data' }), {
@@ -122,14 +96,12 @@ serve(async (req) => {
     }
 
     const telegramId = telegramUser.id;
-    console.log('[announcement-reaction] User validated:', telegramId);
 
-    // Create Supabase admin client
     const supabase = createClient(supabaseUrl, supabaseServiceKey, {
       auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    // Get or create user by telegram_id
+    // Get or create user
     let userId: string;
     const { data: existingUser } = await supabase
       .from('tg_users')
@@ -140,7 +112,6 @@ serve(async (req) => {
     if (existingUser) {
       userId = existingUser.id;
     } else {
-      // Create user if not exists
       const { data: newUser, error: createError } = await supabase
         .from('tg_users')
         .insert({
@@ -153,14 +124,12 @@ serve(async (req) => {
         .single();
 
       if (createError || !newUser) {
-        console.error('[announcement-reaction] Failed to create user:', createError);
         return new Response(JSON.stringify({ error: 'Failed to create user' }), {
           status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
       userId = newUser.id;
-      console.log('[announcement-reaction] Created new user:', userId);
     }
 
     // Check existing reaction
@@ -178,7 +147,6 @@ serve(async (req) => {
         // Remove reaction (toggle off)
         await supabase.from('tg_announcement_reactions').delete().eq('id', existing.id);
 
-        // Decrement counter
         const { data: ann } = await supabase
           .from('tg_announcements')
           .select(reaction === 'like' ? 'likes' : 'dislikes')
@@ -197,7 +165,6 @@ serve(async (req) => {
         const oldReaction = existing.reaction;
         await supabase.from('tg_announcement_reactions').update({ reaction }).eq('id', existing.id);
 
-        // Update counters
         const { data: ann } = await supabase
           .from('tg_announcements')
           .select('likes, dislikes')
@@ -228,7 +195,6 @@ serve(async (req) => {
         reaction,
       });
 
-      // Increment counter
       const { data: ann } = await supabase
         .from('tg_announcements')
         .select(reaction === 'like' ? 'likes' : 'dislikes')
@@ -244,14 +210,13 @@ serve(async (req) => {
       resultAction = 'added';
     }
 
-    // Get updated announcement data
+    // Get updated data
     const { data: updatedAnn } = await supabase
       .from('tg_announcements')
       .select('likes, dislikes')
       .eq('id', announcementId)
       .single();
 
-    // Get user's current reaction
     const { data: userReaction } = await supabase
       .from('tg_announcement_reactions')
       .select('reaction')
@@ -269,8 +234,7 @@ serve(async (req) => {
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-  } catch (error) {
-    console.error('[announcement-reaction] Error:', error);
+  } catch {
     return new Response(JSON.stringify({ error: 'Internal server error' }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
