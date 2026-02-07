@@ -76,8 +76,21 @@ export function AnnouncementsSection() {
 
       {/* Debug Banner - Remove after fixing */}
       <div className="bg-yellow-500/20 text-yellow-300 text-xs p-2 mx-4 mt-2 rounded break-all">
-        Auth: {isAuthenticated ? 'YES' : 'NO'} | Token: {sessionToken ? 'YES' : 'NO'} | User:{' '}
-        {user?.first_name || 'null'} | Err: {authError || 'none'}
+        <div>
+          Auth: {isAuthenticated ? 'YES' : 'NO'} | Token: {sessionToken ? 'YES' : 'NO'} | User:{' '}
+          {user?.first_name || 'null'}
+        </div>
+        <div>Err: {authError || 'none'}</div>
+        <div>
+          TG: {window.Telegram?.WebApp ? 'YES' : 'NO'} | initData:{' '}
+          {window.Telegram?.WebApp?.initData
+            ? window.Telegram.WebApp.initData.length + ' chars'
+            : 'EMPTY'}
+        </div>
+        <div>
+          Platform: {window.Telegram?.WebApp?.platform || 'unknown'} | Ver:{' '}
+          {window.Telegram?.WebApp?.version || '?'}
+        </div>
       </div>
 
       {/* Content */}
