@@ -159,17 +159,41 @@ export function LPStakingModal({ isOpen, onClose }: LPStakingModalProps) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const tx = (assetHubApi.tx.assetRewards as any).stake(selectedPool, amountBN.toString());
 
-      const hash = await tx.signAndSend(keypair);
+      await new Promise<void>((resolve, reject) => {
+        tx.signAndSend(
+          keypair,
+          ({
+            status,
+            dispatchError,
+          }: {
+            status: { isFinalized: boolean };
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            dispatchError?: { isModule: boolean; asModule: any; toString: () => string };
+          }) => {
+            if (status.isFinalized) {
+              if (dispatchError) {
+                let errorMsg = 'Stake neserketî';
+                if (dispatchError.isModule) {
+                  const decoded = assetHubApi.registry.findMetaError(dispatchError.asModule);
+                  errorMsg = `${decoded.section}.${decoded.name}`;
+                }
+                reject(new Error(errorMsg));
+              } else {
+                resolve();
+              }
+            }
+          }
+        ).catch(reject);
+      });
+
       hapticNotification('success');
-      showAlert(`Stake serket! Hash: ${hash.toString().slice(0, 16)}...`);
+      showAlert('Stake serket!');
       setStakeAmount('');
 
-      // Close modal after success
       setTimeout(() => {
         onClose();
       }, 1500);
     } catch (err) {
-      console.error('Stake error:', err);
       setError(err instanceof Error ? err.message : 'Stake neserketî');
       hapticNotification('error');
     } finally {
@@ -189,16 +213,41 @@ export function LPStakingModal({ isOpen, onClose }: LPStakingModalProps) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const tx = (assetHubApi.tx.assetRewards as any).unstake(selectedPool, amountBN.toString());
 
-      const hash = await tx.signAndSend(keypair);
+      await new Promise<void>((resolve, reject) => {
+        tx.signAndSend(
+          keypair,
+          ({
+            status,
+            dispatchError,
+          }: {
+            status: { isFinalized: boolean };
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            dispatchError?: { isModule: boolean; asModule: any; toString: () => string };
+          }) => {
+            if (status.isFinalized) {
+              if (dispatchError) {
+                let errorMsg = 'Unstake neserketî';
+                if (dispatchError.isModule) {
+                  const decoded = assetHubApi.registry.findMetaError(dispatchError.asModule);
+                  errorMsg = `${decoded.section}.${decoded.name}`;
+                }
+                reject(new Error(errorMsg));
+              } else {
+                resolve();
+              }
+            }
+          }
+        ).catch(reject);
+      });
+
       hapticNotification('success');
-      showAlert(`Unstake serket! Hash: ${hash.toString().slice(0, 16)}...`);
+      showAlert('Unstake serket!');
       setUnstakeAmount('');
 
       setTimeout(() => {
         onClose();
       }, 1500);
     } catch (err) {
-      console.error('Unstake error:', err);
       setError(err instanceof Error ? err.message : 'Unstake neserketî');
       hapticNotification('error');
     } finally {
@@ -216,15 +265,40 @@ export function LPStakingModal({ isOpen, onClose }: LPStakingModalProps) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const tx = (assetHubApi.tx.assetRewards as any).harvestRewards(selectedPool);
 
-      const hash = await tx.signAndSend(keypair);
+      await new Promise<void>((resolve, reject) => {
+        tx.signAndSend(
+          keypair,
+          ({
+            status,
+            dispatchError,
+          }: {
+            status: { isFinalized: boolean };
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            dispatchError?: { isModule: boolean; asModule: any; toString: () => string };
+          }) => {
+            if (status.isFinalized) {
+              if (dispatchError) {
+                let errorMsg = 'Xelat stendin neserketî';
+                if (dispatchError.isModule) {
+                  const decoded = assetHubApi.registry.findMetaError(dispatchError.asModule);
+                  errorMsg = `${decoded.section}.${decoded.name}`;
+                }
+                reject(new Error(errorMsg));
+              } else {
+                resolve();
+              }
+            }
+          }
+        ).catch(reject);
+      });
+
       hapticNotification('success');
-      showAlert(`Xelat hat stendin! Hash: ${hash.toString().slice(0, 16)}...`);
+      showAlert('Xelat hat stendin!');
 
       setTimeout(() => {
         onClose();
       }, 1500);
     } catch (err) {
-      console.error('Claim error:', err);
       setError(err instanceof Error ? err.message : 'Xelat stendin neserketî');
       hapticNotification('error');
     } finally {
