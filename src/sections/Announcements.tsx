@@ -14,7 +14,14 @@ import { useAuth } from '@/contexts/AuthContext';
 
 export function AnnouncementsSection() {
   const { hapticImpact, hapticNotification, openLink } = useTelegram();
-  const { isAuthenticated, sessionToken, user, authError } = useAuth();
+  const {
+    isAuthenticated,
+    sessionToken,
+    user,
+    authError,
+    signIn,
+    isLoading: authLoading,
+  } = useAuth();
 
   const { data: announcements, isLoading, refetch, isRefetching } = useAnnouncements();
   const reactionMutation = useAnnouncementReaction(sessionToken);
@@ -91,6 +98,15 @@ export function AnnouncementsSection() {
           Platform: {window.Telegram?.WebApp?.platform || 'unknown'} | Ver:{' '}
           {window.Telegram?.WebApp?.version || '?'}
         </div>
+        {!isAuthenticated && (
+          <button
+            onClick={() => signIn()}
+            disabled={authLoading}
+            className="mt-2 px-3 py-1 bg-yellow-500 text-black rounded text-xs font-medium"
+          >
+            {authLoading ? 'Deneniyor...' : 'Retry Auth'}
+          </button>
+        )}
       </div>
 
       {/* Content */}

@@ -22,7 +22,8 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 // Wait for Telegram SDK to be ready with initData
-function waitForInitData(maxAttempts = 10, intervalMs = 200): Promise<string | null> {
+// 25 attempts * 200ms = 5 seconds max wait
+function waitForInitData(maxAttempts = 25, intervalMs = 200): Promise<string | null> {
   return new Promise((resolve) => {
     let attempts = 0;
 
