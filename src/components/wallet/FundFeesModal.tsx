@@ -327,12 +327,11 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
 
       const weightLimit = 'Unlimited';
 
-      // Find which XCM pallet exists on this chain
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const xcmPallet = (sourceApi.tx as any).xcmPallet || (sourceApi.tx as any).polkadotXcm;
+      // Relay chain uses xcmPallet, teyrchains use pezkuwiXCM
+
+      const xcmPallet = (sourceApi.tx as any).xcmPallet || (sourceApi.tx as any).pezkuwiXCM;
       if (!xcmPallet?.limitedTeleportAssets) {
-        const available = Object.keys(sourceApi.tx).filter((p) => p.toLowerCase().includes('xcm'));
-        throw new Error(`XCM pallet nehate dîtin. Heyî: ${available.join(', ') || 'tune'}`);
+        throw new Error('XCM pallet nehate dîtin');
       }
 
       const tx = xcmPallet.limitedTeleportAssets(
