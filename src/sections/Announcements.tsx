@@ -20,7 +20,7 @@ export function AnnouncementsSection() {
   const reactionMutation = useAnnouncementReaction(sessionToken);
 
   // Debug: Log auth state
-  console.log('[Announcements] Auth state:', {
+  console.warn('[Announcements] Auth state:', {
     isAuthenticated,
     hasSessionToken: !!sessionToken,
     user: user?.first_name,

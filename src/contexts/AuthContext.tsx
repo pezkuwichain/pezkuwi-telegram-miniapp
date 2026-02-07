@@ -20,9 +20,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [authError, setAuthError] = useState<string | null>(null);
 
   const signIn = async () => {
-    console.log('[Auth] signIn called');
+    console.warn('[Auth] signIn called');
     const tg = window.Telegram?.WebApp;
-    console.log('[Auth] Telegram WebApp:', tg ? 'exists' : 'missing');
+    console.warn('[Auth] Telegram WebApp:', tg ? 'exists' : 'missing');
     console.log(
       '[Auth] initData:',
       tg?.initData ? `exists (${tg.initData.length} chars)` : 'MISSING'
@@ -32,20 +32,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setIsLoading(true);
 
     if (!tg?.initData) {
-      console.log('[Auth] No initData, setting error');
+      console.warn('[Auth] No initData, setting error');
       setAuthError('No Telegram initData');
       setIsLoading(false);
       return;
     }
 
     try {
-      console.log('[Auth] Calling signInWithTelegram...');
+      console.warn('[Auth] Calling signInWithTelegram...');
       const result = await signInWithTelegram(tg.initData);
-      console.log('[Auth] signInWithTelegram result:', JSON.stringify(result));
+      console.warn('[Auth] signInWithTelegram result:', JSON.stringify(result));
       if (result?.user) {
         setUser(result.user);
         setAuthError(null);
-        console.log('[Auth] User set:', result.user.first_name);
+        console.warn('[Auth] User set:', result.user.first_name);
       } else {
         console.warn('[Auth] No user in result');
         setAuthError('No user returned from auth');
@@ -53,7 +53,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // Store session token for P2P and other cross-app auth
       if (result?.session_token) {
         setSessionToken(result.session_token);
-        console.log('[Auth] Session token set');
+        console.warn('[Auth] Session token set');
       } else {
         console.warn('[Auth] No session_token in result');
       }
