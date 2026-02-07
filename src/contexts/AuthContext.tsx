@@ -59,16 +59,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const authAttempted = useRef(false);
 
   const signIn = useCallback(async () => {
-    console.warn('[Auth] signIn called');
+    console.warn('[Auth] ========== signIn START ==========');
     const tg = window.Telegram?.WebApp;
-    console.warn('[Auth] Telegram WebApp:', tg ? 'exists' : 'missing');
-    console.warn('[Auth] platform:', tg?.platform, '| version:', tg?.version);
+    console.warn('[Auth] TG object:', tg ? 'exists' : 'MISSING');
+    console.warn(
+      '[Auth] TG.initData direct check:',
+      tg?.initData ? tg.initData.length + ' chars' : 'EMPTY'
+    );
 
     setAuthError(null);
     setIsLoading(true);
 
     // Wait for initData to be available (retry mechanism)
+    console.warn('[Auth] Calling waitForInitData...');
     const initData = await waitForInitData();
+    console.warn(
+      '[Auth] waitForInitData returned:',
+      initData ? initData.length + ' chars' : 'NULL'
+    );
 
     if (!initData) {
       console.warn('[Auth] No initData after waiting, setting error');
@@ -77,12 +85,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return;
     }
 
-    console.warn('[Auth] initData available:', initData.length, 'chars');
+    console.warn('[Auth] initData available, calling signInWithTelegram...');
 
     try {
-      console.warn('[Auth] Calling signInWithTelegram...');
       const result = await signInWithTelegram(initData);
-      console.warn('[Auth] signInWithTelegram result:', JSON.stringify(result));
+      console.warn('[Auth] signInWithTelegram SUCCESS:', JSON.stringify(result));
       if (result?.user) {
         setUser(result.user);
         setAuthError(null);
@@ -91,22 +98,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         console.warn('[Auth] No user in result');
         setAuthError('No user returned from auth');
       }
-      // Store session token for P2P and other cross-app auth
       if (result?.session_token) {
         setSessionToken(result.session_token);
         console.warn('[Auth] Session token set');
-      } else {
-        console.warn('[Auth] No session_token in result');
       }
     } catch (error) {
-      // Capture error message for debugging
       const errorMsg = error instanceof Error ? error.message : String(error);
+      console.warn('[Auth] signInWithTelegram FAILED:', errorMsg);
       setAuthError(errorMsg);
-      if (import.meta.env.DEV) {
-        console.error('[Auth] Error:', error);
-      }
     } finally {
       setIsLoading(false);
+      console.warn('[Auth] ========== signIn END ==========');
     }
   }, []);
 

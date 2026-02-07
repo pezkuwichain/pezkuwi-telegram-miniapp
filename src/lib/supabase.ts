@@ -7,48 +7,62 @@ export const supabase: SupabaseClient = createClient(env.SUPABASE_URL, env.SUPAB
 
 // Telegram auth helper - validates initData with Edge Function
 export async function signInWithTelegram(initData: string) {
+  console.warn('[signInWithTelegram] Called with initData:', initData.length, 'chars');
+
   if (!initData) {
+    console.warn('[signInWithTelegram] No initData provided!');
     throw new Error('No Telegram initData provided');
   }
 
-  const { data, error } = await supabase.functions.invoke('telegram-auth', {
-    body: { initData },
-  });
+  console.warn('[signInWithTelegram] Calling supabase.functions.invoke...');
 
-  if (error) {
-    // Extract more detailed error message
-    let errorMessage = error.message || 'Unknown error';
+  try {
+    const { data, error } = await supabase.functions.invoke('telegram-auth', {
+      body: { initData },
+    });
 
-    // Check if there's additional context in the error
-    if (error.context?.body) {
-      try {
-        const bodyError = JSON.parse(error.context.body);
-        if (bodyError.error) {
-          errorMessage = bodyError.error;
-        }
-      } catch {
-        // Body is not JSON, use as-is
-        if (typeof error.context.body === 'string') {
-          errorMessage = error.context.body;
+    console.warn('[signInWithTelegram] Response - data:', !!data, 'error:', !!error);
+
+    if (error) {
+      let errorMessage = error.message || 'Unknown error';
+      console.warn('[signInWithTelegram] Error object:', JSON.stringify(error));
+
+      if (error.context?.body) {
+        try {
+          const bodyError = JSON.parse(error.context.body);
+          if (bodyError.error) {
+            errorMessage = bodyError.error;
+          }
+        } catch {
+          if (typeof error.context.body === 'string') {
+            errorMessage = error.context.body;
+          }
         }
       }
+
+      console.warn('[signInWithTelegram] Final error message:', errorMessage);
+      throw new Error(errorMessage);
     }
 
-    console.error('[Auth] Telegram sign-in failed:', errorMessage);
-    throw new Error(errorMessage);
-  }
+    if (data?.error) {
+      console.warn('[signInWithTelegram] Data contains error:', data.error);
+      throw new Error(data.error);
+    }
 
-  // Check if edge function returned an error in data
-  if (data?.error) {
-    console.error('[Auth] Edge function error:', data.error);
-    throw new Error(data.error);
-  }
+    console.warn('[signInWithTelegram] Success, user:', data?.user?.first_name);
 
-  if (data?.session) {
-    await supabase.auth.setSession(data.session);
-  }
+    if (data?.session) {
+      await supabase.auth.setSession(data.session);
+    }
 
-  return data;
+    return data;
+  } catch (e) {
+    console.warn(
+      '[signInWithTelegram] Exception caught:',
+      e instanceof Error ? e.message : String(e)
+    );
+    throw e;
+  }
 }
 
 // Helper to get current session
