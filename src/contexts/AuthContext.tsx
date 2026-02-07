@@ -31,14 +31,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     try {
+      console.log('[Auth] Calling signInWithTelegram...');
+      console.log('[Auth] initData length:', tg.initData?.length);
       const result = await signInWithTelegram(tg.initData);
-      console.log('[Auth] signInWithTelegram result:', result);
+      console.log('[Auth] signInWithTelegram result:', JSON.stringify(result));
       if (result?.user) {
         setUser(result.user);
         setAuthError(null);
         console.log('[Auth] User set:', result.user.first_name);
       } else {
         console.warn('[Auth] No user in result');
+        setAuthError('No user returned from auth');
       }
       // Store session token for P2P and other cross-app auth
       if (result?.session_token) {

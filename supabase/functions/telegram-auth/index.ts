@@ -163,13 +163,8 @@ serve(async (req) => {
       });
     }
 
-    // Create Supabase admin client with auth admin capabilities
-    const supabase = createClient(supabaseUrl, supabaseServiceKey, {
-      auth: {
-        autoRefreshToken: false,
-        persistSession: false,
-      },
-    });
+    // Create Supabase admin client
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // ========================================
     // Method 1: Session token verification
@@ -289,38 +284,6 @@ serve(async (req) => {
 
     // Get the full user data
     const { data: userData } = await supabase.from('users').select('*').eq('id', userId).single();
-
-    // Also sync to tg_users table for forum/announcements
-    const { data: existingTgUser } = await supabase
-      .from('tg_users')
-      .select('id')
-      .eq('telegram_id', telegramUser.id)
-      .single();
-
-    if (!existingTgUser) {
-      // Create tg_user record with same ID as users table for consistency
-      await supabase.from('tg_users').insert({
-        id: userId,
-        telegram_id: telegramUser.id,
-        username: telegramUser.username || null,
-        first_name: telegramUser.first_name,
-        last_name: telegramUser.last_name || null,
-        photo_url: telegramUser.photo_url || null,
-        is_admin: false,
-      });
-      console.log('[telegram-auth] Created tg_user record for:', userId);
-    } else {
-      // Update tg_user record
-      await supabase
-        .from('tg_users')
-        .update({
-          username: telegramUser.username || null,
-          first_name: telegramUser.first_name,
-          last_name: telegramUser.last_name || null,
-          photo_url: telegramUser.photo_url || null,
-        })
-        .eq('id', existingTgUser.id);
-    }
 
     return new Response(
       JSON.stringify({

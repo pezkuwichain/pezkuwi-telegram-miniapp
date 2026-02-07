@@ -75,9 +75,9 @@ export function AnnouncementsSection() {
       </header>
 
       {/* Debug Banner - Remove after fixing */}
-      <div className="bg-yellow-500/20 text-yellow-300 text-xs p-2 mx-4 mt-2 rounded">
+      <div className="bg-yellow-500/20 text-yellow-300 text-xs p-2 mx-4 mt-2 rounded break-all">
         Auth: {isAuthenticated ? 'YES' : 'NO'} | Token: {sessionToken ? 'YES' : 'NO'} | User:{' '}
-        {user?.first_name || 'null'} | Error: {authError || 'none'}
+        {user?.first_name || 'null'} | Err: {authError || 'none'}
       </div>
 
       {/* Content */}
