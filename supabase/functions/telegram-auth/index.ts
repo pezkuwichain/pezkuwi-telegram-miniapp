@@ -139,15 +139,20 @@ function verifySessionToken(token: string, botToken: string): number | null {
 }
 
 serve(async (req) => {
+  console.log('[telegram-auth] Request received:', req.method);
+
   const corsHeaders = getCorsHeaders(req.headers.get('origin'));
 
   // Handle CORS preflight
   if (req.method === 'OPTIONS') {
+    console.log('[telegram-auth] CORS preflight');
     return new Response('ok', { headers: corsHeaders });
   }
 
   try {
+    console.log('[telegram-auth] Parsing body...');
     const body = await req.json();
+    console.log('[telegram-auth] Body parsed, initData:', body.initData ? 'exists' : 'missing');
     const { initData, sessionToken } = body;
 
     // Get environment variables

@@ -20,11 +20,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [authError, setAuthError] = useState<string | null>(null);
 
   const signIn = async () => {
+    console.log('[Auth] signIn called');
     const tg = window.Telegram?.WebApp;
+    console.log('[Auth] Telegram WebApp:', tg ? 'exists' : 'missing');
+    console.log(
+      '[Auth] initData:',
+      tg?.initData ? `exists (${tg.initData.length} chars)` : 'MISSING'
+    );
+
     setAuthError(null);
     setIsLoading(true);
 
     if (!tg?.initData) {
+      console.log('[Auth] No initData, setting error');
       setAuthError('No Telegram initData');
       setIsLoading(false);
       return;
@@ -32,7 +40,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       console.log('[Auth] Calling signInWithTelegram...');
-      console.log('[Auth] initData length:', tg.initData?.length);
       const result = await signInWithTelegram(tg.initData);
       console.log('[Auth] signInWithTelegram result:', JSON.stringify(result));
       if (result?.user) {
