@@ -32,13 +32,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     try {
       const result = await signInWithTelegram(tg.initData);
+      console.log('[Auth] signInWithTelegram result:', result);
       if (result?.user) {
         setUser(result.user);
         setAuthError(null);
+        console.log('[Auth] User set:', result.user.first_name);
+      } else {
+        console.warn('[Auth] No user in result');
       }
       // Store session token for P2P and other cross-app auth
       if (result?.session_token) {
         setSessionToken(result.session_token);
+        console.log('[Auth] Session token set');
+      } else {
+        console.warn('[Auth] No session_token in result');
       }
     } catch (error) {
       // Capture error message for debugging

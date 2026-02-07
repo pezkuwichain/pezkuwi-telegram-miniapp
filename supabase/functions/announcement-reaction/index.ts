@@ -66,8 +66,19 @@ serve(async (req) => {
     const body = await req.json();
     const { sessionToken, announcementId, reaction } = body;
 
+    console.log('[announcement-reaction] Request received:', {
+      hasSessionToken: !!sessionToken,
+      announcementId,
+      reaction,
+    });
+
     // Validate input
     if (!sessionToken || !announcementId || !reaction) {
+      console.error('[announcement-reaction] Missing fields:', {
+        sessionToken: !!sessionToken,
+        announcementId,
+        reaction,
+      });
       return new Response(JSON.stringify({ error: 'Missing required fields' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -87,11 +98,14 @@ serve(async (req) => {
     const botToken = Deno.env.get('TELEGRAM_BOT_TOKEN');
 
     if (!botToken) {
+      console.error('[announcement-reaction] TELEGRAM_BOT_TOKEN not set!');
       return new Response(JSON.stringify({ error: 'Server configuration error' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    console.log('[announcement-reaction] Bot token available, verifying session...');
 
     // Verify session token
     const telegramId = verifySessionToken(sessionToken, botToken);
