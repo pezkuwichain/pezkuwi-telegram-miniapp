@@ -164,8 +164,17 @@ export function useAnnouncementReaction() {
       });
 
       if (error) {
-        console.error('[useAnnouncementReaction] Edge function error:', error);
-        throw new Error(error.message || 'Failed to process reaction');
+        let msg = error.message || 'Failed';
+        try {
+          const body = error.context?.body;
+          if (body) {
+            const parsed = JSON.parse(body);
+            if (parsed.error) msg = parsed.error;
+          }
+        } catch {
+          // ignore parse errors
+        }
+        throw new Error(msg);
       }
 
       if (data?.error) {
