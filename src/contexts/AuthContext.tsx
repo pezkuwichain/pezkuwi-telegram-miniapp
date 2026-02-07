@@ -1,4 +1,12 @@
-import { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useState,
+  useRef,
+  useCallback,
+  ReactNode,
+} from 'react';
 import { signInWithTelegram } from '@/lib/supabase';
 import type { User } from '@/hooks/useSupabase';
 
@@ -13,34 +21,66 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | null>(null);
 
+// Wait for Telegram SDK to be ready with initData
+function waitForInitData(maxAttempts = 10, intervalMs = 200): Promise<string | null> {
+  return new Promise((resolve) => {
+    let attempts = 0;
+
+    const check = () => {
+      attempts++;
+      const tg = window.Telegram?.WebApp;
+      const initData = tg?.initData;
+
+      if (initData && initData.length > 0) {
+        console.warn(`[Auth] initData found after ${attempts} attempts`);
+        resolve(initData);
+        return;
+      }
+
+      if (attempts >= maxAttempts) {
+        console.warn(`[Auth] initData not found after ${attempts} attempts`);
+        resolve(null);
+        return;
+      }
+
+      setTimeout(check, intervalMs);
+    };
+
+    check();
+  });
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
+  const authAttempted = useRef(false);
 
-  const signIn = async () => {
+  const signIn = useCallback(async () => {
     console.warn('[Auth] signIn called');
     const tg = window.Telegram?.WebApp;
     console.warn('[Auth] Telegram WebApp:', tg ? 'exists' : 'missing');
-    console.log(
-      '[Auth] initData:',
-      tg?.initData ? `exists (${tg.initData.length} chars)` : 'MISSING'
-    );
+    console.warn('[Auth] platform:', tg?.platform, '| version:', tg?.version);
 
     setAuthError(null);
     setIsLoading(true);
 
-    if (!tg?.initData) {
-      console.warn('[Auth] No initData, setting error');
+    // Wait for initData to be available (retry mechanism)
+    const initData = await waitForInitData();
+
+    if (!initData) {
+      console.warn('[Auth] No initData after waiting, setting error');
       setAuthError('No Telegram initData');
       setIsLoading(false);
       return;
     }
 
+    console.warn('[Auth] initData available:', initData.length, 'chars');
+
     try {
       console.warn('[Auth] Calling signInWithTelegram...');
-      const result = await signInWithTelegram(tg.initData);
+      const result = await signInWithTelegram(initData);
       console.warn('[Auth] signInWithTelegram result:', JSON.stringify(result));
       if (result?.user) {
         setUser(result.user);
@@ -67,12 +107,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
+    // Prevent double auth in StrictMode
+    if (authAttempted.current) return;
+    authAttempted.current = true;
+
     // Auto sign-in when in Telegram
     signIn();
-  }, []);
+  }, [signIn]);
 
   return (
     <AuthContext.Provider
