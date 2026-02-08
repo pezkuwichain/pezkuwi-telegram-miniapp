@@ -15,6 +15,10 @@ import { secp256k1 } from 'https://esm.sh/@noble/curves@1.2.0/secp256k1';
 
 const ALLOWED_ORIGIN = 'https://telegram.pezkuwichain.io';
 const MIN_DEPOSIT = 10; // Minimum 10 USDT
+
+// Platform fees per network
+const TON_FEE = 0.1; // $0.1 fee for TON
+const POLKADOT_FEE = 0.1; // $0.1 fee for Polkadot
 const TRC20_FEE = 3; // $3 fee for TRC20
 
 // API endpoints
@@ -135,11 +139,14 @@ async function checkTonDeposits(
           continue;
         }
 
-        // Create deposit record
+        // Calculate net amount after platform fee
+        const netAmount = Math.max(0, amount - TON_FEE);
+
+        // Create deposit record with net amount
         const { error } = await supabase.from('tg_deposits').insert({
           user_id: depositCode.user_id,
           network: 'ton',
-          amount,
+          amount: netAmount,
           tx_hash: txHash,
           memo: comment,
           status: 'confirming',
@@ -203,12 +210,15 @@ async function checkPolkadotDeposits(
 
       result.found++;
 
+      // Calculate net amount after platform fee
+      const netAmount = Math.max(0, amount - POLKADOT_FEE);
+
       // For Polkadot, memo might be in extrinsic data
       // Try to find user by checking system.remark in same block
       // For now, create as pending without user
       const { error } = await supabase.from('tg_deposits').insert({
         network: 'polkadot',
-        amount,
+        amount: netAmount,
         tx_hash: txHash,
         status: 'confirming',
       });
