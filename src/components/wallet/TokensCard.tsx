@@ -954,11 +954,7 @@ export function TokensCard({ onSendToken }: Props) {
       <FundFeesModal isOpen={showFundFeesModal} onClose={() => setShowFundFeesModal(false)} />
 
       {/* Deposit USDT Modal */}
-      <DepositUSDTModal
-        isOpen={showDepositModal}
-        onClose={() => setShowDepositModal(false)}
-        userId={null}
-      />
+      <DepositUSDTModal isOpen={showDepositModal} onClose={() => setShowDepositModal(false)} />
     </div>
   );
 }

@@ -26,6 +26,7 @@ import { SwapModal } from './SwapModal';
 import { PoolsModal } from './PoolsModal';
 import { LPStakingModal } from './LPStakingModal';
 import { HEZStakingModal } from './HEZStakingModal';
+import { DepositUSDTModal } from './DepositUSDTModal';
 import { useWallet } from '@/contexts/WalletContext';
 import { useTelegram } from '@/hooks/useTelegram';
 import { formatAddress } from '@/lib/wallet-service';
@@ -62,6 +63,7 @@ export function WalletDashboard({ onDisconnect }: Props) {
   const [isLPStakingModalOpen, setIsLPStakingModalOpen] = useState(false);
   const [isHEZStakingModalOpen, setIsHEZStakingModalOpen] = useState(false);
   const [isStakingSelectorOpen, setIsStakingSelectorOpen] = useState(false);
+  const [isDepositUSDTModalOpen, setIsDepositUSDTModalOpen] = useState(false);
 
   // Subscribe to PEZ balance (Asset ID: 1) - Uses Asset Hub API
   useEffect(() => {
@@ -189,13 +191,35 @@ export function WalletDashboard({ onDisconnect }: Props) {
               const { method, signer } = extrinsic;
               const fromAddress = signer.toString();
 
-              // Parse assets.transfer and transferKeepAlive (PEZ)
+              // Parse assets.transfer and transferKeepAlive (PEZ/wUSDT)
               if (
                 method.section === 'assets' &&
                 (method.method === 'transfer' || method.method === 'transferKeepAlive')
               ) {
                 const [assetId, dest, value] = method.args;
-                const toAddress = dest.toString();
+                // Extract address from MultiAddress format
+                let toAddress = '';
+                try {
+                  const destStr = String(dest);
+                  if (destStr.startsWith('5') || destStr.startsWith('1')) {
+                    toAddress = destStr;
+                  } else {
+                    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                    const destObj = dest as any;
+                    if (destObj.isId) {
+                      toAddress = destObj.asId.toString();
+                    } else if (destObj.Id) {
+                      toAddress = destObj.Id.toString();
+                    } else if (typeof destObj.toHuman === 'function') {
+                      const human = destObj.toHuman();
+                      toAddress = typeof human === 'string' ? human : human?.Id || destStr;
+                    } else {
+                      toAddress = destStr;
+                    }
+                  }
+                } catch {
+                  toAddress = String(dest);
+                }
 
                 const isFromUs = fromAddress === address;
                 const isToUs = toAddress === address;
@@ -363,7 +387,50 @@ export function WalletDashboard({ onDisconnect }: Props) {
     };
   }, [api, address, hapticNotification]);
 
-  // Real-time subscription to Asset Hub for PEZ transactions
+  // Helper function to extract address from MultiAddress format
+  const extractAddress = (dest: unknown): string => {
+    if (!dest) return '';
+
+    // If it's already a string that looks like an address
+    const destStr = String(dest);
+    if (destStr.startsWith('5') || destStr.startsWith('1')) {
+      return destStr;
+    }
+
+    // Try to parse as MultiAddress object
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const destObj = dest as any;
+
+      // Handle { Id: '5xxx...' } format
+      if (destObj.isId) {
+        return destObj.asId.toString();
+      }
+      if (destObj.Id) {
+        return destObj.Id.toString();
+      }
+
+      // Handle direct object with id property
+      if (typeof destObj.toHuman === 'function') {
+        const human = destObj.toHuman();
+        if (typeof human === 'string') return human;
+        if (human?.Id) return human.Id;
+      }
+
+      // Try JSON parse for string representation
+      if (destStr.startsWith('{')) {
+        const parsed = JSON.parse(destStr);
+        if (parsed.Id) return parsed.Id;
+        if (parsed.id) return parsed.id;
+      }
+    } catch {
+      // Fall back to string
+    }
+
+    return destStr;
+  };
+
+  // Real-time subscription to Asset Hub for PEZ/wUSDT transactions
   useEffect(() => {
     if (!assetHubApi || !address) return;
 
@@ -390,7 +457,7 @@ export function WalletDashboard({ onDisconnect }: Props) {
                 (method.method === 'transfer' || method.method === 'transferKeepAlive')
               ) {
                 const [assetId, dest, value] = method.args;
-                const toAddress = dest.toString();
+                const toAddress = extractAddress(dest);
 
                 const isFromUs = fromAddress === address;
                 const isToUs = toAddress === address;
@@ -457,8 +524,19 @@ export function WalletDashboard({ onDisconnect }: Props) {
     fetchRecentTransactions();
   };
 
+  const getDecimalsForAsset = (section: string, assetId?: string): number => {
+    if (section === 'balances') return 12; // HEZ
+    if (assetId === '1') return 12; // PEZ
+    if (assetId === '1000') return 6; // wUSDT
+    if (assetId === '1001') return 10; // DOT
+    if (assetId === '1002') return 18; // ETH
+    if (assetId === '1003') return 8; // BTC
+    return 12; // Default
+  };
+
   const formatAmount = (amount: string, decimals: number = 12) => {
     const value = parseInt(amount) / Math.pow(10, decimals);
+    if (decimals <= 6) return value.toFixed(2); // wUSDT
     return value.toFixed(4);
   };
 
@@ -635,6 +713,28 @@ export function WalletDashboard({ onDisconnect }: Props) {
         </button>
       </div>
 
+      {/* Add USDT Card */}
+      <div className="px-4 pb-4">
+        <button
+          onClick={() => {
+            hapticImpact('light');
+            setIsDepositUSDTModalOpen(true);
+          }}
+          className="w-full p-4 bg-gradient-to-r from-emerald-600/20 to-teal-500/20 border border-emerald-500/40 rounded-xl flex items-center gap-4 hover:border-emerald-400/60 transition-all"
+        >
+          <div className="w-12 h-12 bg-emerald-500/20 rounded-full flex items-center justify-center">
+            <img src="/tokens/USDT.png" alt="USDT" className="w-8 h-8 rounded-full" />
+          </div>
+          <div className="flex-1 text-left">
+            <div className="font-semibold text-emerald-400">USDT Zêde Bike</div>
+            <div className="text-xs text-muted-foreground">
+              TON, Polkadot an TRC20 ji zincîrên din
+            </div>
+          </div>
+          <ArrowDownLeft className="w-5 h-5 text-emerald-400" />
+        </button>
+      </div>
+
       {/* Recent Activity */}
       <div className="px-4 pb-4">
         <div className="bg-muted/50 border border-border rounded-xl p-4">
@@ -702,14 +802,22 @@ export function WalletDashboard({ onDisconnect }: Props) {
                       className={`text-sm font-mono ${tx.direction === 'sent' ? 'text-yellow-400' : 'text-green-400'}`}
                     >
                       {tx.direction === 'sent' ? '-' : '+'}
-                      {formatAmount(tx.amount || '0')}
+                      {formatAmount(tx.amount || '0', getDecimalsForAsset(tx.section, tx.assetId))}
                     </div>
                     <div className="text-xs text-gray-400">
                       {tx.section === 'balances'
                         ? 'HEZ'
                         : tx.assetId === '1'
                           ? 'PEZ'
-                          : `Asset #${tx.assetId}`}
+                          : tx.assetId === '1000'
+                            ? 'wUSDT'
+                            : tx.assetId === '1001'
+                              ? 'DOT'
+                              : tx.assetId === '1002'
+                                ? 'ETH'
+                                : tx.assetId === '1003'
+                                  ? 'BTC'
+                                  : `Asset #${tx.assetId}`}
                     </div>
                   </div>
                 </div>
@@ -734,6 +842,10 @@ export function WalletDashboard({ onDisconnect }: Props) {
       <HEZStakingModal
         isOpen={isHEZStakingModalOpen}
         onClose={() => setIsHEZStakingModalOpen(false)}
+      />
+      <DepositUSDTModal
+        isOpen={isDepositUSDTModalOpen}
+        onClose={() => setIsDepositUSDTModalOpen(false)}
       />
 
       {/* Staking Selector */}
@@ -1296,8 +1408,19 @@ function HistoryTab({
 }) {
   const { hapticImpact } = useTelegram();
 
+  const getDecimalsForAsset = (section: string, assetId?: string): number => {
+    if (section === 'balances') return 12; // HEZ
+    if (assetId === '1') return 12; // PEZ
+    if (assetId === '1000') return 6; // wUSDT
+    if (assetId === '1001') return 10; // DOT
+    if (assetId === '1002') return 18; // ETH
+    if (assetId === '1003') return 8; // BTC
+    return 12; // Default
+  };
+
   const formatAmount = (amount: string, decimals: number = 12) => {
     const value = parseInt(amount) / Math.pow(10, decimals);
+    if (decimals <= 6) return value.toFixed(2); // wUSDT
     return value.toFixed(4);
   };
 
@@ -1366,7 +1489,7 @@ function HistoryTab({
                     className={`font-mono font-semibold ${tx.direction === 'sent' ? 'text-yellow-400' : 'text-green-400'}`}
                   >
                     {tx.direction === 'sent' ? '-' : '+'}
-                    {formatAmount(tx.amount || '0')}
+                    {formatAmount(tx.amount || '0', getDecimalsForAsset(tx.section, tx.assetId))}
                   </div>
                   <div className="text-xs text-gray-400">
                     {tx.section === 'balances'

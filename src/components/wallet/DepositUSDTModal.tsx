@@ -80,7 +80,6 @@ interface Deposit {
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  userId: string | null;
 }
 
 export function DepositUSDTModal({ isOpen, onClose }: Props) {
