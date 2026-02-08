@@ -95,9 +95,19 @@ export async function syncWalletToSupabase(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const client = supabase as any;
 
-  // UPDATE existing user's wallet_address (don't create new user)
-  const { error } = await client
+  // UPDATE existing user's wallet_address in both tables
+  // Update 'users' table
+  await client
     .from('users')
+    .update({
+      wallet_address: address,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('telegram_id', telegramId);
+
+  // Also update 'tg_users' table (used by deposit system)
+  const { error } = await client
+    .from('tg_users')
     .update({
       wallet_address: address,
       updated_at: new Date().toISOString(),

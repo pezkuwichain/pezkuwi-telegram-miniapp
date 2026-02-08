@@ -16,6 +16,7 @@ import {
   AlertTriangle,
 } from 'lucide-react';
 import { useTelegram } from '@/hooks/useTelegram';
+import { useWallet } from '@/contexts/WalletContext';
 import { supabase } from '@/lib/supabase';
 
 type Network = 'ton' | 'polkadot' | 'trc20';
@@ -84,6 +85,7 @@ interface Props {
 
 export function DepositUSDTModal({ isOpen, onClose }: Props) {
   const { hapticImpact, showAlert } = useTelegram();
+  const { address: localWalletAddress } = useWallet();
 
   const [selectedNetwork, setSelectedNetwork] = useState<Network>('ton');
   const [depositCode, setDepositCode] = useState<string>('');
@@ -134,6 +136,13 @@ export function DepositUSDTModal({ isOpen, onClose }: Props) {
         } else {
           if (data?.code) setDepositCode(data.code);
           if (data?.trc20Address) setDepositAddress(data.trc20Address);
+
+          // If database doesn't have wallet but we have local wallet, sync it
+          if (!data?.walletAddress && localWalletAddress) {
+            supabase.functions.invoke('save-wallet-address', {
+              body: { initData, walletAddress: localWalletAddress },
+            });
+          }
         }
       } catch (err) {
         console.error('Error fetching deposit info:', err);
@@ -144,7 +153,7 @@ export function DepositUSDTModal({ isOpen, onClose }: Props) {
     };
 
     fetchDepositInfo();
-  }, [isOpen]);
+  }, [isOpen, localWalletAddress]);
 
   // Fetch deposits history
   useEffect(() => {

@@ -190,7 +190,7 @@ serve(async (req) => {
 
     const { data: existingUser } = await supabase
       .from('tg_users')
-      .select('id, deposit_index')
+      .select('id, deposit_index, wallet_address')
       .eq('telegram_id', telegramUser.id)
       .single();
 
@@ -277,6 +277,7 @@ serve(async (req) => {
         code: depositCode,
         trc20Address,
         depositIndex,
+        walletAddress: existingUser?.wallet_address || null,
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

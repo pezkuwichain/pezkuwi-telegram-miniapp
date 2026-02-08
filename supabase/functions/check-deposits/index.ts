@@ -22,8 +22,8 @@ const TON_API = 'https://tonapi.io/v2';
 const TRON_API = 'https://api.trongrid.io';
 const SUBSCAN_API = 'https://assethub-polkadot.api.subscan.io';
 
-// Contract addresses
-const TON_USDT_MASTER = 'EQCxE6mUtQJKFnGfaROTKOt1lZbDiiX1kCixRv7Nw2Id_sDs'; // TON USDT Jetton
+// Contract addresses - raw format from TonAPI
+const TON_USDT_MASTER = '0:b113a994b5024a16719f69139328eb759596c38a25f59028b146fecdc3621dfe'; // TON USDT Jetton
 const TRON_USDT_CONTRACT = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t'; // TRC20 USDT
 
 const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
