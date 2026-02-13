@@ -1,16 +1,16 @@
 /**
  * Score Systems Integration for Telegram Mini App
- * Based on pwap/shared/lib/scores.ts
+ * Aligned with pwap/shared/lib/scores.ts
  *
  * All scores come from People Chain (people-rpc.pezkuwichain.io)
- * - Trust Score: pezpallet-trust
+ * - Trust Score: pezpallet-trust (composite, on-chain calculated)
  * - Referral Score: pezpallet-referral
- * - Staking Score: pezpallet-staking-score (with frontend fallback)
+ * - Staking Score: pezpallet-staking-score
  * - Tiki Score: pezpallet-tiki
+ * - Perwerde Score: pezpallet-perwerde
  */
 
 import type { ApiPromise } from '@pezkuwi/api';
-import { calculateReferralScore, getReferralCount } from './referral';
 
 // ========================================
 // TYPE DEFINITIONS
@@ -21,221 +21,120 @@ export interface UserScores {
   referralScore: number;
   stakingScore: number;
   tikiScore: number;
+  perwerdeScore: number;
   totalScore: number;
+  isCitizen: boolean;
+}
+
+export interface StakingScoreStatus {
+  isTracking: boolean;
+  startBlock: number | null;
+  currentBlock: number;
+  durationBlocks: number;
 }
 
 // ========================================
-// STAKING SCORE FRONTEND FALLBACK
+// TRUST SCORE (pezpallet-trust on People Chain)
 // ========================================
-// Until runtime upgrade deploys, calculate staking score
-// directly from Relay Chain data without People Chain pallet
-
-const STAKING_SCORE_STORAGE_KEY = 'pez_staking_score_tracking';
-const UNITS = 1_000_000_000_000; // 10^12
-const DAY_IN_MS = 24 * 60 * 60 * 1000;
-const MONTH_IN_MS = 30 * DAY_IN_MS;
-
-interface StakingTrackingData {
-  [address: string]: {
-    startTime: number;
-    lastChecked: number;
-    lastStakeAmount: string;
-  };
-}
-
-function getStakingTrackingData(): StakingTrackingData {
-  if (typeof window === 'undefined') return {};
-  try {
-    const stored = localStorage.getItem(STAKING_SCORE_STORAGE_KEY);
-    return stored ? JSON.parse(stored) : {};
-  } catch {
-    return {};
-  }
-}
-
-function saveStakingTrackingData(data: StakingTrackingData): void {
-  if (typeof window === 'undefined') return;
-  try {
-    localStorage.setItem(STAKING_SCORE_STORAGE_KEY, JSON.stringify(data));
-  } catch (err) {
-    console.error('Failed to save staking tracking data:', err);
-  }
-}
 
 /**
- * Fetch staking details directly from Relay Chain
- * In newer Substrate versions, ledger is keyed by stash address
+ * Fetch user's trust score from blockchain
+ * Storage: trust.trustScores(address)
+ * This is the composite score calculated on-chain
  */
-export async function fetchRelayStakingDetails(
-  relayApi: ApiPromise,
-  address: string
-): Promise<{ stakedAmount: bigint; nominationsCount: number } | null> {
+export async function getTrustScore(peopleApi: ApiPromise, address: string): Promise<number> {
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if (!(relayApi?.query as any)?.staking) {
-      console.warn('[Staking] staking pallet not found');
-      return null;
+    if (!(peopleApi?.query as any)?.trust?.trustScores) {
+      return 0;
     }
 
-    let stashAddress = address;
-    let active = 0n;
-
-    // In newer Substrate, ledger is keyed by stash address directly
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let ledger = await (relayApi.query.staking as any).ledger?.(address);
+    const score = await (peopleApi.query as any).trust.trustScores(address);
 
-    // Check if ledger exists and has data
-    if (ledger && !ledger.isEmpty && !ledger.isNone) {
-      // Ledger might be wrapped in Option
-      const unwrapped = ledger.isSome ? ledger.unwrap() : ledger;
-      const ledgerJson = unwrapped.toJSON() as { active?: string | number; stash?: string };
-      console.warn('[Staking] Ledger found for', address, ':', ledgerJson);
-      active = BigInt(ledgerJson?.active || 0);
-      if (ledgerJson?.stash) {
-        stashAddress = ledgerJson.stash;
-      }
-    } else {
-      // Fallback: check if this is a stash account with a controller
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const bonded = await (relayApi.query.staking as any).bonded?.(address);
-      if (bonded && !bonded.isEmpty && !bonded.isNone) {
-        const controller = bonded.toString();
-        console.warn('[Staking] Address', address, 'is stash, controller:', controller);
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        ledger = await (relayApi.query.staking as any).ledger?.(controller);
-        if (ledger && !ledger.isEmpty && !ledger.isNone) {
-          const unwrapped = ledger.isSome ? ledger.unwrap() : ledger;
-          const ledgerJson = unwrapped.toJSON() as { active?: string | number };
-          console.warn('[Staking] Ledger from controller:', ledgerJson);
-          active = BigInt(ledgerJson?.active || 0);
-        }
-      } else {
-        console.warn('[Staking] No ledger or bonded found for', address);
-      }
+    if (score.isEmpty) {
+      return 0;
     }
 
-    if (active === 0n) {
-      return null;
-    }
+    return Number(score.toString());
+  } catch (error) {
+    console.error('Error fetching trust score:', error);
+    return 0;
+  }
+}
 
-    // Get nominations
+// ========================================
+// REFERRAL SCORE (pezpallet-referral on People Chain)
+// ========================================
+
+/**
+ * Fetch user's referral score based on referral count
+ * Storage: referral.referralCount(address)
+ */
+export async function getReferralScore(peopleApi: ApiPromise, address: string): Promise<number> {
+  try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const nominations = await (relayApi.query.staking as any).nominators?.(stashAddress);
-    const nominationsJson = nominations?.toJSON() as { targets?: unknown[] } | null;
-    const nominationsCount = nominationsJson?.targets?.length || 0;
+    if (!(peopleApi?.query as any)?.referral?.referralCount) {
+      return 0;
+    }
 
-    console.log(
-      '[Staking] Final result - active:',
-      active.toString(),
-      'nominations:',
-      nominationsCount
-    );
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const count = await (peopleApi.query as any).referral.referralCount(address);
+    const referralCount = Number(count.toString());
+
+    if (referralCount === 0) return 0;
+    if (referralCount <= 5) return referralCount * 4;
+    if (referralCount <= 20) return 20 + (referralCount - 5) * 2;
+    return 50; // Capped at 50 points
+  } catch (error) {
+    console.error('Error fetching referral score:', error);
+    return 0;
+  }
+}
+
+// ========================================
+// STAKING SCORE (pezpallet-staking-score on People Chain)
+// ========================================
+
+/**
+ * Check staking score tracking status
+ * Storage: stakingScore.stakingStartBlock(address)
+ */
+export async function getStakingScoreStatus(
+  peopleApi: ApiPromise,
+  address: string
+): Promise<StakingScoreStatus> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (!(peopleApi?.query as any)?.stakingScore?.stakingStartBlock) {
+      return { isTracking: false, startBlock: null, currentBlock: 0, durationBlocks: 0 };
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const startBlockResult = await (peopleApi.query as any).stakingScore.stakingStartBlock(address);
+    const currentBlock = Number((await peopleApi.query.system.number()).toString());
+
+    if (startBlockResult.isEmpty || startBlockResult.isNone) {
+      return { isTracking: false, startBlock: null, currentBlock, durationBlocks: 0 };
+    }
+
+    const startBlock = Number(startBlockResult.toString());
+    const durationBlocks = currentBlock - startBlock;
+
     return {
-      stakedAmount: active,
-      nominationsCount,
+      isTracking: true,
+      startBlock,
+      currentBlock,
+      durationBlocks,
     };
-  } catch (err) {
-    console.error('Failed to fetch relay staking details:', err);
-    return null;
+  } catch (error) {
+    console.error('Error fetching staking score status:', error);
+    return { isTracking: false, startBlock: null, currentBlock: 0, durationBlocks: 0 };
   }
-}
-
-/**
- * Calculate base score from staked HEZ amount
- */
-function calculateBaseStakingScore(stakedHez: number): number {
-  if (stakedHez <= 0) return 0;
-  if (stakedHez <= 100) return 20;
-  if (stakedHez <= 250) return 30;
-  if (stakedHez <= 750) return 40;
-  return 50; // 751+ HEZ
-}
-
-/**
- * Get time multiplier based on months staked
- */
-function getStakingTimeMultiplier(monthsStaked: number): number {
-  if (monthsStaked >= 12) return 2.0;
-  if (monthsStaked >= 6) return 1.7;
-  if (monthsStaked >= 3) return 1.4;
-  if (monthsStaked >= 1) return 1.2;
-  return 1.0;
-}
-
-export interface FrontendStakingScoreResult {
-  score: number;
-  stakedAmount: bigint;
-  stakedHez: number;
-  trackingStarted: Date | null;
-  monthsStaked: number;
-  timeMultiplier: number;
-  nominationsCount: number;
-}
-
-/**
- * Get staking score using frontend fallback
- */
-export async function getFrontendStakingScore(
-  relayApi: ApiPromise,
-  address: string
-): Promise<FrontendStakingScoreResult> {
-  const emptyResult: FrontendStakingScoreResult = {
-    score: 0,
-    stakedAmount: 0n,
-    stakedHez: 0,
-    trackingStarted: null,
-    monthsStaked: 0,
-    timeMultiplier: 1.0,
-    nominationsCount: 0,
-  };
-
-  if (!relayApi || !address) return emptyResult;
-
-  const details = await fetchRelayStakingDetails(relayApi, address);
-
-  if (!details || details.stakedAmount === 0n) {
-    return emptyResult;
-  }
-
-  const trackingData = getStakingTrackingData();
-  const now = Date.now();
-
-  if (!trackingData[address]) {
-    trackingData[address] = {
-      startTime: now,
-      lastChecked: now,
-      lastStakeAmount: details.stakedAmount.toString(),
-    };
-    saveStakingTrackingData(trackingData);
-  } else {
-    trackingData[address].lastChecked = now;
-    trackingData[address].lastStakeAmount = details.stakedAmount.toString();
-    saveStakingTrackingData(trackingData);
-  }
-
-  const userTracking = trackingData[address];
-  const trackingStarted = new Date(userTracking.startTime);
-  const msStaked = now - userTracking.startTime;
-  const monthsStaked = Math.floor(msStaked / MONTH_IN_MS);
-
-  const stakedHez = Number(details.stakedAmount) / UNITS;
-  const baseScore = calculateBaseStakingScore(stakedHez);
-  const timeMultiplier = getStakingTimeMultiplier(monthsStaked);
-  const finalScore = Math.min(Math.floor(baseScore * timeMultiplier), 100);
-
-  return {
-    score: finalScore,
-    stakedAmount: details.stakedAmount,
-    stakedHez,
-    trackingStarted,
-    monthsStaked,
-    timeMultiplier,
-    nominationsCount: details.nominationsCount,
-  };
 }
 
 // ========================================
-// TIKI SCORE
+// TIKI SCORE (pezpallet-tiki on People Chain)
 // ========================================
 
 export interface TikiInfo {
@@ -244,18 +143,6 @@ export interface TikiInfo {
   name: string;
 }
 
-const TIKI_ROLE_SCORES: Record<number, number> = {
-  1: 10, // Basic
-  2: 20, // Bronze
-  3: 30, // Silver
-  4: 40, // Gold
-  5: 50, // Platinum
-};
-
-/**
- * Tiki role name to score mapping
- * Welati (citizen) is the basic role with score 10
- */
 const TIKI_NAME_SCORES: Record<string, number> = {
   welati: 10,
   parlementer: 30,
@@ -278,11 +165,9 @@ export async function fetchUserTikis(peopleApi: ApiPromise, address: string): Pr
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (!(peopleApi?.query as any)?.tiki) {
-      console.warn('[Tiki] tiki pallet not found');
       return [];
     }
 
-    // Try userTikis first (actual storage name)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let result = await (peopleApi.query.tiki as any).userTikis?.(address);
 
@@ -293,26 +178,21 @@ export async function fetchUserTikis(peopleApi: ApiPromise, address: string): Pr
     }
 
     if (!result || result.isEmpty) {
-      console.warn('[Tiki] No tikis found for', address);
       return [];
     }
 
-    // Result is Vec<TikiRole> which are enum variants as strings
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const tikis = result.toJSON() as any[];
-    console.warn('[Tiki] Raw tikis for', address, ':', tikis);
 
     return tikis.map((tiki, index) => {
-      // Tiki can be a string (enum variant name) or object
       const name = typeof tiki === 'string' ? tiki : tiki.name || tiki.role || 'Unknown';
       const nameLower = name.toLowerCase();
-      const score = TIKI_NAME_SCORES[nameLower] || 10; // Default to 10 if unknown
 
       return {
         roleId: index + 1,
         level: 1,
         name: name,
-        score: score,
+        score: TIKI_NAME_SCORES[nameLower] || 10,
       };
     });
   } catch (err) {
@@ -323,25 +203,20 @@ export async function fetchUserTikis(peopleApi: ApiPromise, address: string): Pr
 
 /**
  * Calculate tiki score from user's tikis
- * Uses the score property set during fetch, or looks up by name
  */
 export function calculateTikiScore(tikis: TikiInfo[]): number {
   if (!tikis.length) return 0;
 
-  // Get highest role score
   let maxScore = 0;
   for (const tiki of tikis) {
-    // Use score from tiki if available, otherwise lookup by roleId or name
     const tikiScore =
       (tiki as TikiInfo & { score?: number }).score ||
-      TIKI_ROLE_SCORES[tiki.roleId] ||
       TIKI_NAME_SCORES[tiki.name.toLowerCase()] ||
-      10; // Default welati score
+      10;
     maxScore = Math.max(maxScore, tikiScore);
   }
 
-  console.warn('[Tiki] Calculated score:', maxScore, 'from tikis:', tikis);
-  return Math.min(maxScore, 50); // Capped at 50
+  return Math.min(maxScore, 50);
 }
 
 /**
@@ -358,23 +233,8 @@ export async function getTikiScore(peopleApi: ApiPromise, address: string): Prom
 }
 
 // ========================================
-// TRUST SCORE CALCULATION
+// CITIZENSHIP & PERWERDE
 // ========================================
-// Formula from pezpallet-trust:
-// weighted_sum = staking*100 + referral*300 + perwerde*300 + tiki*300
-// trust_score = (staking * weighted_sum) / 100
-
-const SCORE_MULTIPLIER_BASE = 100;
-
-export interface FrontendTrustScoreResult {
-  trustScore: number;
-  stakingScore: number;
-  referralScore: number;
-  perwerdeScore: number;
-  tikiScore: number;
-  weightedSum: number;
-  isCitizen: boolean;
-}
 
 /**
  * Check if user is a citizen (KYC approved)
@@ -433,70 +293,52 @@ export async function getPerwerdeScore(
   }
 }
 
+// ========================================
+// COMPREHENSIVE SCORE FETCHING
+// ========================================
+
 /**
- * Calculate all scores with frontend fallback
+ * Fetch all scores for a user from People Chain
+ * Trust pallet computes composite score on-chain (includes staking, referral, tiki, perwerde)
  */
-export async function getAllScoresWithFallback(
+export async function getAllScores(
   peopleApi: ApiPromise | null,
-  relayApi: ApiPromise | null,
   address: string
-): Promise<FrontendTrustScoreResult & { isFromFrontend: boolean }> {
-  const emptyResult: FrontendTrustScoreResult & { isFromFrontend: boolean } = {
+): Promise<UserScores> {
+  const empty: UserScores = {
     trustScore: 0,
-    stakingScore: 0,
     referralScore: 0,
-    perwerdeScore: 0,
+    stakingScore: 0,
     tikiScore: 0,
-    weightedSum: 0,
+    perwerdeScore: 0,
+    totalScore: 0,
     isCitizen: false,
-    isFromFrontend: true,
   };
 
-  if (!address) return emptyResult;
+  if (!peopleApi || !address) return empty;
 
-  // Check citizenship status
-  const isCitizen = await checkCitizenshipStatus(peopleApi, address);
+  try {
+    const [trustScore, referralScore, tikiScore, perwerdeScore, isCitizen] = await Promise.all([
+      getTrustScore(peopleApi, address),
+      getReferralScore(peopleApi, address),
+      getTikiScore(peopleApi, address),
+      getPerwerdeScore(peopleApi, address),
+      checkCitizenshipStatus(peopleApi, address),
+    ]);
 
-  // Get component scores in parallel
-  const [stakingResult, referralCount, perwerdeScore, tikiScore] = await Promise.all([
-    relayApi ? getFrontendStakingScore(relayApi, address) : Promise.resolve({ score: 0 }),
-    peopleApi ? getReferralCount(peopleApi, address) : Promise.resolve(0),
-    getPerwerdeScore(peopleApi, address),
-    peopleApi ? getTikiScore(peopleApi, address) : Promise.resolve(0),
-  ]);
-
-  const stakingScore = stakingResult.score;
-  const referralScore = calculateReferralScore(referralCount);
-
-  // Ger staking 0 be, trust jî 0 be (matches pallet logic)
-  if (stakingScore === 0) {
     return {
-      ...emptyResult,
+      trustScore,
       referralScore,
-      perwerdeScore,
+      stakingScore: 0, // Trust pallet already includes staking in composite
       tikiScore,
+      perwerdeScore,
+      totalScore: trustScore, // Trust score = composite score (on-chain calculated)
       isCitizen,
     };
+  } catch (error) {
+    console.error('Error fetching scores:', error);
+    return empty;
   }
-
-  // Calculate weighted sum (matching pallet formula)
-  const weightedSum =
-    stakingScore * 100 + referralScore * 300 + perwerdeScore * 300 + tikiScore * 300;
-
-  // Calculate final trust score
-  // trust_score = (staking * weighted_sum) / 100
-  const trustScore = Math.floor((stakingScore * weightedSum) / SCORE_MULTIPLIER_BASE);
-
-  return {
-    trustScore,
-    stakingScore,
-    referralScore,
-    perwerdeScore,
-    tikiScore,
-    weightedSum,
-    isCitizen,
-    isFromFrontend: true,
-  };
 }
 
 // ========================================
@@ -524,9 +366,15 @@ export function getScoreRating(score: number): string {
   return 'Sifir';
 }
 
-export function formatStakedAmount(amount: bigint): string {
-  const hez = Number(amount) / UNITS;
-  if (hez >= 1000000) return `${(hez / 1000000).toFixed(2)}M`;
-  if (hez >= 1000) return `${(hez / 1000).toFixed(2)}K`;
-  return hez.toFixed(2);
+export function formatDuration(blocks: number): string {
+  const BLOCKS_PER_MINUTE = 10;
+  const minutes = blocks / BLOCKS_PER_MINUTE;
+  const hours = minutes / 60;
+  const days = hours / 24;
+  const months = days / 30;
+
+  if (months >= 1) return `${Math.floor(months)} meh`;
+  if (days >= 1) return `${Math.floor(days)} roj`;
+  if (hours >= 1) return `${Math.floor(hours)} saet`;
+  return `${Math.floor(minutes)} deqîqe`;
 }

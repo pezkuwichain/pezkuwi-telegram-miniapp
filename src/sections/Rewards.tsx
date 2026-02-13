@@ -21,6 +21,7 @@ import {
   Target,
   Sparkles,
   GraduationCap,
+  Clock,
 } from 'lucide-react';
 import { cn, formatAddress } from '@/lib/utils';
 import { useTelegram } from '@/hooks/useTelegram';
@@ -29,14 +30,20 @@ import { useReferral } from '@/contexts/ReferralContext';
 import { useWallet } from '@/contexts/WalletContext';
 import { SocialLinks } from '@/components/SocialLinks';
 import {
-  getAllScoresWithFallback,
-  getFrontendStakingScore,
-  formatStakedAmount,
+  getAllScores,
+  getStakingScoreStatus,
+  formatDuration,
   getScoreColor,
   getScoreRating,
-  type FrontendTrustScoreResult,
-  type FrontendStakingScoreResult,
+  type UserScores,
+  type StakingScoreStatus,
 } from '@/lib/scores';
+import {
+  getStakingRewards,
+  formatRewardAmount,
+  formatRewardDate,
+  type StakingRewardsResult,
+} from '@/lib/subquery';
 
 // Activity tracking constants
 const ACTIVITY_STORAGE_KEY = 'pezkuwi_last_active';
@@ -46,16 +53,15 @@ export function RewardsSection() {
   const { hapticImpact, hapticNotification, shareUrl, showAlert } = useTelegram();
   const { user: authUser } = useAuth();
   const { stats, myReferrals, loading, refreshStats } = useReferral();
-  const { isConnected, address, api, peopleApi } = useWallet();
+  const { isConnected, address, peopleApi } = useWallet();
 
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'referrals' | 'scores'>('overview');
   const [isActive, setIsActive] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState<string | null>(null);
-  const [userScores, setUserScores] = useState<
-    (FrontendTrustScoreResult & { isFromFrontend: boolean }) | null
-  >(null);
-  const [stakingDetails, setStakingDetails] = useState<FrontendStakingScoreResult | null>(null);
+  const [userScores, setUserScores] = useState<UserScores | null>(null);
+  const [stakingStatus, setStakingStatus] = useState<StakingScoreStatus | null>(null);
+  const [stakingRewards, setStakingRewards] = useState<StakingRewardsResult | null>(null);
   const [scoresLoading, setScoresLoading] = useState(false);
 
   // Check activity status
@@ -84,7 +90,6 @@ export function RewardsSection() {
 
   // Check activity status on mount and every minute
   useEffect(() => {
-    // Run check after a microtask to avoid synchronous setState in effect
     const timeoutId = setTimeout(checkActivityStatus, 0);
     const interval = setInterval(checkActivityStatus, 60000);
     return () => {
@@ -97,28 +102,27 @@ export function RewardsSection() {
   const fetchUserScores = useCallback(async () => {
     if (!address) {
       setUserScores(null);
-      setStakingDetails(null);
+      setStakingStatus(null);
+      setStakingRewards(null);
       return;
     }
 
-    console.warn('[Scores] Fetching scores for', address);
-    console.warn('[Scores] API connected:', !!api, 'People API:', !!peopleApi);
-
     setScoresLoading(true);
     try {
-      const [scores, staking] = await Promise.all([
-        getAllScoresWithFallback(peopleApi, api, address),
-        api ? getFrontendStakingScore(api, address) : Promise.resolve(null),
+      const [scores, staking, rewards] = await Promise.all([
+        getAllScores(peopleApi, address),
+        peopleApi ? getStakingScoreStatus(peopleApi, address) : Promise.resolve(null),
+        getStakingRewards(address),
       ]);
-      console.warn('[Scores] Results:', { scores, staking });
       setUserScores(scores);
-      setStakingDetails(staking);
+      setStakingStatus(staking);
+      setStakingRewards(rewards);
     } catch (err) {
       console.error('Error fetching scores:', err);
     } finally {
       setScoresLoading(false);
     }
-  }, [api, peopleApi, address]);
+  }, [peopleApi, address]);
 
   // Fetch scores when tab changes to scores or on initial load
   useEffect(() => {
@@ -603,13 +607,16 @@ export function RewardsSection() {
                       <span className="text-xs text-muted-foreground">Staking</span>
                     </div>
                     <p className="text-2xl font-bold text-blue-400">
-                      {userScores?.stakingScore ?? 0}
+                      {stakingStatus?.isTracking ? (
+                        <span className="flex items-center gap-1">
+                          <Clock className="w-4 h-4" />
+                          {formatDuration(stakingStatus.durationBlocks)}
+                        </span>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">Nehatiye destpêkirin</span>
+                      )}
                     </p>
-                    {stakingDetails && stakingDetails.stakedAmount > 0n && (
-                      <p className="text-xs text-muted-foreground mt-1">
-                        {formatStakedAmount(stakingDetails.stakedAmount)} HEZ
-                      </p>
-                    )}
+                    <p className="text-xs text-muted-foreground mt-1">Di Trust de tê hesibandin</p>
                   </div>
 
                   {/* Referral Score */}
@@ -651,41 +658,61 @@ export function RewardsSection() {
                   </div>
                 </div>
 
-                {/* Staking Details Card */}
-                {stakingDetails && stakingDetails.stakedAmount > 0n && (
-                  <div className="bg-secondary/30 rounded-xl p-4 border border-border/50">
-                    <h3 className="font-medium text-foreground mb-3 flex items-center gap-2">
-                      <TrendingUp className="w-4 h-4 text-blue-400" />
-                      Staking Hûrgelan
-                    </h3>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between py-2 border-b border-border/30">
-                        <span className="text-muted-foreground">HEZ Staked</span>
-                        <span className="text-foreground font-medium">
-                          {formatStakedAmount(stakingDetails.stakedAmount)} HEZ
-                        </span>
-                      </div>
-                      <div className="flex justify-between py-2 border-b border-border/30">
-                        <span className="text-muted-foreground">Demjimêr</span>
-                        <span className="text-foreground font-medium">
-                          {stakingDetails.monthsStaked} meh
-                        </span>
-                      </div>
-                      <div className="flex justify-between py-2 border-b border-border/30">
-                        <span className="text-muted-foreground">Pir Zêdeker</span>
-                        <span className="text-foreground font-medium">
-                          {stakingDetails.timeMultiplier}x
-                        </span>
-                      </div>
-                      <div className="flex justify-between py-2">
-                        <span className="text-muted-foreground">Nominasyon</span>
-                        <span className="text-foreground font-medium">
-                          {stakingDetails.nominationsCount}
-                        </span>
-                      </div>
-                    </div>
+                {/* Staking Rewards from SubQuery */}
+                <div className="bg-secondary/30 rounded-xl p-4 border border-border/50">
+                  <h3 className="font-medium text-foreground mb-3 flex items-center gap-2">
+                    <Coins className="w-4 h-4 text-amber-400" />
+                    Xelatên Staking
+                  </h3>
+
+                  {/* Total Accumulated */}
+                  <div className="bg-amber-500/10 rounded-lg p-3 mb-3 border border-amber-500/20">
+                    <p className="text-xs text-amber-300 mb-1">Tevahiya xelatên wergirtî</p>
+                    <p className="text-2xl font-bold text-amber-400">
+                      {stakingRewards && stakingRewards.totalAccumulatedHez > 0
+                        ? `${stakingRewards.totalAccumulatedHez.toFixed(4)} HEZ`
+                        : '0 HEZ'}
+                    </p>
                   </div>
-                )}
+
+                  {/* Recent Rewards List */}
+                  {stakingRewards && stakingRewards.rewards.length > 0 ? (
+                    <div className="space-y-2">
+                      <p className="text-xs text-muted-foreground mb-2">Xelatên dawî</p>
+                      {stakingRewards.rewards.map((reward) => (
+                        <div
+                          key={reward.id}
+                          className="flex items-center justify-between py-2 border-b border-border/30 last:border-0"
+                        >
+                          <div className="flex items-center gap-2">
+                            <div
+                              className={cn(
+                                'w-2 h-2 rounded-full',
+                                reward.type === 'REWARD' ? 'bg-green-400' : 'bg-red-400'
+                              )}
+                            />
+                            <div>
+                              <p className="text-sm text-foreground">
+                                {reward.type === 'REWARD' ? '+' : '-'}
+                                {formatRewardAmount(reward.amount)} HEZ
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                Block #{reward.blockNumber}
+                              </p>
+                            </div>
+                          </div>
+                          <span className="text-xs text-muted-foreground">
+                            {formatRewardDate(reward.timestamp)}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground text-center py-3">
+                      Hêj xelatek nehatiye tomarkirin
+                    </p>
+                  )}
+                </div>
 
                 {/* Score Formula Info */}
                 <div className="bg-secondary/30 rounded-xl p-4 border border-border/50">
