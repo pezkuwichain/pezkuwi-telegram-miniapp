@@ -21,15 +21,46 @@ const VALID_LANGS: LanguageCode[] = ['krd', 'en', 'tr', 'ckb', 'fa', 'ar'];
 const DEFAULT_LANG: LanguageCode = 'krd';
 
 /**
- * Detect language from URL path.
- * e.g. /krd/... -> krd, /en/... -> en, / -> krd (default)
+ * Map Telegram language codes to our supported languages.
+ * Telegram uses IETF codes like "en", "tr", "fa", "ar", "ku".
  */
-function detectLanguageFromURL(): LanguageCode {
+const TG_LANG_MAP: Record<string, LanguageCode> = {
+  ku: 'krd',
+  kmr: 'krd',
+  ckb: 'ckb',
+  tr: 'tr',
+  en: 'en',
+  fa: 'fa',
+  ar: 'ar',
+};
+
+/**
+ * Detect language: URL path first, then Telegram user language, then default.
+ */
+function detectLanguage(): LanguageCode {
+  // 1. Check URL path
   const path = window.location.pathname;
   const firstSegment = path.split('/').filter(Boolean)[0];
   if (firstSegment && VALID_LANGS.includes(firstSegment as LanguageCode)) {
     return firstSegment as LanguageCode;
   }
+
+  // 2. Check Telegram WebApp user language
+  try {
+    const tg = (
+      window as unknown as {
+        Telegram?: { WebApp?: { initDataUnsafe?: { user?: { language_code?: string } } } };
+      }
+    ).Telegram;
+    const tgLang = tg?.WebApp?.initDataUnsafe?.user?.language_code;
+    if (tgLang) {
+      const mapped = TG_LANG_MAP[tgLang];
+      if (mapped) return mapped;
+    }
+  } catch {
+    // Telegram WebApp not available
+  }
+
   return DEFAULT_LANG;
 }
 
@@ -61,14 +92,20 @@ interface LanguageProviderProps {
 }
 
 export function LanguageProvider({ children }: LanguageProviderProps) {
-  const [lang, setLangState] = useState<LanguageCode>(detectLanguageFromURL);
+  const [lang, setLangState] = useState<LanguageCode>(detectLanguage);
 
   const isRTL = RTL_LANGUAGES.includes(lang);
 
-  // Update document direction and lang attribute when language changes
+  // Update document direction, lang attribute, and URL when language changes
   useEffect(() => {
     document.documentElement.lang = lang === 'krd' ? 'ku' : lang;
     document.documentElement.dir = isRTL ? 'rtl' : 'ltr';
+
+    // Ensure URL has language prefix
+    const firstSegment = window.location.pathname.split('/').filter(Boolean)[0];
+    if (!firstSegment || !VALID_LANGS.includes(firstSegment as LanguageCode)) {
+      window.history.replaceState(null, '', `/${lang}`);
+    }
   }, [lang, isRTL]);
 
   const setLang = useCallback((newLang: LanguageCode) => {
