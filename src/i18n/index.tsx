@@ -139,9 +139,14 @@ export function LanguageProvider({ children }: LanguageProviderProps) {
     document.documentElement.lang = lang === 'krd' ? 'ku' : lang;
     document.documentElement.dir = isRTL ? 'rtl' : 'ltr';
 
-    // Ensure URL has language prefix (preserve query params like ?page=citizen)
-    const firstSegment = window.location.pathname.split('/').filter(Boolean)[0];
-    if (!firstSegment || !VALID_LANGS.includes(firstSegment as LanguageCode)) {
+    // Ensure URL has language prefix (preserve query params and special paths)
+    const pathSegments = window.location.pathname.split('/').filter(Boolean);
+    const firstSegment = pathSegments[0];
+    // Don't rewrite URL for standalone pages like /citizens
+    const STANDALONE_PATHS = ['citizens'];
+    if (firstSegment && STANDALONE_PATHS.includes(firstSegment)) {
+      // Keep standalone path as-is
+    } else if (!firstSegment || !VALID_LANGS.includes(firstSegment as LanguageCode)) {
       window.history.replaceState(null, '', `/${lang}${window.location.search}`);
     }
   }, [lang, isRTL]);
