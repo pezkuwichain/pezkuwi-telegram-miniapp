@@ -20,6 +20,9 @@ const RewardsSection = lazy(() =>
 const WalletSection = lazy(() =>
   import('@/sections/Wallet').then((m) => ({ default: m.WalletSection }))
 );
+const CitizenPage = lazy(() =>
+  import('@/pages/CitizenPage').then((m) => ({ default: m.CitizenPage }))
+);
 
 // Loading fallback component
 function SectionLoader() {
@@ -51,7 +54,22 @@ const NAV_ITEMS: NavItem[] = [
 // P2P Web App URL - Mobile-optimized P2P
 const P2P_WEB_URL = 'https://telegram.pezkuwichain.io/p2p';
 
+// Check for standalone pages via URL query params (evaluated once at module level)
+const PAGE_PARAM = new URLSearchParams(window.location.search).get('page');
+
 export default function App() {
+  if (PAGE_PARAM === 'citizen') {
+    return (
+      <Suspense fallback={<SectionLoader />}>
+        <CitizenPage />
+      </Suspense>
+    );
+  }
+
+  return <MainApp />;
+}
+
+function MainApp() {
   const [activeSection, setActiveSection] = useState<Section>('announcements');
   const [showP2PModal, setShowP2PModal] = useState(false);
   const { sessionToken } = useAuth();

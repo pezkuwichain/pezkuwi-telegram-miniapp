@@ -1,0 +1,195 @@
+/**
+ * Citizen Page
+ * Standalone page for citizenship application flow
+ * Accessed via ?page=citizen URL parameter
+ * No bottom navigation bar
+ */
+
+import { useState, useCallback, lazy, Suspense } from 'react';
+import { Globe, Loader2 } from 'lucide-react';
+import { useWallet } from '@/contexts/WalletContext';
+import { useTranslation, LANGUAGE_NAMES, VALID_LANGS } from '@/i18n';
+import type { LanguageCode } from '@/i18n';
+import type { CitizenshipData } from '@/lib/citizenship';
+
+// Lazy load sub-components
+const WalletSetup = lazy(() =>
+  import('@/components/wallet/WalletSetup').then((m) => ({ default: m.WalletSetup }))
+);
+const WalletCreate = lazy(() =>
+  import('@/components/wallet/WalletCreate').then((m) => ({ default: m.WalletCreate }))
+);
+const WalletImport = lazy(() =>
+  import('@/components/wallet/WalletImport').then((m) => ({ default: m.WalletImport }))
+);
+const WalletConnect = lazy(() =>
+  import('@/components/wallet/WalletConnect').then((m) => ({ default: m.WalletConnect }))
+);
+const CitizenForm = lazy(() =>
+  import('@/components/citizen/CitizenForm').then((m) => ({ default: m.CitizenForm }))
+);
+const CitizenProcessing = lazy(() =>
+  import('@/components/citizen/CitizenProcessing').then((m) => ({ default: m.CitizenProcessing }))
+);
+const CitizenSuccess = lazy(() =>
+  import('@/components/citizen/CitizenSuccess').then((m) => ({ default: m.CitizenSuccess }))
+);
+
+type Step =
+  | 'wallet-setup'
+  | 'wallet-create'
+  | 'wallet-import'
+  | 'wallet-connect'
+  | 'form'
+  | 'processing'
+  | 'success';
+
+function SectionLoader() {
+  return (
+    <div className="flex items-center justify-center h-full">
+      <Loader2 className="w-8 h-8 text-primary animate-spin" />
+    </div>
+  );
+}
+
+export function CitizenPage() {
+  const { hasWallet, isConnected, address, deleteWalletData } = useWallet();
+  const { t, lang, setLang } = useTranslation();
+  const [showLangMenu, setShowLangMenu] = useState(false);
+  const [citizenshipData, setCitizenshipData] = useState<CitizenshipData | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // Determine initial step based on wallet state
+  const getInitialStep = (): Step => {
+    if (!hasWallet) return 'wallet-setup';
+    if (!isConnected) return 'wallet-connect';
+    return 'form';
+  };
+
+  const [step, setStep] = useState<Step>(getInitialStep);
+
+  // Wallet setup handlers
+  const handleWalletCreate = useCallback(() => setStep('wallet-create'), []);
+  const handleWalletImport = useCallback(() => setStep('wallet-import'), []);
+  const handleWalletCreated = useCallback(() => setStep('wallet-connect'), []);
+  const handleWalletImported = useCallback(() => setStep('wallet-connect'), []);
+  const handleWalletConnected = useCallback(() => setStep('form'), []);
+  const handleWalletDelete = useCallback(() => {
+    deleteWalletData();
+    setStep('wallet-setup');
+  }, [deleteWalletData]);
+
+  // Form submission
+  const handleFormSubmit = useCallback((data: CitizenshipData) => {
+    setCitizenshipData(data);
+    setError(null);
+    setStep('processing');
+  }, []);
+
+  // Processing result
+  const handleSuccess = useCallback(() => {
+    setStep('success');
+  }, []);
+
+  const handleError = useCallback((err: string) => {
+    setError(err);
+    setStep('form');
+  }, []);
+
+  // Open main app
+  const handleOpenApp = useCallback(() => {
+    // Remove ?page=citizen and navigate to main app
+    const url = new URL(window.location.href);
+    url.searchParams.delete('page');
+    window.location.href = url.toString();
+  }, []);
+
+  return (
+    <div className="flex flex-col h-screen bg-background">
+      {/* Header */}
+      <header className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-b border-border">
+        <h1 className="text-lg font-bold">{t('citizen.pageTitle')}</h1>
+
+        {/* Language Selector */}
+        <div className="relative">
+          <button
+            onClick={() => setShowLangMenu(!showLangMenu)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-muted rounded-lg text-sm"
+          >
+            <Globe className="w-4 h-4" />
+            <span>{LANGUAGE_NAMES[lang]}</span>
+          </button>
+
+          {showLangMenu && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={() => setShowLangMenu(false)} />
+              <div className="absolute end-0 top-full mt-1 z-20 bg-secondary border border-border rounded-xl shadow-lg py-1 min-w-[140px]">
+                {VALID_LANGS.map((code) => (
+                  <button
+                    key={code}
+                    onClick={() => {
+                      setLang(code as LanguageCode);
+                      setShowLangMenu(false);
+                    }}
+                    className={`w-full px-4 py-2 text-start text-sm hover:bg-muted transition-colors ${
+                      lang === code ? 'text-primary font-medium' : ''
+                    }`}
+                  >
+                    {LANGUAGE_NAMES[code as LanguageCode]}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+        </div>
+      </header>
+
+      {/* Error Banner */}
+      {error && (
+        <div className="mx-4 mt-3 p-3 bg-red-500/10 border border-red-500/30 rounded-lg text-red-400 text-sm">
+          {error}
+        </div>
+      )}
+
+      {/* Content */}
+      <main className="flex-1 overflow-y-auto">
+        <Suspense fallback={<SectionLoader />}>
+          {step === 'wallet-setup' && (
+            <WalletSetup onCreate={handleWalletCreate} onImport={handleWalletImport} />
+          )}
+
+          {step === 'wallet-create' && (
+            <WalletCreate onComplete={handleWalletCreated} onBack={() => setStep('wallet-setup')} />
+          )}
+
+          {step === 'wallet-import' && (
+            <WalletImport
+              onComplete={handleWalletImported}
+              onBack={() => setStep('wallet-setup')}
+            />
+          )}
+
+          {step === 'wallet-connect' && (
+            <WalletConnect onConnected={handleWalletConnected} onDelete={handleWalletDelete} />
+          )}
+
+          {step === 'form' && address && (
+            <CitizenForm walletAddress={address} onSubmit={handleFormSubmit} />
+          )}
+
+          {step === 'processing' && citizenshipData && (
+            <CitizenProcessing
+              citizenshipData={citizenshipData}
+              onSuccess={handleSuccess}
+              onError={handleError}
+            />
+          )}
+
+          {step === 'success' && address && (
+            <CitizenSuccess address={address} onOpenApp={handleOpenApp} />
+          )}
+        </Suspense>
+      </main>
+    </div>
+  );
+}

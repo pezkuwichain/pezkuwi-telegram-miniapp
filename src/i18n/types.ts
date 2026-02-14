@@ -580,6 +580,70 @@ export interface Translations {
     wrongPasswordError: string;
     walletSyncFailed: string;
   };
+
+  // Citizen page
+  citizen: {
+    pageTitle: string;
+    // Form labels
+    fullName: string;
+    fullNamePlaceholder: string;
+    fatherName: string;
+    fatherNamePlaceholder: string;
+    grandfatherName: string;
+    grandfatherNamePlaceholder: string;
+    motherName: string;
+    motherNamePlaceholder: string;
+    tribe: string;
+    tribePlaceholder: string;
+    maritalStatus: string;
+    married: string;
+    single: string;
+    childrenCount: string;
+    childName: string;
+    childNamePlaceholder: string;
+    childBirthYear: string;
+    addChild: string;
+    removeChild: string;
+    region: string;
+    regionPlaceholder: string;
+    regionBakur: string;
+    regionBasur: string;
+    regionRojava: string;
+    regionRojhelat: string;
+    regionKurdistanASor: string;
+    regionDiaspora: string;
+    email: string;
+    emailPlaceholder: string;
+    profession: string;
+    professionPlaceholder: string;
+    referralCode: string;
+    referralCodePlaceholder: string;
+    // Consent
+    consentCheckbox: string;
+    // Buttons
+    submit: string;
+    sign: string;
+    openApp: string;
+    // Processing
+    preparingData: string;
+    readyToSign: string;
+    signingTx: string;
+    // Success
+    successTitle: string;
+    successSubtitle: string;
+    citizenId: string;
+    walletAddress: string;
+    // Errors
+    fillAllFields: string;
+    acceptConsent: string;
+    walletNotConnected: string;
+    peopleChainNotConnected: string;
+    submissionFailed: string;
+    alreadyPending: string;
+    alreadyApproved: string;
+    // Language selector
+    selectLanguage: string;
+  };
 }
 
 export type LanguageCode = 'krd' | 'en' | 'tr' | 'ckb' | 'fa' | 'ar';
