@@ -34,7 +34,7 @@ jobs:
 
       - run: npm run build
 
-      - name: Deploy to VPS
+      - name: Deploy to telegram.pezkuwichain.io
         uses: appleboy/scp-action@v1.0.0
         with:
           host: ${{ secrets.VPS1_HOST }}
@@ -42,4 +42,14 @@ jobs:
           key: ${{ secrets.VPS1_SSH_KEY }}
           source: 'dist/*'
           target: '/var/www/telegram.pezkuwichain.io'
+          strip_components: 1
+
+      - name: Deploy to telegram.pezkiwi.app
+        uses: appleboy/scp-action@v1.0.0
+        with:
+          host: ${{ secrets.VPS1_HOST }}
+          username: ${{ secrets.VPS1_USER }}
+          key: ${{ secrets.VPS1_SSH_KEY }}
+          source: 'dist/*'
+          target: '/var/www/telegram.pezkiwi.app'
           strip_components: 1
