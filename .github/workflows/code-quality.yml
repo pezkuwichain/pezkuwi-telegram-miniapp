@@ -1,0 +1,46 @@
+name: Code Quality
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  complexity:
+    name: Code Complexity
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install complexity checker
+        run: npm install -g complexity-report
+
+      - name: Check complexity
+        run: |
+          cr src/**/*.ts src/**/*.tsx --format json > complexity-report.json || true
+          HIGH_COMPLEXITY=$(cat complexity-report.json 2>/dev/null | jq '[.reports[].functions[] | select(.cyclomatic > 15)] | length' 2>/dev/null || echo "0")
+          if [ "$HIGH_COMPLEXITY" -gt 0 ]; then
+            echo "::warning::Found $HIGH_COMPLEXITY functions with cyclomatic complexity > 15"
+          fi
+
+  duplicate-code:
+    name: Duplicate Code Detection
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install jscpd
+        run: npm install -g jscpd
+
+      - name: Check for duplicates
+        run: jscpd src/ --min-lines 10 --min-tokens 50 --threshold 5
+        continue-on-error: true
