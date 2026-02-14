@@ -3,7 +3,11 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { createHmac } from 'https://deno.land/std@0.177.0/node/crypto.ts';
 
 // CORS - Production domain only
-const ALLOWED_ORIGINS = ['https://telegram.pezkuwichain.io', 'https://t.me'];
+const ALLOWED_ORIGINS = [
+  'https://telegram.pezkuwichain.io',
+  'https://telegram.pezkiwi.app',
+  'https://t.me',
+];
 
 function getCorsHeaders(origin: string | null): Record<string, string> {
   const allowedOrigin =

@@ -13,7 +13,7 @@ import { sha256 } from 'https://esm.sh/@noble/hashes@1.3.2/sha256';
 import { bytesToHex } from 'https://esm.sh/@noble/hashes@1.3.2/utils';
 import { secp256k1 } from 'https://esm.sh/@noble/curves@1.2.0/secp256k1';
 
-const ALLOWED_ORIGIN = 'https://telegram.pezkuwichain.io';
+const ALLOWED_ORIGINS = ['https://telegram.pezkuwichain.io', 'https://telegram.pezkiwi.app'];
 const MIN_DEPOSIT = 10; // Minimum 10 USDT
 
 // Platform fees per network
@@ -32,9 +32,11 @@ const TRON_USDT_CONTRACT = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t'; // TRC20 USDT
 
 const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 
-function getCorsHeaders(): Record<string, string> {
+function getCorsHeaders(origin?: string | null): Record<string, string> {
+  const allowedOrigin =
+    origin && ALLOWED_ORIGINS.some((o) => origin.startsWith(o)) ? origin : ALLOWED_ORIGINS[0];
   return {
-    'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
+    'Access-Control-Allow-Origin': allowedOrigin,
     'Access-Control-Allow-Headers':
       'authorization, x-client-info, apikey, content-type, x-supabase-client-platform',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -313,7 +315,8 @@ async function checkTrc20Deposits(
 }
 
 serve(async (req) => {
-  const corsHeaders = getCorsHeaders();
+  const origin = req.headers.get('origin');
+  const corsHeaders = getCorsHeaders(origin);
 
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });

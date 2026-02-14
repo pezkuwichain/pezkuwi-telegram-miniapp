@@ -13,12 +13,14 @@ import { sha256 } from 'https://esm.sh/@noble/hashes@1.3.2/sha256';
 import { bytesToHex, hexToBytes } from 'https://esm.sh/@noble/hashes@1.3.2/utils';
 import { secp256k1 } from 'https://esm.sh/@noble/curves@1.2.0/secp256k1';
 
-const ALLOWED_ORIGIN = 'https://telegram.pezkuwichain.io';
+const ALLOWED_ORIGINS = ['https://telegram.pezkuwichain.io', 'https://telegram.pezkiwi.app'];
 const BASE58_ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
 
-function getCorsHeaders(): Record<string, string> {
+function getCorsHeaders(origin?: string | null): Record<string, string> {
+  const allowedOrigin =
+    origin && ALLOWED_ORIGINS.some((o) => origin.startsWith(o)) ? origin : ALLOWED_ORIGINS[0];
   return {
-    'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
+    'Access-Control-Allow-Origin': allowedOrigin,
     'Access-Control-Allow-Headers':
       'authorization, x-client-info, apikey, content-type, x-supabase-client-platform',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -143,7 +145,8 @@ function deriveTronAddress(mnemonic: string, index: number): string {
 }
 
 serve(async (req) => {
-  const corsHeaders = getCorsHeaders();
+  const origin = req.headers.get('origin');
+  const corsHeaders = getCorsHeaders(origin);
 
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });

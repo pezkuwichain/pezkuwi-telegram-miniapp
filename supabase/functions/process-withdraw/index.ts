@@ -9,7 +9,11 @@ import { ApiPromise, WsProvider, Keyring } from 'npm:@pezkuwi/api@16.5.36';
 import { cryptoWaitReady } from 'npm:@pezkuwi/util-crypto@14.0.25';
 
 // CORS - Restricted for security (cron/admin only)
-const ALLOWED_ORIGINS = ['https://telegram.pezkuwichain.io', 'https://supabase.com'];
+const ALLOWED_ORIGINS = [
+  'https://telegram.pezkuwichain.io',
+  'https://telegram.pezkiwi.app',
+  'https://supabase.com',
+];
 
 function getCorsHeaders(origin: string | null): Record<string, string> {
   const allowedOrigin =

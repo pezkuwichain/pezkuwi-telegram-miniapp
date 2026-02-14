@@ -2,11 +2,13 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { createHmac } from 'https://deno.land/std@0.177.0/node/crypto.ts';
 
-const ALLOWED_ORIGIN = 'https://telegram.pezkuwichain.io';
+const ALLOWED_ORIGINS = ['https://telegram.pezkuwichain.io', 'https://telegram.pezkiwi.app'];
 
-function getCorsHeaders(): Record<string, string> {
+function getCorsHeaders(origin?: string | null): Record<string, string> {
+  const allowedOrigin =
+    origin && ALLOWED_ORIGINS.some((o) => origin.startsWith(o)) ? origin : ALLOWED_ORIGINS[0];
   return {
-    'Access-Control-Allow-Origin': ALLOWED_ORIGIN,
+    'Access-Control-Allow-Origin': allowedOrigin,
     'Access-Control-Allow-Headers':
       'authorization, x-client-info, apikey, content-type, x-supabase-client-platform',
     'Access-Control-Allow-Methods': 'POST, OPTIONS',
@@ -93,7 +95,8 @@ function verifySessionToken(token: string, botToken: string): number | null {
 }
 
 serve(async (req) => {
-  const corsHeaders = getCorsHeaders();
+  const origin = req.headers.get('origin');
+  const corsHeaders = getCorsHeaders(origin);
 
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
@@ -105,9 +108,15 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const botToken = Deno.env.get('TELEGRAM_BOT_TOKEN');
 
-    if (!botToken) {
+    // Collect all available bot tokens
+    const botTokens: string[] = [];
+    const mainToken = Deno.env.get('TELEGRAM_BOT_TOKEN');
+    const krdToken = Deno.env.get('TELEGRAM_BOT_TOKEN_KRD');
+    if (mainToken) botTokens.push(mainToken);
+    if (krdToken) botTokens.push(krdToken);
+
+    if (botTokens.length === 0) {
       return new Response(JSON.stringify({ error: 'Server configuration error' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -118,7 +127,15 @@ serve(async (req) => {
 
     // Method 1: Session token verification
     if (sessionToken) {
-      const tgId = verifySessionToken(sessionToken, botToken);
+      let tgId: number | null = null;
+      let matchedToken: string = botTokens[0];
+      for (const token of botTokens) {
+        tgId = verifySessionToken(sessionToken, token);
+        if (tgId) {
+          matchedToken = token;
+          break;
+        }
+      }
       if (!tgId) {
         return new Response(JSON.stringify({ error: 'Invalid or expired session' }), {
           status: 401,
@@ -142,7 +159,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({
           user: userData,
-          session_token: generateSessionToken(tgId, botToken),
+          session_token: generateSessionToken(tgId, matchedToken),
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
@@ -156,7 +173,15 @@ serve(async (req) => {
       });
     }
 
-    const telegramUser = validateInitData(initData, botToken);
+    let telegramUser: TelegramUser | null = null;
+    let matchedBotToken: string = botTokens[0];
+    for (const token of botTokens) {
+      telegramUser = validateInitData(initData, token);
+      if (telegramUser) {
+        matchedBotToken = token;
+        break;
+      }
+    }
     if (!telegramUser) {
       return new Response(JSON.stringify({ error: 'Invalid Telegram data' }), {
         status: 401,
@@ -216,7 +241,7 @@ serve(async (req) => {
       JSON.stringify({
         user: userData,
         telegram_user: telegramUser,
-        session_token: generateSessionToken(telegramUser.id, botToken),
+        session_token: generateSessionToken(telegramUser.id, matchedBotToken),
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
