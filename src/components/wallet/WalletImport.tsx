@@ -8,6 +8,7 @@ import { Eye, EyeOff, ArrowLeft, ArrowRight, Check, AlertTriangle } from 'lucide
 import { useWallet } from '@/contexts/WalletContext';
 import { useTelegram } from '@/hooks/useTelegram';
 import { validatePassword } from '@/lib/crypto';
+import { useTranslation } from '@/i18n';
 
 interface Props {
   onComplete: () => void;
@@ -17,6 +18,7 @@ interface Props {
 export function WalletImport({ onComplete, onBack }: Props) {
   const { importWallet } = useWallet();
   const { hapticImpact, hapticNotification } = useTelegram();
+  const { t } = useTranslation();
 
   const [mnemonic, setMnemonic] = useState('');
   const [password, setPassword] = useState('');
@@ -49,18 +51,18 @@ export function WalletImport({ onComplete, onBack }: Props) {
     // Validate mnemonic
     const words = mnemonic.trim().split(/\s+/);
     if (words.length !== 12 && words.length !== 24) {
-      setError('Seed phrase divê 12 an 24 peyv be');
+      setError(t('walletImport.seedPhraseInvalid'));
       return;
     }
 
     // Validate password using crypto.ts rules
     const passwordValidation = validatePassword(password);
     if (!passwordValidation.valid) {
-      setError(passwordValidation.message || 'Şîfre (password) ne derbasdar e');
+      setError(passwordValidation.message || t('walletImport.passwordInvalid'));
       return;
     }
     if (password !== confirmPassword) {
-      setError('Şîfre (password) hev nagirin');
+      setError(t('walletImport.passwordsMismatch'));
       return;
     }
 
@@ -72,7 +74,7 @@ export function WalletImport({ onComplete, onBack }: Props) {
       hapticNotification('success');
       onComplete();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Import neserketî');
+      setError(err instanceof Error ? err.message : t('walletImport.importFailed'));
       hapticNotification('error');
     } finally {
       setIsLoading(false);
@@ -83,24 +85,24 @@ export function WalletImport({ onComplete, onBack }: Props) {
     <div className="p-4 space-y-6">
       <button onClick={onBack} className="flex items-center gap-2 text-muted-foreground">
         <ArrowLeft className="w-4 h-4" />
-        <span>Paş</span>
+        <span>{t('common.back')}</span>
       </button>
 
       <div className="text-center">
-        <h2 className="text-xl font-semibold mb-2">Wallet Import Bike</h2>
-        <p className="text-muted-foreground text-sm">
-          Seed phrase&apos;ê wallet&apos;ê xwe yê heyî binivîse
-        </p>
+        <h2 className="text-xl font-semibold mb-2">{t('walletImport.title')}</h2>
+        <p className="text-muted-foreground text-sm">{t('walletImport.description')}</p>
       </div>
 
       <div className="space-y-4">
         <div className="space-y-2">
-          <label className="text-sm text-muted-foreground">Seed Phrase (12 an 24 peyv)</label>
+          <label className="text-sm text-muted-foreground">
+            {t('walletImport.seedPhraseLabel')}
+          </label>
           <textarea
             value={mnemonic}
             onChange={(e) => setMnemonic(e.target.value)}
             className="w-full px-4 py-3 bg-muted rounded-xl resize-none h-28 font-mono text-sm"
-            placeholder="Peyvên xwe bi valahî cuda binivîse..."
+            placeholder={t('walletImport.seedPhrasePlaceholder')}
           />
           <p className="text-xs text-muted-foreground">
             {mnemonic.trim().split(/\s+/).filter(Boolean).length} / 12 peyv
@@ -108,14 +110,14 @@ export function WalletImport({ onComplete, onBack }: Props) {
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm text-muted-foreground">Şîfreya Nû (New Password)</label>
+          <label className="text-sm text-muted-foreground">{t('walletImport.newPassword')}</label>
           <div className="relative">
             <input
               type={showPassword ? 'text' : 'password'}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="w-full px-4 py-3 bg-muted rounded-xl pr-12"
-              placeholder="Herî kêm 12 tîp (min 12 characters)"
+              placeholder={t('walletCreate.passwordPlaceholder')}
             />
             <button
               type="button"
@@ -128,20 +130,24 @@ export function WalletImport({ onComplete, onBack }: Props) {
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm text-muted-foreground">Şîfre Dubare (Confirm Password)</label>
+          <label className="text-sm text-muted-foreground">
+            {t('walletCreate.confirmPasswordLabel')}
+          </label>
           <input
             type={showPassword ? 'text' : 'password'}
             value={confirmPassword}
             onChange={(e) => setConfirmPassword(e.target.value)}
             className="w-full px-4 py-3 bg-muted rounded-xl"
-            placeholder="Şîfre dubare binivîse (confirm password)"
+            placeholder={t('walletCreate.confirmPasswordPlaceholder')}
           />
         </div>
 
         {/* Real-time password strength indicator */}
         {password.length > 0 && (
           <div className="p-3 bg-muted/50 rounded-xl space-y-2">
-            <p className="text-xs text-muted-foreground font-medium">Şertên Şîfre (Password):</p>
+            <p className="text-xs text-muted-foreground font-medium">
+              {t('walletCreate.passwordRequirements')}
+            </p>
             <div className="grid grid-cols-1 gap-1.5 text-xs">
               <div
                 className={`flex items-center gap-2 ${passwordRules.minLength ? 'text-green-400' : 'text-red-400'}`}
@@ -151,7 +157,7 @@ export function WalletImport({ onComplete, onBack }: Props) {
                 ) : (
                   <AlertTriangle className="w-3 h-3" />
                 )}
-                <span>Herî kêm 12 tîp (min 12 characters)</span>
+                <span>{t('walletCreate.ruleMinLength')}</span>
               </div>
               <div
                 className={`flex items-center gap-2 ${passwordRules.hasLowercase ? 'text-green-400' : 'text-red-400'}`}
@@ -161,7 +167,7 @@ export function WalletImport({ onComplete, onBack }: Props) {
                 ) : (
                   <AlertTriangle className="w-3 h-3" />
                 )}
-                <span>Herî kêm 1 tîpa biçûk (a-z)</span>
+                <span>{t('walletCreate.ruleLowercase')}</span>
               </div>
               <div
                 className={`flex items-center gap-2 ${passwordRules.hasUppercase ? 'text-green-400' : 'text-red-400'}`}
@@ -171,7 +177,7 @@ export function WalletImport({ onComplete, onBack }: Props) {
                 ) : (
                   <AlertTriangle className="w-3 h-3" />
                 )}
-                <span>Herî kêm 1 tîpa mezin (A-Z)</span>
+                <span>{t('walletCreate.ruleUppercase')}</span>
               </div>
               <div
                 className={`flex items-center gap-2 ${passwordRules.hasNumber ? 'text-green-400' : 'text-red-400'}`}
@@ -181,7 +187,7 @@ export function WalletImport({ onComplete, onBack }: Props) {
                 ) : (
                   <AlertTriangle className="w-3 h-3" />
                 )}
-                <span>Herî kêm 1 hejmar (0-9)</span>
+                <span>{t('walletCreate.ruleNumber')}</span>
               </div>
               <div
                 className={`flex items-center gap-2 ${passwordRules.hasSpecialChar ? 'text-green-400' : 'text-red-400'}`}
@@ -191,7 +197,7 @@ export function WalletImport({ onComplete, onBack }: Props) {
                 ) : (
                   <AlertTriangle className="w-3 h-3" />
                 )}
-                <span>Herî kêm 1 sembola taybetî (!@#$%...)</span>
+                <span>{t('walletCreate.ruleSpecialChar')}</span>
               </div>
               {confirmPassword.length > 0 && (
                 <div
@@ -202,7 +208,7 @@ export function WalletImport({ onComplete, onBack }: Props) {
                   ) : (
                     <AlertTriangle className="w-3 h-3" />
                   )}
-                  <span>Şîfre (password) hev digirin</span>
+                  <span>{t('walletCreate.rulePasswordsMatch')}</span>
                 </div>
               )}
             </div>
@@ -221,10 +227,10 @@ export function WalletImport({ onComplete, onBack }: Props) {
           className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
         >
           {isLoading
-            ? 'Tê import kirin...'
+            ? t('walletImport.importing')
             : allPasswordRulesPass
-              ? 'Import Bike'
-              : 'Şertên şîfre (password) bicîh bînin'}
+              ? t('walletImport.importButton')
+              : t('walletCreate.meetPasswordRequirements')}
           {!isLoading && allPasswordRulesPass && <ArrowRight className="w-4 h-4" />}
         </button>
       </div>

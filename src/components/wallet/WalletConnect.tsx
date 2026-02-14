@@ -8,6 +8,7 @@ import { Eye, EyeOff, Wallet, Unlock, Trash2 } from 'lucide-react';
 import { useWallet } from '@/contexts/WalletContext';
 import { useTelegram } from '@/hooks/useTelegram';
 import { formatAddress } from '@/lib/wallet-service';
+import { useTranslation } from '@/i18n';
 
 interface Props {
   onConnected: () => void;
@@ -17,6 +18,7 @@ interface Props {
 export function WalletConnect({ onConnected, onDelete }: Props) {
   const { address, connect, error: walletError } = useWallet();
   const { hapticImpact, hapticNotification } = useTelegram();
+  const { t } = useTranslation();
 
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -26,7 +28,7 @@ export function WalletConnect({ onConnected, onDelete }: Props) {
 
   const handleConnect = async () => {
     if (!password) {
-      setError('Şîfre (password) binivîse');
+      setError(t('walletConnect.enterPassword'));
       return;
     }
 
@@ -39,7 +41,7 @@ export function WalletConnect({ onConnected, onDelete }: Props) {
       hapticNotification('success');
       onConnected();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Şîfre (password) çewt e');
+      setError(err instanceof Error ? err.message : t('walletConnect.wrongPassword'));
       hapticNotification('error');
     } finally {
       setIsLoading(false);
@@ -58,11 +60,8 @@ export function WalletConnect({ onConnected, onDelete }: Props) {
           <div className="w-16 h-16 mx-auto bg-red-500/20 rounded-full flex items-center justify-center mb-4">
             <Trash2 className="w-8 h-8 text-red-500" />
           </div>
-          <h2 className="text-xl font-semibold mb-2">Wallet Jê Bibe?</h2>
-          <p className="text-muted-foreground text-sm">
-            Ev çalakî nayê paşvekişandin. Eger seed phrase&apos;ê te tune be, tu nikarî gihîştina
-            wallet&apos;ê xwe bistînî.
-          </p>
+          <h2 className="text-xl font-semibold mb-2">{t('walletConnect.deleteTitle')}</h2>
+          <p className="text-muted-foreground text-sm">{t('walletConnect.deleteDescription')}</p>
         </div>
 
         <div className="flex gap-3">
@@ -70,13 +69,13 @@ export function WalletConnect({ onConnected, onDelete }: Props) {
             onClick={() => setShowDeleteConfirm(false)}
             className="flex-1 py-3 bg-muted rounded-xl font-semibold"
           >
-            Betal
+            {t('common.cancel')}
           </button>
           <button
             onClick={handleDelete}
             className="flex-1 py-3 bg-red-500 text-white rounded-xl font-semibold"
           >
-            Jê Bibe
+            {t('walletConnect.deleteButton')}
           </button>
         </div>
       </div>
@@ -89,7 +88,7 @@ export function WalletConnect({ onConnected, onDelete }: Props) {
         <div className="w-16 h-16 mx-auto bg-primary/20 rounded-full flex items-center justify-center mb-4">
           <Wallet className="w-8 h-8 text-primary" />
         </div>
-        <h2 className="text-xl font-semibold mb-2">Wallet Veke</h2>
+        <h2 className="text-xl font-semibold mb-2">{t('walletConnect.openWallet')}</h2>
         {address && (
           <p className="text-muted-foreground text-sm font-mono">{formatAddress(address)}</p>
         )}
@@ -97,7 +96,9 @@ export function WalletConnect({ onConnected, onDelete }: Props) {
 
       <div className="space-y-4">
         <div className="space-y-2">
-          <label className="text-sm text-muted-foreground">Şîfre (Password)</label>
+          <label className="text-sm text-muted-foreground">
+            {t('walletConnect.passwordLabel')}
+          </label>
           <div className="relative">
             <input
               type={showPassword ? 'text' : 'password'}
@@ -105,7 +106,7 @@ export function WalletConnect({ onConnected, onDelete }: Props) {
               onChange={(e) => setPassword(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && handleConnect()}
               className="w-full px-4 py-3 bg-muted rounded-xl pr-12"
-              placeholder="Şîfre (password) binivîse"
+              placeholder={t('walletConnect.passwordPlaceholder')}
               autoFocus
             />
             <button
@@ -130,11 +131,11 @@ export function WalletConnect({ onConnected, onDelete }: Props) {
           className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
         >
           {isLoading ? (
-            'Tê vekirin...'
+            t('walletConnect.connecting')
           ) : (
             <>
               <Unlock className="w-4 h-4" />
-              Connect
+              {t('walletConnect.connect')}
             </>
           )}
         </button>
@@ -143,7 +144,7 @@ export function WalletConnect({ onConnected, onDelete }: Props) {
           onClick={() => setShowDeleteConfirm(true)}
           className="w-full py-3 text-red-400 text-sm"
         >
-          Wallet jê bibe
+          {t('walletConnect.deleteWalletLink')}
         </button>
       </div>
     </div>

@@ -31,12 +31,14 @@ import { useTelegram } from '@/hooks/useTelegram';
 import { useAuth } from '@/contexts/AuthContext';
 import { useForum, type ForumDiscussion, type ForumReply } from '@/hooks/useForum';
 import { formatDistanceToNow } from 'date-fns';
+import { useTranslation } from '@/i18n';
 
 type SortBy = 'recent' | 'popular' | 'replies' | 'views';
 
 export function ForumSection() {
   const { hapticImpact, hapticNotification, showAlert } = useTelegram();
   const { user: authUser } = useAuth();
+  const { t } = useTranslation();
   // Use authenticated user ID from backend, not initDataUnsafe
   const userId = authUser?.telegram_id?.toString() || '';
   const userName = authUser?.first_name || 'Telegram User';
@@ -116,7 +118,7 @@ export function ForumSection() {
 
   const handleVoteDiscussion = async (voteType: 'upvote' | 'downvote') => {
     if (!selectedDiscussion || !userId) {
-      showAlert('Ji bo dengdanê têkeve');
+      showAlert(t('forum.loginToVote'));
       return;
     }
 
@@ -132,13 +134,13 @@ export function ForumSection() {
       }
     } catch {
       hapticNotification('error');
-      showAlert('Çewtî di dengdanê de');
+      showAlert(t('forum.voteError'));
     }
   };
 
   const handleVoteReply = async (replyId: string, voteType: 'upvote' | 'downvote') => {
     if (!userId) {
-      showAlert('Ji bo dengdanê têkeve');
+      showAlert(t('forum.loginToVote'));
       return;
     }
 
@@ -159,12 +161,12 @@ export function ForumSection() {
 
   const handleSubmitReply = async () => {
     if (!selectedDiscussion || !replyText.trim() || !userId) {
-      showAlert('Ji kerema xwe bersiva xwe binivîse');
+      showAlert(t('forum.writeReply'));
       return;
     }
 
     if (selectedDiscussion.is_locked) {
-      showAlert('Ev mijar kilîtkirî ye');
+      showAlert(t('forum.topicLocked'));
       return;
     }
 
@@ -187,7 +189,7 @@ export function ForumSection() {
       setReplies(loadedReplies);
     } catch {
       hapticNotification('error');
-      showAlert('Çewtî di şandina bersivê de');
+      showAlert(t('forum.replyError'));
     } finally {
       setSubmittingReply(false);
     }
@@ -195,7 +197,7 @@ export function ForumSection() {
 
   const handleSubmitDiscussion = async () => {
     if (!newTitle.trim() || !newContent.trim() || !newCategory || !userId) {
-      showAlert('Ji kerema xwe hemû qadan tije bike');
+      showAlert(t('forum.fillAllFields'));
       return;
     }
 
@@ -205,8 +207,8 @@ export function ForumSection() {
     try {
       const tags = newTags
         .split(',')
-        .map((t) => t.trim())
-        .filter((t) => t.length > 0);
+        .map((tag) => tag.trim())
+        .filter((tag) => tag.length > 0);
 
       await createDiscussion({
         title: newTitle.trim(),
@@ -218,11 +220,11 @@ export function ForumSection() {
       });
 
       hapticNotification('success');
-      showAlert('Mijar hat afirandin!');
+      showAlert(t('forum.topicCreated'));
       handleCloseCreate();
     } catch {
       hapticNotification('error');
-      showAlert('Çewtî di afirandina mijarê de');
+      showAlert(t('forum.topicCreateError'));
     } finally {
       setSubmittingDiscussion(false);
     }
@@ -291,7 +293,7 @@ export function ForumSection() {
               >
                 <X className="w-5 h-5" />
               </button>
-              <h1 className="text-lg font-semibold">Mijara Nû</h1>
+              <h1 className="text-lg font-semibold">{t('forum.newTopic')}</h1>
             </div>
             <button
               onClick={handleSubmitDiscussion}
@@ -303,7 +305,7 @@ export function ForumSection() {
                   : 'bg-primary text-primary-foreground'
               )}
             >
-              {submittingDiscussion ? 'Tê şandin...' : 'Biweşîne'}
+              {submittingDiscussion ? t('forum.submitting') : t('forum.publish')}
             </button>
           </div>
         </header>
@@ -311,7 +313,9 @@ export function ForumSection() {
         <div className="flex-1 overflow-y-auto hide-scrollbar p-4 space-y-4">
           {/* Category */}
           <div>
-            <label className="text-sm text-muted-foreground mb-2 block">Kategorî</label>
+            <label className="text-sm text-muted-foreground mb-2 block">
+              {t('forum.category')}
+            </label>
             <div className="flex gap-2 flex-wrap">
               {categories.map((cat) => (
                 <button
@@ -336,12 +340,14 @@ export function ForumSection() {
 
           {/* Title */}
           <div>
-            <label className="text-sm text-muted-foreground mb-2 block">Sernav</label>
+            <label className="text-sm text-muted-foreground mb-2 block">
+              {t('forum.topicTitle')}
+            </label>
             <input
               type="text"
               value={newTitle}
               onChange={(e) => setNewTitle(e.target.value)}
-              placeholder="Navê mijarê..."
+              placeholder={t('forum.topicTitlePlaceholder')}
               className="w-full px-4 py-3 bg-secondary rounded-lg text-foreground"
               maxLength={200}
             />
@@ -349,11 +355,11 @@ export function ForumSection() {
 
           {/* Content */}
           <div>
-            <label className="text-sm text-muted-foreground mb-2 block">Naverok</label>
+            <label className="text-sm text-muted-foreground mb-2 block">{t('forum.content')}</label>
             <textarea
               value={newContent}
               onChange={(e) => setNewContent(e.target.value)}
-              placeholder="Naveroka mijarê binivîse..."
+              placeholder={t('forum.contentPlaceholder')}
               className="w-full px-4 py-3 bg-secondary rounded-lg text-foreground min-h-[200px] resize-none"
             />
           </div>
@@ -361,13 +367,13 @@ export function ForumSection() {
           {/* Tags */}
           <div>
             <label className="text-sm text-muted-foreground mb-2 block">
-              Etîket (bi virgulê cuda bike)
+              {t('forum.tagsLabel')}
             </label>
             <input
               type="text"
               value={newTags}
               onChange={(e) => setNewTags(e.target.value)}
-              placeholder="blockchain, kurd, pez..."
+              placeholder={t('forum.tagsPlaceholder')}
               className="w-full px-4 py-3 bg-secondary rounded-lg text-foreground"
             />
           </div>
@@ -395,13 +401,13 @@ export function ForumSection() {
             {selectedDiscussion.is_pinned && (
               <span className="inline-flex items-center gap-1 text-xs bg-yellow-500/20 text-yellow-400 px-2 py-1 rounded-full">
                 <Pin className="w-3 h-3" />
-                Pinned
+                {t('common.pinned')}
               </span>
             )}
             {selectedDiscussion.is_locked && (
               <span className="inline-flex items-center gap-1 text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded-full">
                 <Lock className="w-3 h-3" />
-                Kilîtkirî
+                {t('common.locked')}
               </span>
             )}
             {selectedDiscussion.category && (
@@ -419,7 +425,7 @@ export function ForumSection() {
               </div>
               <div>
                 <p className="text-sm font-medium">
-                  {selectedDiscussion.author_name || 'Anonymous'}
+                  {selectedDiscussion.author_name || t('common.anonymous')}
                 </p>
                 <p className="text-xs text-muted-foreground">
                   {formatDistanceToNow(new Date(selectedDiscussion.created_at), {
@@ -499,7 +505,7 @@ export function ForumSection() {
           <div className="mb-4">
             <h3 className="text-sm font-semibold text-muted-foreground mb-3 flex items-center gap-2">
               <MessageSquare className="w-4 h-4" />
-              Bersiv ({replies.length})
+              {t('forum.replies')} ({replies.length})
             </h3>
 
             {loadingReplies ? (
@@ -514,8 +520,8 @@ export function ForumSection() {
             ) : replies.length === 0 ? (
               <div className="text-center py-8 text-muted-foreground">
                 <MessageSquare className="w-8 h-8 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">Hêj bersiv tune ye</p>
-                <p className="text-xs">Yekemîn bersivê tu bide!</p>
+                <p className="text-sm">{t('forum.noRepliesYet')}</p>
+                <p className="text-xs">{t('forum.beFirstToReply')}</p>
               </div>
             ) : (
               <div className="space-y-3">
@@ -529,7 +535,7 @@ export function ForumSection() {
                         {reply.author_name?.charAt(0) || 'A'}
                       </div>
                       <span className="text-sm font-medium">
-                        {reply.author_name || 'Anonymous'}
+                        {reply.author_name || t('common.anonymous')}
                       </span>
                       <span className="text-xs text-muted-foreground">
                         {formatDistanceToNow(new Date(reply.created_at), { addSuffix: true })}
@@ -579,7 +585,7 @@ export function ForumSection() {
                 type="text"
                 value={replyText}
                 onChange={(e) => setReplyText(e.target.value)}
-                placeholder="Bersiva xwe binivîse..."
+                placeholder={t('forum.replyPlaceholder')}
                 className="flex-1 px-4 py-2.5 bg-secondary rounded-lg text-sm"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !e.shiftKey) {
@@ -616,7 +622,7 @@ export function ForumSection() {
             <div className="w-8 h-8 rounded-lg bg-blue-500/20 flex items-center justify-center">
               <MessageCircle className="w-4 h-4 text-blue-400" />
             </div>
-            <h1 className="text-lg font-semibold">Forum</h1>
+            <h1 className="text-lg font-semibold">{t('forum.title')}</h1>
             <span className="text-xs text-muted-foreground">({discussions.length})</span>
           </div>
           <div className="flex items-center gap-1">
@@ -648,7 +654,7 @@ export function ForumSection() {
             type="text"
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder="Mijar bigere..."
+            placeholder={t('forum.searchPlaceholder')}
             className="w-full pl-9 pr-4 py-2 bg-secondary rounded-lg text-sm"
           />
         </div>
@@ -656,10 +662,10 @@ export function ForumSection() {
         {/* Sort Tabs */}
         <div className="flex gap-1 bg-secondary/50 rounded-lg p-1">
           {[
-            { id: 'recent' as SortBy, icon: Clock, label: 'Nû' },
-            { id: 'popular' as SortBy, icon: TrendingUp, label: 'Populer' },
-            { id: 'replies' as SortBy, icon: MessageSquare, label: 'Bersiv' },
-            { id: 'views' as SortBy, icon: Eye, label: 'Dîtin' },
+            { id: 'recent' as SortBy, icon: Clock, label: t('forum.sortRecent') },
+            { id: 'popular' as SortBy, icon: TrendingUp, label: t('forum.sortPopular') },
+            { id: 'replies' as SortBy, icon: MessageSquare, label: t('forum.sortReplies') },
+            { id: 'views' as SortBy, icon: Eye, label: t('forum.sortViews') },
           ].map(({ id, icon: Icon, label }) => (
             <button
               key={id}
@@ -718,7 +724,7 @@ export function ForumSection() {
                     : 'bg-secondary text-muted-foreground'
                 )}
               >
-                Hemû
+                {t('forum.all')}
               </button>
               {categories.map((category) => (
                 <button
@@ -755,14 +761,14 @@ export function ForumSection() {
         ) : filteredDiscussions.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-64 p-8 text-center">
             <MessageCircle className="w-12 h-12 text-muted-foreground/50 mb-4" />
-            <p className="text-muted-foreground">Mijar nehat dîtin</p>
-            <p className="text-sm text-muted-foreground/70 mb-4">Filterên xwe biguhêre</p>
+            <p className="text-muted-foreground">{t('forum.noTopicsFound')}</p>
+            <p className="text-sm text-muted-foreground/70 mb-4">{t('forum.changeFilters')}</p>
             <button
               onClick={handleOpenCreate}
               className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm"
             >
               <Plus className="w-4 h-4" />
-              Mijara Nû Biafirîne
+              {t('forum.createNewTopic')}
             </button>
           </div>
         ) : (
@@ -778,7 +784,7 @@ export function ForumSection() {
                   {discussion.is_pinned && (
                     <span className="inline-flex items-center gap-1 text-[10px] bg-yellow-500/20 text-yellow-400 px-1.5 py-0.5 rounded">
                       <Pin className="w-2.5 h-2.5" />
-                      Pinned
+                      {t('common.pinned')}
                     </span>
                   )}
                   {discussion.is_locked && (
@@ -794,7 +800,7 @@ export function ForumSection() {
                   {(discussion.upvotes || 0) > 10 && (
                     <span className="inline-flex items-center gap-1 text-[10px] bg-orange-500/20 text-orange-400 px-1.5 py-0.5 rounded">
                       <Flame className="w-2.5 h-2.5" />
-                      Trending
+                      {t('common.trending')}
                     </span>
                   )}
                 </div>
@@ -817,7 +823,7 @@ export function ForumSection() {
 
                 {/* Meta */}
                 <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap">
-                  <span>{discussion.author_name || 'Anonymous'}</span>
+                  <span>{discussion.author_name || t('common.anonymous')}</span>
                   <span>
                     {formatDistanceToNow(new Date(discussion.last_activity_at), {
                       addSuffix: true,

@@ -18,6 +18,7 @@ import {
 import { useTelegram } from '@/hooks/useTelegram';
 import { useWallet } from '@/contexts/WalletContext';
 import { supabase } from '@/lib/supabase';
+import { useTranslation } from '@/i18n';
 
 type Network = 'ton' | 'polkadot' | 'trc20';
 
@@ -28,7 +29,7 @@ interface NetworkInfo {
   icon: string;
   recommended: boolean;
   fee: number;
-  feeWarning?: string;
+  feeWarning?: boolean;
   explorer: string;
   minDeposit: number;
 }
@@ -61,7 +62,7 @@ const NETWORKS: NetworkInfo[] = [
     icon: '🔴',
     recommended: false,
     fee: 3,
-    feeWarning: 'Mesrefa tora TRC20 bi qasî $3 ye. Em tora TON an Polkadot pêşniyar dikin.',
+    feeWarning: true,
     explorer: 'https://tronscan.org/#/transaction/',
     minDeposit: 10,
   },
@@ -84,6 +85,7 @@ interface Props {
 export function DepositUSDTModal({ isOpen, onClose }: Props) {
   const { hapticImpact, showAlert } = useTelegram();
   const { address: localWalletAddress } = useWallet();
+  const { t } = useTranslation();
 
   const [selectedNetwork, setSelectedNetwork] = useState<Network>('ton');
   const [depositCode, setDepositCode] = useState<string>('');
@@ -184,7 +186,7 @@ export function DepositUSDTModal({ isOpen, onClose }: Props) {
       hapticImpact('light');
       setTimeout(() => setCopied(null), 2000);
     } catch {
-      showAlert('Kopî nekir');
+      showAlert(t('deposit.copyFailed'));
     }
   };
 
@@ -204,15 +206,15 @@ export function DepositUSDTModal({ isOpen, onClose }: Props) {
   const getStatusText = (status: string) => {
     switch (status) {
       case 'pending':
-        return 'Li benda';
+        return t('deposit.statusPending');
       case 'confirming':
-        return 'Tê pejirandin';
+        return t('deposit.statusConfirming');
       case 'completed':
-        return 'Qediya';
+        return t('deposit.statusCompleted');
       case 'failed':
-        return 'Neserketî';
+        return t('deposit.statusFailed');
       case 'expired':
-        return 'Dema wê derbas bû';
+        return t('deposit.statusExpired');
       default:
         return status;
     }
@@ -233,8 +235,8 @@ export function DepositUSDTModal({ isOpen, onClose }: Props) {
               <Plus className="w-5 h-5 text-green-400" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold">USDT Depo Bike</h2>
-              <p className="text-xs text-muted-foreground">Bo wUSDT li Asset Hub</p>
+              <h2 className="text-lg font-semibold">{t('deposit.title')}</h2>
+              <p className="text-xs text-muted-foreground">{t('deposit.subtitle')}</p>
             </div>
           </div>
           <div className="flex gap-2">
@@ -256,9 +258,11 @@ export function DepositUSDTModal({ isOpen, onClose }: Props) {
         {showHistory ? (
           /* Deposit History */
           <div className="space-y-3">
-            <h3 className="text-sm font-medium text-muted-foreground">Dîroka Depoyan</h3>
+            <h3 className="text-sm font-medium text-muted-foreground">
+              {t('deposit.depositHistory')}
+            </h3>
             {deposits.length === 0 ? (
-              <p className="text-center text-muted-foreground py-8">Hîn depo tune</p>
+              <p className="text-center text-muted-foreground py-8">{t('deposit.noDeposits')}</p>
             ) : (
               deposits.map((deposit) => (
                 <div key={deposit.id} className="bg-muted/50 rounded-xl p-3">
@@ -290,7 +294,7 @@ export function DepositUSDTModal({ isOpen, onClose }: Props) {
                       className="text-xs text-blue-400 flex items-center gap-1 mt-2"
                     >
                       <ExternalLink className="w-3 h-3" />
-                      TX bibîne
+                      {t('deposit.viewTx')}
                     </a>
                   )}
                 </div>
@@ -300,14 +304,16 @@ export function DepositUSDTModal({ isOpen, onClose }: Props) {
               onClick={() => setShowHistory(false)}
               className="w-full py-3 bg-muted rounded-xl text-center"
             >
-              Vegere
+              {t('deposit.goBack')}
             </button>
           </div>
         ) : (
           <div className="space-y-4">
             {/* Network Selection */}
             <div>
-              <label className="text-sm text-muted-foreground mb-2 block">Torê Hilbijêre</label>
+              <label className="text-sm text-muted-foreground mb-2 block">
+                {t('deposit.selectNetwork')}
+              </label>
               <div className="grid grid-cols-3 gap-2">
                 {NETWORKS.map((net) => (
                   <button
@@ -327,7 +333,7 @@ export function DepositUSDTModal({ isOpen, onClose }: Props) {
                   >
                     {net.recommended && (
                       <span className="absolute -top-2 left-1/2 -translate-x-1/2 text-[10px] bg-green-500 text-white px-1.5 py-0.5 rounded">
-                        Pêşniyar
+                        {t('deposit.recommended')}
                       </span>
                     )}
                     <div className="text-xl mb-1">{net.icon}</div>
@@ -349,11 +355,13 @@ export function DepositUSDTModal({ isOpen, onClose }: Props) {
                 <div className="flex gap-3">
                   <AlertTriangle className="w-6 h-6 text-yellow-400 flex-shrink-0" />
                   <div>
-                    <p className="text-sm text-yellow-400 font-medium mb-2">Dikkkat!</p>
-                    <p className="text-xs text-yellow-400/80 mb-3">{network.feeWarning}</p>
-                    <p className="text-xs text-yellow-400/80 mb-3">
-                      Mînak: 10 USDT bişîne → 7 wUSDT werbigire ($3 masraf)
+                    <p className="text-sm text-yellow-400 font-medium mb-2">
+                      {t('deposit.warning')}
                     </p>
+                    <p className="text-xs text-yellow-400/80 mb-3">
+                      {t('deposit.trc20FeeWarning')}
+                    </p>
+                    <p className="text-xs text-yellow-400/80 mb-3">{t('deposit.example')}</p>
                     <button
                       onClick={() => {
                         setTrc20Accepted(true);
@@ -361,7 +369,7 @@ export function DepositUSDTModal({ isOpen, onClose }: Props) {
                       }}
                       className="w-full py-2 bg-yellow-500/20 border border-yellow-500/50 rounded-lg text-yellow-400 text-sm font-medium"
                     >
-                      Qebûl dikim, bi TRC20 bişîne
+                      {t('deposit.acceptTrc20')}
                     </button>
                   </div>
                 </div>
@@ -376,19 +384,13 @@ export function DepositUSDTModal({ isOpen, onClose }: Props) {
                   <div className="flex gap-2">
                     <AlertCircle className="w-5 h-5 text-blue-400 flex-shrink-0" />
                     <div className="text-sm text-blue-400">
-                      <p className="font-medium">Girîng!</p>
+                      <p className="font-medium">{t('deposit.important')}</p>
                       <ul className="list-disc list-inside text-xs mt-1 space-y-1">
-                        <li>
-                          Kêmtirîn: <strong>{network.minDeposit} USDT</strong>
-                        </li>
-                        {selectedNetwork !== 'trc20' && (
-                          <li>Memo/Comment qada de koda xwe binivîse</li>
-                        )}
-                        <li>Tenê USDT bişîne, tokenên din winda dibin</li>
+                        <li>{t('deposit.minimum', { amount: network.minDeposit })}</li>
+                        {selectedNetwork !== 'trc20' && <li>{t('deposit.memoRequired')}</li>}
+                        <li>{t('deposit.onlyUsdt')}</li>
                         {selectedNetwork === 'trc20' && (
-                          <li className="text-yellow-400">
-                            $3 masraf dê ji mîqdara we bê kêmkirin
-                          </li>
+                          <li className="text-yellow-400">{t('deposit.trc20Fee')}</li>
                         )}
                       </ul>
                     </div>
@@ -399,7 +401,9 @@ export function DepositUSDTModal({ isOpen, onClose }: Props) {
                 <div className="bg-muted/50 rounded-xl p-4 space-y-4">
                   {/* Address */}
                   <div>
-                    <label className="text-xs text-muted-foreground">Navnîşana Depoyê</label>
+                    <label className="text-xs text-muted-foreground">
+                      {t('deposit.depositAddress')}
+                    </label>
                     <div className="flex items-center gap-2 mt-1">
                       {isLoading && selectedNetwork === 'trc20' ? (
                         <div className="flex-1 p-2 bg-background rounded-lg flex justify-center">
@@ -407,7 +411,7 @@ export function DepositUSDTModal({ isOpen, onClose }: Props) {
                         </div>
                       ) : (
                         <code className="flex-1 text-xs font-mono bg-background p-2 rounded-lg break-all">
-                          {currentAddress || 'Amade nîne'}
+                          {currentAddress || t('deposit.notAvailable')}
                         </code>
                       )}
                       <button
@@ -428,7 +432,7 @@ export function DepositUSDTModal({ isOpen, onClose }: Props) {
                   {selectedNetwork !== 'trc20' && (
                     <div>
                       <label className="text-xs text-muted-foreground">
-                        Memo / Comment (PÊWÎST)
+                        {t('deposit.memoLabel')}
                       </label>
                       <div className="flex items-center gap-2 mt-1">
                         {isLoading ? (
@@ -452,31 +456,27 @@ export function DepositUSDTModal({ isOpen, onClose }: Props) {
                           )}
                         </button>
                       </div>
-                      <p className="text-xs text-red-400 mt-1">
-                        ⚠️ Vê kodê di memo de binivîse, wekî din depoya te nayê nas kirin!
-                      </p>
+                      <p className="text-xs text-red-400 mt-1">{t('deposit.memoWarning')}</p>
                     </div>
                   )}
 
                   {selectedNetwork === 'trc20' && (
-                    <p className="text-xs text-green-400">
-                      ✅ Ev navnîşan tenê ya te ye. Memo ne pêwîst e.
-                    </p>
+                    <p className="text-xs text-green-400">{t('deposit.uniqueAddress')}</p>
                   )}
                 </div>
 
                 {/* Steps */}
                 <div className="bg-muted/30 rounded-xl p-4">
-                  <h4 className="text-sm font-medium mb-3">Çawa Depo Bikim?</h4>
+                  <h4 className="text-sm font-medium mb-3">{t('deposit.howToDeposit')}</h4>
                   <ol className="text-xs text-muted-foreground space-y-2">
                     <li className="flex gap-2">
                       <span className="text-green-400 font-bold">1.</span>
-                      <span>Navnîşan kopî bike</span>
+                      <span>{t('deposit.stepCopyAddress')}</span>
                     </li>
                     {selectedNetwork !== 'trc20' && (
                       <li className="flex gap-2">
                         <span className="text-green-400 font-bold">2.</span>
-                        <span>Memo kodê kopî bike</span>
+                        <span>{t('deposit.stepCopyMemo')}</span>
                       </li>
                     )}
                     <li className="flex gap-2">
@@ -485,30 +485,30 @@ export function DepositUSDTModal({ isOpen, onClose }: Props) {
                       </span>
                       <span>
                         {selectedNetwork === 'ton'
-                          ? 'Telegram Wallet an cîzdana xwe veke'
+                          ? t('deposit.stepOpenTon')
                           : selectedNetwork === 'polkadot'
-                            ? 'Polkadot cîzdana xwe veke'
-                            : 'TronLink an cîzdana xwe veke'}
+                            ? t('deposit.stepOpenPolkadot')
+                            : t('deposit.stepOpenTrc20')}
                       </span>
                     </li>
                     <li className="flex gap-2">
                       <span className="text-green-400 font-bold">
                         {selectedNetwork === 'trc20' ? '3' : '4'}.
                       </span>
-                      <span>USDT bişîne navnîşana jorîn</span>
+                      <span>{t('deposit.stepSendUsdt')}</span>
                     </li>
                     <li className="flex gap-2">
                       <span className="text-green-400 font-bold">
                         {selectedNetwork === 'trc20' ? '4' : '5'}.
                       </span>
-                      <span>wUSDT dê di nav çend hûrdeman de li hesabê te be</span>
+                      <span>{t('deposit.stepReceive')}</span>
                     </li>
                   </ol>
                 </div>
 
                 {/* Processing Time */}
                 <p className="text-center text-xs text-muted-foreground">
-                  Dema pêvajoyê: ~1-5 hûrdem
+                  {t('deposit.processingTime')}
                 </p>
               </>
             )}

@@ -6,10 +6,12 @@
 import { RefreshCw, X } from 'lucide-react';
 import { useVersion } from '@/hooks/useVersion';
 import { useTelegram } from '@/hooks/useTelegram';
+import { useTranslation } from '@/i18n';
 
 export function UpdateNotification() {
   const { hasUpdate, forceUpdate, dismissUpdate, currentVersion } = useVersion();
   const { hapticImpact } = useTelegram();
+  const { t } = useTranslation();
 
   if (!hasUpdate) return null;
 
@@ -31,10 +33,8 @@ export function UpdateNotification() {
             <RefreshCw className="w-5 h-5" />
           </div>
           <div className="flex-1 min-w-0">
-            <h4 className="font-semibold text-sm">Guhertoya nû heye!</h4>
-            <p className="text-xs opacity-90 mt-0.5">
-              Ji bo taybetmendiyên nû û rastkirinên ewlehiyê nûve bike.
-            </p>
+            <h4 className="font-semibold text-sm">{t('update.newVersion')}</h4>
+            <p className="text-xs opacity-90 mt-0.5">{t('update.description')}</p>
             <p className="text-[10px] opacity-70 mt-1">v{currentVersion}</p>
           </div>
           <button
@@ -50,14 +50,14 @@ export function UpdateNotification() {
             onClick={handleDismiss}
             className="flex-1 py-2 px-3 rounded-lg bg-white/10 hover:bg-white/20 text-sm font-medium transition-colors"
           >
-            Paşê
+            {t('update.later')}
           </button>
           <button
             onClick={handleUpdate}
             className="flex-1 py-2 px-3 rounded-lg bg-white text-primary text-sm font-medium hover:bg-white/90 transition-colors flex items-center justify-center gap-2"
           >
             <RefreshCw className="w-4 h-4" />
-            Nûve bike
+            {t('update.updateNow')}
           </button>
         </div>
       </div>

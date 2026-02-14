@@ -5,6 +5,7 @@ import { AuthProvider } from './contexts/AuthContext';
 import { WalletProvider } from './contexts/WalletContext';
 import { ReferralProvider } from './contexts/ReferralContext';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { LanguageProvider } from './i18n';
 import App from './App';
 import './index.css';
 
@@ -42,15 +43,17 @@ if (!rootElement) {
 createRoot(rootElement).render(
   <StrictMode>
     <ErrorBoundary>
-      <QueryClientProvider client={queryClient}>
-        <AuthProvider>
-          <WalletProvider>
-            <ReferralProvider>
-              <App />
-            </ReferralProvider>
-          </WalletProvider>
-        </AuthProvider>
-      </QueryClientProvider>
+      <LanguageProvider>
+        <QueryClientProvider client={queryClient}>
+          <AuthProvider>
+            <WalletProvider>
+              <ReferralProvider>
+                <App />
+              </ReferralProvider>
+            </WalletProvider>
+          </AuthProvider>
+        </QueryClientProvider>
+      </LanguageProvider>
     </ErrorBoundary>
   </StrictMode>
 );

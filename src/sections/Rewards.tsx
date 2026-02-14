@@ -29,6 +29,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { useReferral } from '@/contexts/ReferralContext';
 import { useWallet } from '@/contexts/WalletContext';
 import { SocialLinks } from '@/components/SocialLinks';
+import { useTranslation } from '@/i18n';
 import {
   getAllScores,
   getStakingScoreStatus,
@@ -54,6 +55,7 @@ export function RewardsSection() {
   const { user: authUser } = useAuth();
   const { stats, myReferrals, loading, refreshStats } = useReferral();
   const { isConnected, address, peopleApi } = useWallet();
+  const { t } = useTranslation();
 
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<'overview' | 'referrals' | 'scores'>('overview');
@@ -136,7 +138,7 @@ export function RewardsSection() {
     localStorage.setItem(ACTIVITY_STORAGE_KEY, Date.now().toString());
     setIsActive(true);
     setTimeRemaining('24s 0d');
-    showAlert('Tu niha aktîv î! 24 saet paşê dîsa bikirtîne.');
+    showAlert(t('rewards.activatedAlert'));
   };
 
   // Telegram referral link (for sharing) - use authenticated user ID
@@ -151,16 +153,13 @@ export function RewardsSection() {
       hapticNotification('success');
       setTimeout(() => setCopied(false), 2000);
     } catch {
-      showAlert('Kopî bû');
+      showAlert(t('rewards.copyAlert'));
     }
   };
 
   const handleShare = () => {
     hapticImpact('medium');
-    shareUrl(
-      referralLink,
-      'Pezkuwichain - Dewleta Dîjîtal a Kurd! Bi lînka min ve tev li me bibe:'
-    );
+    shareUrl(referralLink, t('rewards.shareText'));
   };
 
   const handleRefresh = () => {
@@ -180,10 +179,8 @@ export function RewardsSection() {
     return (
       <div className="flex flex-col h-full items-center justify-center p-8 text-center">
         <Gift className="w-16 h-16 text-purple-400 mb-4" />
-        <h2 className="text-xl font-semibold mb-2">Xelat - Referral System</h2>
-        <p className="text-muted-foreground mb-4">
-          Ji bo dîtina referral û xelatên xwe, berî her tiştî cîzdanê xwe girêde.
-        </p>
+        <h2 className="text-xl font-semibold mb-2">{t('rewards.subtitle')}</h2>
+        <p className="text-muted-foreground mb-4">{t('rewards.connectWalletFirst')}</p>
       </div>
     );
   }
@@ -197,7 +194,7 @@ export function RewardsSection() {
             <div className="w-8 h-8 rounded-lg bg-purple-500/20 flex items-center justify-center">
               <Gift className="w-4 h-4 text-purple-400" />
             </div>
-            <h1 className="text-lg font-semibold">Xelat</h1>
+            <h1 className="text-lg font-semibold">{t('rewards.title')}</h1>
           </div>
           <button
             onClick={handleRefresh}
@@ -213,9 +210,9 @@ export function RewardsSection() {
         {/* Tabs */}
         <div className="flex gap-1 bg-secondary/50 rounded-lg p-1">
           {[
-            { id: 'overview' as const, label: 'Geşbîn' },
-            { id: 'referrals' as const, label: 'Referral' },
-            { id: 'scores' as const, label: 'Xal' },
+            { id: 'overview' as const, label: t('rewards.overview') },
+            { id: 'referrals' as const, label: t('rewards.referral') },
+            { id: 'scores' as const, label: t('rewards.scores') },
           ].map(({ id, label }) => (
             <button
               key={id}
@@ -255,7 +252,7 @@ export function RewardsSection() {
                 <div className="bg-gradient-to-br from-purple-600 to-pink-600 rounded-2xl p-4 text-white">
                   <div className="flex items-center justify-between mb-4">
                     <div>
-                      <p className="text-purple-100 text-sm">Pûana Referral</p>
+                      <p className="text-purple-100 text-sm">{t('rewards.referralScore')}</p>
                       <p className="text-4xl font-bold">{stats?.referralScore ?? 0}</p>
                     </div>
                     <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center">
@@ -264,7 +261,7 @@ export function RewardsSection() {
                   </div>
                   <div className="flex items-center gap-2 text-sm text-purple-100">
                     <TrendingUp className="w-4 h-4" />
-                    <span>Max pûan: 500</span>
+                    <span>{t('rewards.maxScore')}</span>
                   </div>
                 </div>
 
@@ -276,10 +273,10 @@ export function RewardsSection() {
                     </div>
                     <div>
                       <h4 className="font-semibold text-amber-100 mb-1">
-                        زیاتر ڕیفەر بکە، زیاتر قازانج بکە!
+                        {t('rewards.referMoreTitle')}
                       </h4>
                       <p className="text-sm text-amber-200/80">
-                        هەر کەسێک بهێنیت، HEZ و PEZ وەک خەڵات وەردەگریت. زیاتر ڕیفەر = زیاتر خەڵات!
+                        {t('rewards.referMoreDescription')}
                       </p>
                     </div>
                   </div>
@@ -290,27 +287,27 @@ export function RewardsSection() {
                   <div className="bg-secondary/30 rounded-xl p-4 border border-border/50">
                     <div className="flex items-center gap-2 mb-2">
                       <Users className="w-4 h-4 text-green-400" />
-                      <span className="text-xs text-muted-foreground">Referral</span>
+                      <span className="text-xs text-muted-foreground">{t('rewards.referral')}</span>
                     </div>
                     <p className="text-2xl font-bold text-foreground">
                       {stats?.referralCount ?? 0}
                     </p>
-                    <p className="text-xs text-muted-foreground">KYC pejirandî</p>
+                    <p className="text-xs text-muted-foreground">{t('rewards.kycApproved')}</p>
                   </div>
 
                   <div className="bg-secondary/30 rounded-xl p-4 border border-border/50">
                     <div className="flex items-center gap-2 mb-2">
                       <Award className="w-4 h-4 text-blue-400" />
-                      <span className="text-xs text-muted-foreground">Referrer</span>
+                      <span className="text-xs text-muted-foreground">{t('rewards.referrer')}</span>
                     </div>
                     {stats?.whoInvitedMe ? (
                       <p className="text-sm font-mono text-foreground truncate">
                         {formatAddress(stats.whoInvitedMe, 6)}
                       </p>
                     ) : (
-                      <p className="text-sm text-muted-foreground">Tune</p>
+                      <p className="text-sm text-muted-foreground">{t('rewards.none')}</p>
                     )}
-                    <p className="text-xs text-muted-foreground">Min vexwand</p>
+                    <p className="text-xs text-muted-foreground">{t('rewards.invitedMe')}</p>
                   </div>
                 </div>
 
@@ -322,9 +319,11 @@ export function RewardsSection() {
                         <Award className="w-5 h-5 text-blue-400" />
                       </div>
                       <div className="flex-1">
-                        <div className="text-white font-semibold">Referral li bendê</div>
+                        <div className="text-white font-semibold">
+                          {t('rewards.pendingReferral')}
+                        </div>
                         <div className="text-sm text-blue-300">
-                          KYC temam bike ji bo pejirandina referral ji{' '}
+                          {t('rewards.completeKyc')}{' '}
                           <span className="font-mono">
                             {formatAddress(stats.pendingReferral, 6)}
                           </span>
@@ -338,11 +337,11 @@ export function RewardsSection() {
                 <div className="bg-secondary/30 rounded-xl p-4 border border-border/50">
                   <h3 className="font-medium text-foreground mb-3 flex items-center gap-2">
                     <Share2 className="w-4 h-4 text-primary" />
-                    Hevalên xwe vexwîne
+                    {t('rewards.inviteFriends')}
                   </h3>
 
                   <div className="bg-background rounded-lg p-3 mb-3">
-                    <p className="text-xs text-muted-foreground mb-1">Lînka te</p>
+                    <p className="text-xs text-muted-foreground mb-1">{t('rewards.yourLink')}</p>
                     <code className="text-sm text-foreground break-all">{referralLink}</code>
                   </div>
 
@@ -357,14 +356,14 @@ export function RewardsSection() {
                       )}
                     >
                       {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                      {copied ? 'Kopî bû!' : 'Kopî bike'}
+                      {copied ? t('rewards.copySuccess') : t('rewards.copyLink')}
                     </button>
                     <button
                       onClick={handleShare}
                       className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-primary rounded-lg text-primary-foreground text-sm font-medium"
                     >
                       <Share2 className="w-4 h-4" />
-                      Parve bike
+                      {t('rewards.shareLink')}
                     </button>
                   </div>
                 </div>
@@ -373,7 +372,7 @@ export function RewardsSection() {
                 <div className="bg-secondary/30 rounded-xl p-4 border border-border/50">
                   <h3 className="font-medium text-foreground mb-3 flex items-center gap-2">
                     <Star className="w-4 h-4 text-yellow-400" />
-                    Sîstema pûanan
+                    {t('rewards.scoreSystem')}
                   </h3>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between py-2 border-b border-border/30">
@@ -403,9 +402,11 @@ export function RewardsSection() {
                         className={cn('w-5 h-5', isActive ? 'text-green-400' : 'text-gray-400')}
                       />
                       <div>
-                        <h3 className="font-medium text-foreground">Rewşa Aktîvbûnê</h3>
+                        <h3 className="font-medium text-foreground">{t('rewards.activeStatus')}</h3>
                         {isActive && timeRemaining && (
-                          <p className="text-xs text-green-400">Dem: {timeRemaining} maye</p>
+                          <p className="text-xs text-green-400">
+                            {t('rewards.timeRemaining', { time: timeRemaining })}
+                          </p>
                         )}
                       </div>
                     </div>
@@ -415,11 +416,11 @@ export function RewardsSection() {
                         isActive ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
                       )}
                     >
-                      {isActive ? 'Aktîv' : 'Ne Aktîv'}
+                      {isActive ? t('rewards.active') : t('rewards.inactive')}
                     </div>
                   </div>
                   <p className="text-sm text-muted-foreground mb-3">
-                    Her 24 saet carekê bikirtîne da ku aktîv bimînî û xelatên zêdetir qezenc bikî!
+                    {t('rewards.activeDescription')}
                   </p>
                   <button
                     onClick={handleActivate}
@@ -432,7 +433,7 @@ export function RewardsSection() {
                     )}
                   >
                     <Zap className="w-5 h-5" />
-                    {isActive ? 'Tu Aktîv î!' : 'Ez Aktîv im!'}
+                    {isActive ? t('rewards.youAreActive') : t('rewards.iAmActive')}
                   </button>
                 </div>
 
@@ -454,11 +455,9 @@ export function RewardsSection() {
                 </div>
                 <div>
                   <h4 className="font-semibold text-amber-100 mb-1">
-                    زیاتر ڕیفەر بکە، زیاتر قازانج بکە!
+                    {t('rewards.referMoreTitle')}
                   </h4>
-                  <p className="text-sm text-amber-200/80">
-                    هەر کەسێک بهێنیت، HEZ و PEZ وەک خەڵات وەردەگریت. زیاتر ڕیفەر = زیاتر خەڵات!
-                  </p>
+                  <p className="text-sm text-amber-200/80">{t('rewards.referMoreDescription')}</p>
                 </div>
               </div>
             </div>
@@ -469,9 +468,11 @@ export function RewardsSection() {
                 <div className="flex items-center gap-2">
                   <Zap className={cn('w-5 h-5', isActive ? 'text-green-400' : 'text-gray-400')} />
                   <div>
-                    <h3 className="font-medium text-foreground">Rewşa Aktîvbûnê</h3>
+                    <h3 className="font-medium text-foreground">{t('rewards.activeStatus')}</h3>
                     {isActive && timeRemaining && (
-                      <p className="text-xs text-green-400">Dem: {timeRemaining} maye</p>
+                      <p className="text-xs text-green-400">
+                        {t('rewards.timeRemaining', { time: timeRemaining })}
+                      </p>
                     )}
                   </div>
                 </div>
@@ -481,7 +482,7 @@ export function RewardsSection() {
                     isActive ? 'bg-green-500/20 text-green-400' : 'bg-red-500/20 text-red-400'
                   )}
                 >
-                  {isActive ? 'Aktîv' : 'Ne Aktîv'}
+                  {isActive ? t('rewards.active') : t('rewards.inactive')}
                 </div>
               </div>
               <button
@@ -495,7 +496,7 @@ export function RewardsSection() {
                 )}
               >
                 <Zap className="w-5 h-5" />
-                {isActive ? 'Tu Aktîv î!' : 'Ez Aktîv im!'}
+                {isActive ? t('rewards.youAreActive') : t('rewards.iAmActive')}
               </button>
             </div>
 
@@ -510,7 +511,7 @@ export function RewardsSection() {
             ) : myReferrals.length > 0 ? (
               <div className="space-y-3">
                 <div className="text-sm text-muted-foreground mb-2">
-                  {myReferrals.length} referral (KYC pejirandî)
+                  {t('rewards.referralCount', { count: myReferrals.length })}
                 </div>
                 {myReferrals.map((referralAddress, index) => (
                   <div
@@ -524,11 +525,11 @@ export function RewardsSection() {
                       <code className="text-sm text-foreground">
                         {formatAddress(referralAddress, 8)}
                       </code>
-                      <p className="text-xs text-green-400">KYC Pejirandî</p>
+                      <p className="text-xs text-green-400">{t('rewards.kycApproved')}</p>
                     </div>
                     <div className="text-right">
                       <span className="text-green-400 text-sm font-medium">
-                        +{getPointsForPosition(index + 1)} pûan
+                        +{getPointsForPosition(index + 1)} {t('rewards.points')}
                       </span>
                     </div>
                   </div>
@@ -537,14 +538,14 @@ export function RewardsSection() {
             ) : (
               <div className="flex flex-col items-center justify-center py-12 text-center">
                 <Users className="w-12 h-12 text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">Hêj referralên te tune ne</p>
-                <p className="text-sm text-muted-foreground mt-1">Lînka xwe parve bike!</p>
+                <p className="text-muted-foreground">{t('rewards.noReferrals')}</p>
+                <p className="text-sm text-muted-foreground mt-1">{t('rewards.shareYourLink')}</p>
                 <button
                   onClick={handleShare}
                   className="mt-4 flex items-center gap-2 px-4 py-2 bg-primary rounded-lg text-primary-foreground text-sm font-medium"
                 >
                   <Share2 className="w-4 h-4" />
-                  Parve bike
+                  {t('rewards.shareLink')}
                 </button>
               </div>
             )}
@@ -571,7 +572,7 @@ export function RewardsSection() {
                     <div>
                       <p className="text-purple-100 text-sm flex items-center gap-2">
                         <Shield className="w-4 h-4" />
-                        Pûana Pêbaweriyê (Trust)
+                        {t('rewards.trustScore')}
                       </p>
                       <p
                         className={cn(
@@ -588,11 +589,11 @@ export function RewardsSection() {
                   </div>
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-purple-100">
-                      Rêze: {getScoreRating(userScores?.trustScore || 0)}
+                      {t('rewards.rank', { rating: getScoreRating(userScores?.trustScore || 0) })}
                     </span>
                     {userScores?.isCitizen && (
                       <span className="bg-green-500/30 text-green-200 px-2 py-1 rounded-full text-xs">
-                        Welatî
+                        {t('rewards.citizen')}
                       </span>
                     )}
                   </div>
@@ -604,7 +605,7 @@ export function RewardsSection() {
                   <div className="bg-secondary/30 rounded-xl p-4 border border-border/50">
                     <div className="flex items-center gap-2 mb-2">
                       <Target className="w-4 h-4 text-blue-400" />
-                      <span className="text-xs text-muted-foreground">Staking</span>
+                      <span className="text-xs text-muted-foreground">{t('rewards.staking')}</span>
                     </div>
                     <p className="text-2xl font-bold text-blue-400">
                       {stakingStatus?.isTracking ? (
@@ -613,23 +614,27 @@ export function RewardsSection() {
                           {formatDuration(stakingStatus.durationBlocks)}
                         </span>
                       ) : (
-                        <span className="text-sm text-muted-foreground">Nehatiye destpêkirin</span>
+                        <span className="text-sm text-muted-foreground">
+                          {t('rewards.stakingNotStarted')}
+                        </span>
                       )}
                     </p>
-                    <p className="text-xs text-muted-foreground mt-1">Di Trust de tê hesibandin</p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {t('rewards.stakingCountedInTrust')}
+                    </p>
                   </div>
 
                   {/* Referral Score */}
                   <div className="bg-secondary/30 rounded-xl p-4 border border-border/50">
                     <div className="flex items-center gap-2 mb-2">
                       <Users className="w-4 h-4 text-green-400" />
-                      <span className="text-xs text-muted-foreground">Referral</span>
+                      <span className="text-xs text-muted-foreground">{t('rewards.referral')}</span>
                     </div>
                     <p className="text-2xl font-bold text-green-400">
                       {userScores?.referralScore ?? 0}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {stats?.referralCount ?? 0} kes
+                      {t('rewards.people', { count: stats?.referralCount ?? 0 })}
                     </p>
                   </div>
 
@@ -637,24 +642,26 @@ export function RewardsSection() {
                   <div className="bg-secondary/30 rounded-xl p-4 border border-border/50">
                     <div className="flex items-center gap-2 mb-2">
                       <Sparkles className="w-4 h-4 text-yellow-400" />
-                      <span className="text-xs text-muted-foreground">Tiki</span>
+                      <span className="text-xs text-muted-foreground">{t('rewards.tiki')}</span>
                     </div>
                     <p className="text-2xl font-bold text-yellow-400">
                       {userScores?.tikiScore ?? 0}
                     </p>
-                    <p className="text-xs text-muted-foreground mt-1">Rola NFT</p>
+                    <p className="text-xs text-muted-foreground mt-1">{t('rewards.nftRole')}</p>
                   </div>
 
                   {/* Perwerde Score */}
                   <div className="bg-secondary/30 rounded-xl p-4 border border-border/50">
                     <div className="flex items-center gap-2 mb-2">
                       <GraduationCap className="w-4 h-4 text-pink-400" />
-                      <span className="text-xs text-muted-foreground">Perwerde</span>
+                      <span className="text-xs text-muted-foreground">
+                        {t('rewards.education')}
+                      </span>
                     </div>
                     <p className="text-2xl font-bold text-pink-400">
                       {userScores?.perwerdeScore ?? 0}
                     </p>
-                    <p className="text-xs text-muted-foreground mt-1">Xwendin</p>
+                    <p className="text-xs text-muted-foreground mt-1">{t('rewards.reading')}</p>
                   </div>
                 </div>
 
@@ -662,12 +669,12 @@ export function RewardsSection() {
                 <div className="bg-secondary/30 rounded-xl p-4 border border-border/50">
                   <h3 className="font-medium text-foreground mb-3 flex items-center gap-2">
                     <Coins className="w-4 h-4 text-amber-400" />
-                    Xelatên Staking
+                    {t('rewards.stakingRewards')}
                   </h3>
 
                   {/* Total Accumulated */}
                   <div className="bg-amber-500/10 rounded-lg p-3 mb-3 border border-amber-500/20">
-                    <p className="text-xs text-amber-300 mb-1">Tevahiya xelatên wergirtî</p>
+                    <p className="text-xs text-amber-300 mb-1">{t('rewards.totalRewards')}</p>
                     <p className="text-2xl font-bold text-amber-400">
                       {stakingRewards && stakingRewards.totalAccumulatedHez > 0
                         ? `${stakingRewards.totalAccumulatedHez.toFixed(4)} HEZ`
@@ -678,7 +685,9 @@ export function RewardsSection() {
                   {/* Recent Rewards List */}
                   {stakingRewards && stakingRewards.rewards.length > 0 ? (
                     <div className="space-y-2">
-                      <p className="text-xs text-muted-foreground mb-2">Xelatên dawî</p>
+                      <p className="text-xs text-muted-foreground mb-2">
+                        {t('rewards.recentRewards')}
+                      </p>
                       {stakingRewards.rewards.map((reward) => (
                         <div
                           key={reward.id}
@@ -709,7 +718,7 @@ export function RewardsSection() {
                     </div>
                   ) : (
                     <p className="text-sm text-muted-foreground text-center py-3">
-                      Hêj xelatek nehatiye tomarkirin
+                      {t('rewards.noRewardsYet')}
                     </p>
                   )}
                 </div>
@@ -718,7 +727,7 @@ export function RewardsSection() {
                 <div className="bg-secondary/30 rounded-xl p-4 border border-border/50">
                   <h3 className="font-medium text-foreground mb-3 flex items-center gap-2">
                     <Star className="w-4 h-4 text-yellow-400" />
-                    Formûla Pûanê
+                    {t('rewards.scoreFormula')}
                   </h3>
                   <div className="text-sm text-muted-foreground space-y-2">
                     <p>Trust = (Staking × Weighted Sum) / 100</p>
@@ -726,9 +735,7 @@ export function RewardsSection() {
                       Weighted Sum = Staking×100 + Referral×300 + Perwerde×300 + Tiki×300
                     </p>
                     <div className="mt-3 p-2 bg-yellow-500/10 rounded-lg border border-yellow-500/20">
-                      <p className="text-yellow-300 text-xs">
-                        Staking 0 be, Trust pûan jî 0 dibe. Berî her tiştî stake bike!
-                      </p>
+                      <p className="text-yellow-300 text-xs">{t('rewards.stakingZeroWarning')}</p>
                     </div>
                   </div>
                 </div>
@@ -740,7 +747,7 @@ export function RewardsSection() {
                   className="w-full py-3 bg-primary rounded-lg text-primary-foreground font-medium flex items-center justify-center gap-2"
                 >
                   <RefreshCw className={cn('w-4 h-4', scoresLoading && 'animate-spin')} />
-                  Pûanan Nûve Bike
+                  {t('rewards.refreshScores')}
                 </button>
               </>
             )}

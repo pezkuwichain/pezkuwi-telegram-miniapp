@@ -5,6 +5,7 @@ import { UpdateNotification } from '@/components/UpdateNotification';
 import { P2PModal } from '@/components/P2PModal';
 import { useAuth } from '@/contexts/AuthContext';
 import { useWallet } from '@/contexts/WalletContext';
+import { useTranslation } from '@/i18n';
 
 // Lazy load sections for code splitting
 const AnnouncementsSection = lazy(() =>
@@ -35,16 +36,16 @@ type NavId = Section | 'p2p';
 interface NavItem {
   id: NavId;
   icon: typeof Megaphone;
-  label: string;
+  labelKey: string;
   isExternal?: boolean;
 }
 
 const NAV_ITEMS: NavItem[] = [
-  { id: 'announcements', icon: Megaphone, label: 'Ragihandin' },
-  { id: 'forum', icon: MessageCircle, label: 'Forum' },
-  { id: 'rewards', icon: Gift, label: 'Xelat' },
-  { id: 'p2p', icon: ArrowLeftRight, label: 'P2P', isExternal: true },
-  { id: 'wallet', icon: Wallet, label: 'Berîk' },
+  { id: 'announcements', icon: Megaphone, labelKey: 'nav.announcements' },
+  { id: 'forum', icon: MessageCircle, labelKey: 'nav.forum' },
+  { id: 'rewards', icon: Gift, labelKey: 'nav.rewards' },
+  { id: 'p2p', icon: ArrowLeftRight, labelKey: 'nav.p2p', isExternal: true },
+  { id: 'wallet', icon: Wallet, labelKey: 'nav.wallet' },
 ];
 
 // P2P Web App URL - Mobile-optimized P2P
@@ -55,6 +56,7 @@ export default function App() {
   const [showP2PModal, setShowP2PModal] = useState(false);
   const { sessionToken } = useAuth();
   const { address } = useWallet();
+  const { t } = useTranslation();
 
   // Open P2P in popup with auth params
   const openP2P = useCallback(() => {
@@ -127,7 +129,7 @@ export default function App() {
                 )}
               >
                 <Icon className={cn('w-5 h-5', isActive && 'scale-110')} />
-                <span className="text-[10px] font-medium">{item.label}</span>
+                <span className="text-[10px] font-medium">{t(item.labelKey)}</span>
               </button>
             );
           })}

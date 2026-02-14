@@ -4,6 +4,7 @@
  */
 
 import { Wallet, Plus, Download } from 'lucide-react';
+import { useTranslation } from '@/i18n';
 
 interface Props {
   onCreate: () => void;
@@ -11,6 +12,8 @@ interface Props {
 }
 
 export function WalletSetup({ onCreate, onImport }: Props) {
+  const { t } = useTranslation();
+
   return (
     <div className="p-4 space-y-8">
       <div className="text-center pt-8">
@@ -18,7 +21,7 @@ export function WalletSetup({ onCreate, onImport }: Props) {
           <Wallet className="w-10 h-10 text-primary" />
         </div>
         <h1 className="text-2xl font-bold mb-2">Pezkuwi Wallet</h1>
-        <p className="text-muted-foreground">Berîka fermî ya Pezkuwichain</p>
+        <p className="text-muted-foreground">{t('walletSetup.officialWallet')}</p>
       </div>
 
       <div className="space-y-3">
@@ -30,8 +33,8 @@ export function WalletSetup({ onCreate, onImport }: Props) {
             <Plus className="w-6 h-6" />
           </div>
           <div className="text-left">
-            <p className="font-semibold">Wallet Nû Çêbike</p>
-            <p className="text-sm opacity-80">Wallet&apos;ekî nû bi seed phrase çêbike</p>
+            <p className="font-semibold">{t('walletSetup.createNew')}</p>
+            <p className="text-sm opacity-80">{t('walletSetup.createNewDesc')}</p>
           </div>
         </button>
 
@@ -43,16 +46,14 @@ export function WalletSetup({ onCreate, onImport }: Props) {
             <Download className="w-6 h-6 text-primary" />
           </div>
           <div className="text-left">
-            <p className="font-semibold">Wallet Import Bike</p>
-            <p className="text-sm text-muted-foreground">
-              Seed phrase&apos;ê xwe yê heyî bi kar bîne
-            </p>
+            <p className="font-semibold">{t('walletSetup.importWallet')}</p>
+            <p className="text-sm text-muted-foreground">{t('walletSetup.importWalletDesc')}</p>
           </div>
         </button>
       </div>
 
       <p className="text-center text-xs text-muted-foreground px-4">
-        Wallet&apos;ê te bi ewlehî li cîhaza te tê hilanîn. Em tu carî gihîştina mifteyên te tune.
+        {t('walletSetup.securityNote')}
       </p>
     </div>
   );

@@ -16,6 +16,7 @@ import {
 } from '@/components/wallet';
 import { LoadingScreen } from '@/components/LoadingScreen';
 import { VersionInfo } from '@/components/VersionInfo';
+import { useTranslation } from '@/i18n';
 
 type Screen = 'loading' | 'auth-error' | 'setup' | 'create' | 'import' | 'connect' | 'dashboard';
 type UserScreen = 'create' | 'import' | null;
@@ -23,6 +24,7 @@ type UserScreen = 'create' | 'import' | null;
 export function WalletSection() {
   const { isInitialized, isConnected, hasWallet, deleteWalletData } = useWallet();
   const { isAuthenticated, isLoading: authLoading, authError, signIn } = useAuth();
+  const { t } = useTranslation();
   const [userScreen, setUserScreen] = useState<UserScreen>(null);
 
   // Derive screen from wallet state and user navigation
@@ -80,10 +82,8 @@ export function WalletSection() {
               <AlertTriangle className="w-8 h-8 text-red-400" />
             </div>
             <div>
-              <h2 className="text-xl font-semibold mb-2">Teketin Tek Cu</h2>
-              <p className="text-muted-foreground text-sm">
-                Ji kerema xwe pistrast bikin ku hun ve app-e di nav Telegram de vedikin
-              </p>
+              <h2 className="text-xl font-semibold mb-2">{t('wallet.authFailed')}</h2>
+              <p className="text-muted-foreground text-sm">{t('wallet.authDescription')}</p>
               {authError && (
                 <p className="text-xs text-red-400 mt-2 font-mono break-all px-4">{authError}</p>
               )}
@@ -93,7 +93,7 @@ export function WalletSection() {
               className="px-6 py-3 bg-primary text-primary-foreground rounded-xl font-semibold flex items-center gap-2 mx-auto"
             >
               <RefreshCw className="w-4 h-4" />
-              Disa Biceribine
+              {t('wallet.retry')}
             </button>
           </div>
         </div>
@@ -132,6 +132,7 @@ export function WalletSection() {
 
 // Header component
 function Header() {
+  const { t } = useTranslation();
   return (
     <header className="flex-shrink-0 px-4 py-3 border-b border-border bg-background/80 backdrop-blur-sm safe-area-top">
       <div className="flex items-center justify-between">
@@ -139,7 +140,7 @@ function Header() {
           <div className="w-8 h-8 rounded-lg bg-cyan-500/20 flex items-center justify-center">
             <Wallet className="w-4 h-4 text-cyan-400" />
           </div>
-          <h1 className="text-lg font-semibold">Berîk</h1>
+          <h1 className="text-lg font-semibold">{t('wallet.title')}</h1>
         </div>
         <VersionInfo />
       </div>

@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import { useWallet } from '@/contexts/WalletContext';
 import { useTelegram } from '@/hooks/useTelegram';
+import { useTranslation } from '@/i18n';
 
 type Step = 'password' | 'backup' | 'verify' | 'complete';
 
@@ -34,6 +35,7 @@ interface Props {
 export function WalletCreate({ onComplete, onBack }: Props) {
   const { generateNewWallet, confirmWallet, isInitialized } = useWallet();
   const { hapticImpact, hapticNotification } = useTelegram();
+  const { t } = useTranslation();
 
   const [step, setStep] = useState<Step>('password');
   const [password, setPassword] = useState('');
@@ -84,12 +86,12 @@ export function WalletCreate({ onComplete, onBack }: Props) {
     setError('');
 
     if (!isInitialized) {
-      setError('Wallet service amade nîne. Ji kerema xwe bisekinin.');
+      setError(t('walletCreate.walletServiceNotReady'));
       return;
     }
 
     if (!allPasswordRulesPass) {
-      setError('Ji kerema xwe hemû şertên şîfre (password) bicîh bînin');
+      setError(t('walletCreate.passwordRequirementsNotMet'));
       hapticNotification('error');
       return;
     }
@@ -104,9 +106,7 @@ export function WalletCreate({ onComplete, onBack }: Props) {
       setStep('backup');
     } catch (err) {
       console.error('Wallet generation error:', err);
-      setError(
-        err instanceof Error ? err.message : 'Wallet çênebû. Ji kerema xwe dîsa biceribînin'
-      );
+      setError(err instanceof Error ? err.message : t('walletCreate.walletCreationFailed'));
       hapticNotification('error');
     }
   };
@@ -122,7 +122,7 @@ export function WalletCreate({ onComplete, onBack }: Props) {
   // Step 2: Backup - Proceed to verify (only if all conditions checked)
   const handleBackupContinue = () => {
     if (!allConditionsChecked) {
-      setError('Ji kerema xwe hemû şertan bipejirînin');
+      setError(t('walletCreate.acceptAllConditions'));
       return;
     }
 
@@ -183,7 +183,7 @@ export function WalletCreate({ onComplete, onBack }: Props) {
       originalWords.every((word, idx) => word === enteredWords[idx]);
 
     if (!isCorrect) {
-      setError('Rêza peyvan ne rast e. Ji kerema xwe dîsa biceribînin');
+      setError(t('walletCreate.wrongOrder'));
       hapticNotification('error');
       return;
     }
@@ -197,7 +197,7 @@ export function WalletCreate({ onComplete, onBack }: Props) {
       hapticNotification('success');
       setStep('complete');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Wallet çênebû');
+      setError(err instanceof Error ? err.message : t('walletCreate.walletCreationFailed'));
       hapticNotification('error');
     } finally {
       setIsLoading(false);
@@ -213,26 +213,26 @@ export function WalletCreate({ onComplete, onBack }: Props) {
       <div className="p-4 space-y-6">
         <button onClick={onBack} className="flex items-center gap-2 text-muted-foreground">
           <ArrowLeft className="w-4 h-4" />
-          <span>Paş</span>
+          <span>{t('common.back')}</span>
         </button>
 
         <div className="text-center">
-          <h2 className="text-xl font-semibold mb-2">Şîfre (Password) Diyar Bike</h2>
-          <p className="text-muted-foreground text-sm">
-            Ev şîfre (password) dê ji bo vekirina wallet&apos;ê were bikaranîn
-          </p>
+          <h2 className="text-xl font-semibold mb-2">{t('walletCreate.setPassword')}</h2>
+          <p className="text-muted-foreground text-sm">{t('walletCreate.passwordDescription')}</p>
         </div>
 
         <div className="space-y-4">
           <div className="space-y-2">
-            <label className="text-sm text-muted-foreground">Şîfre (Password)</label>
+            <label className="text-sm text-muted-foreground">
+              {t('walletCreate.passwordLabel')}
+            </label>
             <div className="relative">
               <input
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-4 py-3 bg-muted rounded-xl pr-12"
-                placeholder="Herî kêm 12 tîp (min 12 characters)"
+                placeholder={t('walletCreate.passwordPlaceholder')}
               />
               <button
                 type="button"
@@ -245,20 +245,24 @@ export function WalletCreate({ onComplete, onBack }: Props) {
           </div>
 
           <div className="space-y-2">
-            <label className="text-sm text-muted-foreground">Şîfre Dubare (Confirm Password)</label>
+            <label className="text-sm text-muted-foreground">
+              {t('walletCreate.confirmPasswordLabel')}
+            </label>
             <input
               type={showPassword ? 'text' : 'password'}
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
               className="w-full px-4 py-3 bg-muted rounded-xl"
-              placeholder="Şîfre dubare binivîse (confirm password)"
+              placeholder={t('walletCreate.confirmPasswordPlaceholder')}
             />
           </div>
 
           {/* Real-time password strength indicator */}
           {password.length > 0 && (
             <div className="p-3 bg-muted/50 rounded-xl space-y-2">
-              <p className="text-xs text-muted-foreground font-medium">Şertên Şîfre (Password):</p>
+              <p className="text-xs text-muted-foreground font-medium">
+                {t('walletCreate.passwordRequirements')}
+              </p>
               <div className="grid grid-cols-1 gap-1.5 text-xs">
                 <div
                   className={`flex items-center gap-2 ${passwordRules.minLength ? 'text-green-400' : 'text-red-400'}`}
@@ -268,7 +272,7 @@ export function WalletCreate({ onComplete, onBack }: Props) {
                   ) : (
                     <AlertTriangle className="w-3 h-3" />
                   )}
-                  <span>Herî kêm 12 tîp (min 12 characters)</span>
+                  <span>{t('walletCreate.ruleMinLength')}</span>
                 </div>
                 <div
                   className={`flex items-center gap-2 ${passwordRules.hasLowercase ? 'text-green-400' : 'text-red-400'}`}
@@ -278,7 +282,7 @@ export function WalletCreate({ onComplete, onBack }: Props) {
                   ) : (
                     <AlertTriangle className="w-3 h-3" />
                   )}
-                  <span>Herî kêm 1 tîpa biçûk (a-z)</span>
+                  <span>{t('walletCreate.ruleLowercase')}</span>
                 </div>
                 <div
                   className={`flex items-center gap-2 ${passwordRules.hasUppercase ? 'text-green-400' : 'text-red-400'}`}
@@ -288,7 +292,7 @@ export function WalletCreate({ onComplete, onBack }: Props) {
                   ) : (
                     <AlertTriangle className="w-3 h-3" />
                   )}
-                  <span>Herî kêm 1 tîpa mezin (A-Z)</span>
+                  <span>{t('walletCreate.ruleUppercase')}</span>
                 </div>
                 <div
                   className={`flex items-center gap-2 ${passwordRules.hasNumber ? 'text-green-400' : 'text-red-400'}`}
@@ -298,7 +302,7 @@ export function WalletCreate({ onComplete, onBack }: Props) {
                   ) : (
                     <AlertTriangle className="w-3 h-3" />
                   )}
-                  <span>Herî kêm 1 hejmar (0-9)</span>
+                  <span>{t('walletCreate.ruleNumber')}</span>
                 </div>
                 <div
                   className={`flex items-center gap-2 ${passwordRules.hasSpecialChar ? 'text-green-400' : 'text-red-400'}`}
@@ -308,7 +312,7 @@ export function WalletCreate({ onComplete, onBack }: Props) {
                   ) : (
                     <AlertTriangle className="w-3 h-3" />
                   )}
-                  <span>Herî kêm 1 sembola taybetî (!@#$%...)</span>
+                  <span>{t('walletCreate.ruleSpecialChar')}</span>
                 </div>
                 {confirmPassword.length > 0 && (
                   <div
@@ -319,7 +323,7 @@ export function WalletCreate({ onComplete, onBack }: Props) {
                     ) : (
                       <AlertTriangle className="w-3 h-3" />
                     )}
-                    <span>Şîfre (password) hev digirin</span>
+                    <span>{t('walletCreate.rulePasswordsMatch')}</span>
                   </div>
                 )}
               </div>
@@ -338,12 +342,12 @@ export function WalletCreate({ onComplete, onBack }: Props) {
             className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
           >
             {!isInitialized
-              ? 'Tê amadekirin...'
+              ? t('walletCreate.preparing')
               : isLoading
-                ? 'Tê çêkirin...'
+                ? t('walletCreate.creating')
                 : allPasswordRulesPass
-                  ? 'Berdewam'
-                  : 'Şertên şîfre (password) bicîh bînin'}
+                  ? t('common.continue')
+                  : t('walletCreate.meetPasswordRequirements')}
             {!isLoading && allPasswordRulesPass && isInitialized && (
               <ArrowRight className="w-4 h-4" />
             )}
@@ -359,18 +363,13 @@ export function WalletCreate({ onComplete, onBack }: Props) {
     return (
       <div className="p-4 space-y-6">
         <div className="text-center">
-          <h2 className="text-xl font-semibold mb-2">Seed Phrase Paşguh Bike</h2>
-          <p className="text-muted-foreground text-sm">
-            Ev 12 peyv wallet&apos;ê te ne. Wan li cihekî ewle binivîse!
-          </p>
+          <h2 className="text-xl font-semibold mb-2">{t('walletCreate.backupTitle')}</h2>
+          <p className="text-muted-foreground text-sm">{t('walletCreate.backupDescription')}</p>
         </div>
 
         <div className="p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-xl flex items-start gap-3">
           <AlertTriangle className="w-5 h-5 text-yellow-500 shrink-0 mt-0.5" />
-          <p className="text-sm text-yellow-200">
-            <strong>Girîng:</strong> Ev peyvan tenê yek car têne xuyang kirin. Eger te ev peyv winda
-            bikin, tu nikarî gihîştina wallet&apos;ê xwe bistînî.
-          </p>
+          <p className="text-sm text-yellow-200">{t('walletCreate.backupWarning')}</p>
         </div>
 
         <div className="grid grid-cols-3 gap-2">
@@ -389,12 +388,12 @@ export function WalletCreate({ onComplete, onBack }: Props) {
           {copied ? (
             <>
               <Check className="w-4 h-4 text-green-400" />
-              <span className="text-green-400">Hat kopîkirin!</span>
+              <span className="text-green-400">{t('walletCreate.copiedMnemonic')}</span>
             </>
           ) : (
             <>
               <Copy className="w-4 h-4" />
-              <span>Kopî Bike</span>
+              <span>{t('walletCreate.copyMnemonic')}</span>
             </>
           )}
         </button>
@@ -410,7 +409,7 @@ export function WalletCreate({ onComplete, onBack }: Props) {
               }
               className="mt-1 w-5 h-5 accent-primary"
             />
-            <span className="text-sm">Min ev 12 peyv li cihekî ewle nivîsandine</span>
+            <span className="text-sm">{t('walletCreate.conditionWrittenDown')}</span>
           </label>
 
           <label className="flex items-start gap-3 p-3 bg-muted rounded-xl cursor-pointer">
@@ -420,9 +419,7 @@ export function WalletCreate({ onComplete, onBack }: Props) {
               onChange={(e) => setConditions((prev) => ({ ...prev, neverShare: e.target.checked }))}
               className="mt-1 w-5 h-5 accent-primary"
             />
-            <span className="text-sm">
-              Ez fêm dikim ku ez nikarim ev peyvan bi kesî re parve bikim
-            </span>
+            <span className="text-sm">{t('walletCreate.conditionNeverShare')}</span>
           </label>
 
           <label className="flex items-start gap-3 p-3 bg-muted rounded-xl cursor-pointer">
@@ -432,10 +429,7 @@ export function WalletCreate({ onComplete, onBack }: Props) {
               onChange={(e) => setConditions((prev) => ({ ...prev, lossRisk: e.target.checked }))}
               className="mt-1 w-5 h-5 accent-primary"
             />
-            <span className="text-sm">
-              Ez fêm dikim ku eger van peyvan winda bikim ez nikarim gihîştina wallet&apos;ê xwe
-              bistînim
-            </span>
+            <span className="text-sm">{t('walletCreate.conditionLossRisk')}</span>
           </label>
         </div>
 
@@ -450,7 +444,7 @@ export function WalletCreate({ onComplete, onBack }: Props) {
           disabled={!allConditionsChecked}
           className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-semibold disabled:opacity-50 flex items-center justify-center gap-2"
         >
-          {allConditionsChecked ? 'Berdewam' : 'Hemû şertan bipejirînin'}
+          {allConditionsChecked ? t('common.continue') : t('walletCreate.acceptAllConditions')}
           {allConditionsChecked && <ArrowRight className="w-4 h-4" />}
         </button>
       </div>
@@ -461,24 +455,26 @@ export function WalletCreate({ onComplete, onBack }: Props) {
     return (
       <div className="p-4 space-y-6">
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold">Peyvan Verast Bike</h2>
+          <h2 className="text-lg font-semibold">{t('walletCreate.verifyWords')}</h2>
           <button
             onClick={handleReset}
             className="flex items-center gap-1 text-sm text-muted-foreground"
           >
             <RotateCcw className="w-4 h-4" />
-            <span>Reset</span>
+            <span>{t('walletCreate.reset')}</span>
           </button>
         </div>
 
         <p className="text-muted-foreground text-sm text-center">
-          Ji kerema xwe peyvan bi rêza rast bixin nav qutîkê
+          {t('walletCreate.verifyDescription')}
         </p>
 
         {/* Destination area - where user builds the correct order */}
         <div className="min-h-[120px] p-4 bg-muted/50 border-2 border-dashed border-border rounded-xl">
           {destinationWords.length === 0 ? (
-            <p className="text-center text-muted-foreground text-sm">Peyvan li vir bixin...</p>
+            <p className="text-center text-muted-foreground text-sm">
+              {t('walletCreate.dropWordsHere')}
+            </p>
           ) : (
             <div className="flex flex-wrap gap-2">
               {destinationWords.map((word, idx) => (
@@ -525,10 +521,10 @@ export function WalletCreate({ onComplete, onBack }: Props) {
           className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-semibold disabled:opacity-50"
         >
           {isLoading
-            ? 'Tê tomarkirin...'
+            ? t('walletCreate.saving')
             : canVerify
-              ? 'Verast Bike'
-              : `${destinationWords.length}/12 peyv`}
+              ? t('walletCreate.verify')
+              : t('walletCreate.wordsCount', { count: destinationWords.length })}
         </button>
       </div>
     );
@@ -542,12 +538,12 @@ export function WalletCreate({ onComplete, onBack }: Props) {
       </div>
 
       <div>
-        <h2 className="text-xl font-semibold mb-2">Wallet Hat Çêkirin!</h2>
-        <p className="text-muted-foreground text-sm">Wallet&apos;ê te amade ye</p>
+        <h2 className="text-xl font-semibold mb-2">{t('walletCreate.walletCreated')}</h2>
+        <p className="text-muted-foreground text-sm">{t('walletCreate.walletReady')}</p>
       </div>
 
       <div className="p-4 bg-muted rounded-xl">
-        <p className="text-xs text-muted-foreground mb-1">Navnîşana te</p>
+        <p className="text-xs text-muted-foreground mb-1">{t('walletCreate.yourAddress')}</p>
         <p className="font-mono text-sm break-all">{address}</p>
       </div>
 
@@ -555,7 +551,7 @@ export function WalletCreate({ onComplete, onBack }: Props) {
         onClick={onComplete}
         className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-semibold"
       >
-        Dest Pê Bike
+        {t('walletCreate.getStarted')}
       </button>
     </div>
   );

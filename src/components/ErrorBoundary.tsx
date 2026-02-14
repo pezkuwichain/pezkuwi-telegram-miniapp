@@ -1,6 +1,21 @@
 import { Component, ErrorInfo, ReactNode } from 'react';
 import { AlertTriangle, RefreshCw } from 'lucide-react';
 import { trackError } from '@/lib/error-tracking';
+import krd from '@/i18n/translations/krd';
+import en from '@/i18n/translations/en';
+import tr from '@/i18n/translations/tr';
+import ckb from '@/i18n/translations/ckb';
+import fa from '@/i18n/translations/fa';
+import ar from '@/i18n/translations/ar';
+import type { Translations, LanguageCode } from '@/i18n/types';
+
+const translations: Record<LanguageCode, Translations> = { krd, en, tr, ckb, fa, ar };
+
+function detectLang(): LanguageCode {
+  const seg = window.location.pathname.split('/').filter(Boolean)[0];
+  if (seg && seg in translations) return seg as LanguageCode;
+  return 'krd';
+}
 
 interface Props {
   children: ReactNode;
@@ -52,16 +67,18 @@ export class ErrorBoundary extends Component<Props, State> {
           <div className="w-16 h-16 rounded-full bg-red-500/20 flex items-center justify-center mb-4">
             <AlertTriangle className="w-8 h-8 text-red-400" />
           </div>
-          <h1 className="text-xl font-semibold mb-2">Tiştek çewt çêbû</h1>
+          <h1 className="text-xl font-semibold mb-2">
+            {translations[detectLang()].errorBoundary.title}
+          </h1>
           <p className="text-sm text-muted-foreground text-center mb-6 max-w-xs">
-            Bibore, pirsgirêkek teknîkî derket. Ji kerema xwe dîsa biceribîne.
+            {translations[detectLang()].errorBoundary.description}
           </p>
           <button
             onClick={this.handleRetry}
             className="flex items-center gap-2 px-4 py-2 bg-primary rounded-lg text-primary-foreground font-medium"
           >
             <RefreshCw className="w-4 h-4" />
-            Dîsa biceribîne
+            {translations[detectLang()].errorBoundary.retry}
           </button>
           {import.meta.env.DEV && this.state.error && (
             <div className="mt-6 w-full max-w-lg">

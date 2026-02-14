@@ -10,17 +10,19 @@ import {
 import { cn, formatDate, formatNumber } from '@/lib/utils';
 import { useTelegram } from '@/hooks/useTelegram';
 import { useAnnouncements, useAnnouncementReaction } from '@/hooks/useSupabase';
+import { useTranslation } from '@/i18n';
 
 export function AnnouncementsSection() {
   const { hapticImpact, hapticNotification, openLink } = useTelegram();
   const { data: announcements, isLoading, refetch, isRefetching } = useAnnouncements();
   const reactionMutation = useAnnouncementReaction();
+  const { t } = useTranslation();
 
   const handleReaction = (id: string, reaction: 'like' | 'dislike') => {
     if (!window.Telegram?.WebApp?.initData) {
       hapticNotification('error');
       if (window.Telegram?.WebApp) {
-        window.Telegram.WebApp.showAlert('Ji bo dengdanê divê tu di Telegramê de bî');
+        window.Telegram.WebApp.showAlert(t('announcements.reactionAuthRequired'));
       }
       return;
     }
@@ -31,7 +33,7 @@ export function AnnouncementsSection() {
         onSuccess: () => hapticNotification('success'),
         onError: (err) => {
           hapticNotification('error');
-          window.Telegram?.WebApp?.showAlert(err.message || 'Çewtî');
+          window.Telegram?.WebApp?.showAlert(err.message || t('common.error'));
         },
       }
     );
@@ -51,7 +53,7 @@ export function AnnouncementsSection() {
             <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
               <Megaphone className="w-4 h-4 text-primary" />
             </div>
-            <h1 className="text-lg font-semibold">Ragihandin</h1>
+            <h1 className="text-lg font-semibold">{t('announcements.title')}</h1>
           </div>
           <button
             onClick={handleRefresh}
@@ -113,7 +115,7 @@ export function AnnouncementsSection() {
                       className="flex items-center gap-1.5 text-sm text-primary mb-3 hover:underline"
                     >
                       <ExternalLink className="w-3.5 h-3.5" />
-                      Zêdetir bixwîne
+                      {t('announcements.readMore')}
                     </button>
                   )}
 
