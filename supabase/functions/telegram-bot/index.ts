@@ -174,7 +174,7 @@ async function sendKrdWelcome(token: string, chatId: number) {
       [
         {
           text: '🏛️ Be Citizen / Bibe Welatî',
-          web_app: { url: `${appUrl}?page=citizen` },
+          web_app: { url: `${appUrl}/citizens` },
         },
       ],
     ],

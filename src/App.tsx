@@ -54,11 +54,12 @@ const NAV_ITEMS: NavItem[] = [
 // P2P Web App URL - Mobile-optimized P2P
 const P2P_WEB_URL = 'https://telegram.pezkuwichain.io/p2p';
 
-// Check for standalone pages via URL query params (evaluated once at module level)
+// Check for standalone pages via URL query params or path (evaluated once at module level)
 const PAGE_PARAM = new URLSearchParams(window.location.search).get('page');
+const IS_CITIZEN_PAGE = PAGE_PARAM === 'citizen' || window.location.pathname === '/citizens';
 
 export default function App() {
-  if (PAGE_PARAM === 'citizen') {
+  if (IS_CITIZEN_PAGE) {
     return (
       <Suspense fallback={<SectionLoader />}>
         <CitizenPage />

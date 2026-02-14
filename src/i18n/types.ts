@@ -635,6 +635,18 @@ export interface Translations {
     walletAddress: string;
     applicationInfo: string;
     depositRequired: string;
+    // Privacy & Seed phrase
+    privacyNotice: string;
+    seedPhrase: string;
+    seedPhrasePlaceholder: string;
+    invalidSeedPhrase: string;
+    // Processing
+    connectingChain: string;
+    // Success - next steps
+    stepApplicationSent: string;
+    stepReferrerApproval: string;
+    stepConfirm: string;
+    nextStepsInfo: string;
     // Errors
     fillAllFields: string;
     acceptConsent: string;

@@ -1,14 +1,15 @@
 /**
  * Citizen Processing Component
  * Shows KurdistanSun animation while preparing data,
- * then enables sign button when ready
+ * connects to People Chain and signs with seed phrase keypair
  */
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { KurdistanSun } from '@/components/KurdistanSun';
 import { useTranslation } from '@/i18n';
 import { useTelegram } from '@/hooks/useTelegram';
-import { useWallet } from '@/contexts/WalletContext';
+import { initWalletService, createKeypair } from '@/lib/wallet-service';
+import { initPeopleConnection } from '@/lib/rpc-manager';
 import type { CitizenshipData } from '@/lib/citizenship';
 import {
   calculateIdentityHash,
@@ -19,24 +20,31 @@ import {
 
 interface Props {
   citizenshipData: CitizenshipData;
-  onSuccess: (identityHash: string, blockHash?: string) => void;
+  onSuccess: (identityHash: string, walletAddress: string) => void;
   onError: (error: string) => void;
 }
 
-type ProcessingState = 'preparing' | 'ready' | 'signing';
+type ProcessingState = 'preparing' | 'connecting' | 'ready' | 'signing';
 
 export function CitizenProcessing({ citizenshipData, onSuccess, onError }: Props) {
   const { t } = useTranslation();
   const { hapticImpact, hapticNotification } = useTelegram();
-  const { peopleApi, keypair } = useWallet();
 
   const [state, setState] = useState<ProcessingState>('preparing');
   const [identityHash, setIdentityHash] = useState<string>('');
+  const seedPhraseRef = useRef<string>(citizenshipData.seedPhrase);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const peopleApiRef = useRef<any>(null);
 
-  // Prepare data on mount
+  // Prepare data and connect to chain on mount
   useEffect(() => {
+    let cancelled = false;
+
     const prepare = async () => {
       try {
+        // Init crypto
+        await initWalletService();
+
         // Mock IPFS upload
         const ipfsCid = await uploadToIPFS(citizenshipData);
 
@@ -44,26 +52,35 @@ export function CitizenProcessing({ citizenshipData, onSuccess, onError }: Props
         const hash = calculateIdentityHash(citizenshipData.fullName, citizenshipData.email, [
           ipfsCid,
         ]);
+        if (cancelled) return;
         setIdentityHash(hash);
 
         // Save encrypted data locally
         saveCitizenshipLocally(citizenshipData);
 
-        // Small delay to show animation
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+        // Connect to People Chain
+        setState('connecting');
+        const peopleApi = await initPeopleConnection();
+        if (cancelled) return;
+        peopleApiRef.current = peopleApi;
 
         setState('ready');
         hapticNotification('success');
       } catch (err) {
-        onError(err instanceof Error ? err.message : 'Preparation failed');
+        if (!cancelled) {
+          onError(err instanceof Error ? err.message : 'Preparation failed');
+        }
       }
     };
 
     prepare();
+    return () => {
+      cancelled = true;
+    };
   }, [citizenshipData, hapticNotification, onError]);
 
   const handleSign = useCallback(async () => {
-    if (!peopleApi || !keypair) {
+    if (!peopleApiRef.current || !seedPhraseRef.current) {
       onError(t('citizen.walletNotConnected'));
       return;
     }
@@ -72,35 +89,32 @@ export function CitizenProcessing({ citizenshipData, onSuccess, onError }: Props
     hapticImpact('medium');
 
     try {
+      const keypair = createKeypair(seedPhraseRef.current);
+
       const result = await applyCitizenship(
-        peopleApi,
+        peopleApiRef.current,
         keypair,
         identityHash,
         citizenshipData.referrerAddress || null
       );
 
+      // Clear seed phrase from memory
+      seedPhraseRef.current = '';
+
       if (result.success) {
         hapticNotification('success');
-        onSuccess(identityHash, result.blockHash);
+        onSuccess(identityHash, citizenshipData.walletAddress);
       } else {
         hapticNotification('error');
         onError(result.error || t('citizen.submissionFailed'));
       }
     } catch (err) {
+      // Clear seed phrase from memory
+      seedPhraseRef.current = '';
       hapticNotification('error');
       onError(err instanceof Error ? err.message : t('citizen.submissionFailed'));
     }
-  }, [
-    peopleApi,
-    keypair,
-    citizenshipData,
-    identityHash,
-    hapticImpact,
-    hapticNotification,
-    onSuccess,
-    onError,
-    t,
-  ]);
+  }, [citizenshipData, identityHash, hapticImpact, hapticNotification, onSuccess, onError, t]);
 
   const isReady = state === 'ready';
   const isSigning = state === 'signing';
@@ -116,6 +130,7 @@ export function CitizenProcessing({ citizenshipData, onSuccess, onError }: Props
       <div className="text-center space-y-2">
         <p className="text-lg font-medium">
           {state === 'preparing' && t('citizen.preparingData')}
+          {state === 'connecting' && t('citizen.connectingChain')}
           {state === 'ready' && t('citizen.readyToSign')}
           {state === 'signing' && t('citizen.signingTx')}
         </p>

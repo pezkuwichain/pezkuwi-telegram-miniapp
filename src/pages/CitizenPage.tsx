@@ -1,30 +1,17 @@
 /**
  * Citizen Page
  * Standalone page for citizenship application flow
- * Accessed via ?page=citizen URL parameter
- * No bottom navigation bar
+ * Accessed via ?page=citizen or /citizens URL
+ * No bottom navigation bar, no wallet steps - direct form
  */
 
 import { useState, useCallback, lazy, Suspense } from 'react';
 import { Globe, Loader2 } from 'lucide-react';
-import { useWallet } from '@/contexts/WalletContext';
 import { useTranslation, LANGUAGE_NAMES, VALID_LANGS } from '@/i18n';
 import type { LanguageCode } from '@/i18n';
 import type { CitizenshipData } from '@/lib/citizenship';
 
 // Lazy load sub-components
-const WalletSetup = lazy(() =>
-  import('@/components/wallet/WalletSetup').then((m) => ({ default: m.WalletSetup }))
-);
-const WalletCreate = lazy(() =>
-  import('@/components/wallet/WalletCreate').then((m) => ({ default: m.WalletCreate }))
-);
-const WalletImport = lazy(() =>
-  import('@/components/wallet/WalletImport').then((m) => ({ default: m.WalletImport }))
-);
-const WalletConnect = lazy(() =>
-  import('@/components/wallet/WalletConnect').then((m) => ({ default: m.WalletConnect }))
-);
 const CitizenForm = lazy(() =>
   import('@/components/citizen/CitizenForm').then((m) => ({ default: m.CitizenForm }))
 );
@@ -35,14 +22,7 @@ const CitizenSuccess = lazy(() =>
   import('@/components/citizen/CitizenSuccess').then((m) => ({ default: m.CitizenSuccess }))
 );
 
-type Step =
-  | 'wallet-setup'
-  | 'wallet-create'
-  | 'wallet-import'
-  | 'wallet-connect'
-  | 'form'
-  | 'processing'
-  | 'success';
+type Step = 'form' | 'processing' | 'success';
 
 function SectionLoader() {
   return (
@@ -53,32 +33,13 @@ function SectionLoader() {
 }
 
 export function CitizenPage() {
-  const { hasWallet, isConnected, address, deleteWalletData } = useWallet();
   const { t, lang, setLang } = useTranslation();
   const [showLangMenu, setShowLangMenu] = useState(false);
   const [citizenshipData, setCitizenshipData] = useState<CitizenshipData | null>(null);
   const [identityHash, setIdentityHash] = useState<string>('');
+  const [walletAddress, setWalletAddress] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
-
-  // Determine initial step based on wallet state
-  const getInitialStep = (): Step => {
-    if (!hasWallet) return 'wallet-setup';
-    if (!isConnected) return 'wallet-connect';
-    return 'form';
-  };
-
-  const [step, setStep] = useState<Step>(getInitialStep);
-
-  // Wallet setup handlers
-  const handleWalletCreate = useCallback(() => setStep('wallet-create'), []);
-  const handleWalletImport = useCallback(() => setStep('wallet-import'), []);
-  const handleWalletCreated = useCallback(() => setStep('wallet-connect'), []);
-  const handleWalletImported = useCallback(() => setStep('wallet-connect'), []);
-  const handleWalletConnected = useCallback(() => setStep('form'), []);
-  const handleWalletDelete = useCallback(() => {
-    deleteWalletData();
-    setStep('wallet-setup');
-  }, [deleteWalletData]);
+  const [step, setStep] = useState<Step>('form');
 
   // Form submission
   const handleFormSubmit = useCallback((data: CitizenshipData) => {
@@ -88,8 +49,9 @@ export function CitizenPage() {
   }, []);
 
   // Processing result
-  const handleSuccess = useCallback((hash: string) => {
+  const handleSuccess = useCallback((hash: string, address: string) => {
     setIdentityHash(hash);
+    setWalletAddress(address);
     setStep('success');
   }, []);
 
@@ -100,9 +62,9 @@ export function CitizenPage() {
 
   // Open main app
   const handleOpenApp = useCallback(() => {
-    // Remove ?page=citizen and navigate to main app
     const url = new URL(window.location.href);
     url.searchParams.delete('page');
+    url.pathname = '/';
     window.location.href = url.toString();
   }, []);
 
@@ -156,28 +118,7 @@ export function CitizenPage() {
       {/* Content */}
       <main className="flex-1 overflow-y-auto">
         <Suspense fallback={<SectionLoader />}>
-          {step === 'wallet-setup' && (
-            <WalletSetup onCreate={handleWalletCreate} onImport={handleWalletImport} />
-          )}
-
-          {step === 'wallet-create' && (
-            <WalletCreate onComplete={handleWalletCreated} onBack={() => setStep('wallet-setup')} />
-          )}
-
-          {step === 'wallet-import' && (
-            <WalletImport
-              onComplete={handleWalletImported}
-              onBack={() => setStep('wallet-setup')}
-            />
-          )}
-
-          {step === 'wallet-connect' && (
-            <WalletConnect onConnected={handleWalletConnected} onDelete={handleWalletDelete} />
-          )}
-
-          {step === 'form' && address && (
-            <CitizenForm walletAddress={address} onSubmit={handleFormSubmit} />
-          )}
+          {step === 'form' && <CitizenForm onSubmit={handleFormSubmit} />}
 
           {step === 'processing' && citizenshipData && (
             <CitizenProcessing
@@ -187,10 +128,11 @@ export function CitizenPage() {
             />
           )}
 
-          {step === 'success' && address && (
+          {step === 'success' && (
             <CitizenSuccess
-              address={address}
+              address={walletAddress}
               identityHash={identityHash}
+              hasReferrer={!!citizenshipData?.referrerAddress}
               onOpenApp={handleOpenApp}
             />
           )}

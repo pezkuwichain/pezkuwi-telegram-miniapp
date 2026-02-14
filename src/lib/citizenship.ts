@@ -35,6 +35,7 @@ export interface CitizenshipData {
   profession: string;
   referrerAddress?: string;
   walletAddress: string;
+  seedPhrase: string;
   timestamp: number;
 }
 

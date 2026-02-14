@@ -649,6 +649,17 @@ const krd: Translations = {
     applicationInfo: 'Dema referrer pejirîne, hûn dikarin confirm bikin',
     depositRequired: '1 HEZ depozîto pêwîst e',
     walletAddress: 'Navnîşana Cûzdan',
+    privacyNotice:
+      'Agahiyên te yên kesane tu cih nayên şandin. Tenê kodek hash tê çêkirin û li ser blockchain tê tomarkirin.',
+    seedPhrase: 'Seed Phrase',
+    seedPhrasePlaceholder: 'Seed phrase ya xwe ya 12 an 24 peyvan li vir bileqîne...',
+    invalidSeedPhrase:
+      'Seed phrase ne derbasdar e. Ji kerema xwe 12 an 24 peyvên derbasdar binivîse.',
+    connectingChain: 'People Chain tê girêdan...',
+    stepApplicationSent: 'Serlêdan hat şandin (temam)',
+    stepReferrerApproval: 'Li benda pejirandina referrer',
+    stepConfirm: 'Piştî pejirandinê, ji cûzdana xwe confirm bike',
+    nextStepsInfo: 'Gavên pêş ji cûzdana xwe bişopîne',
     fillAllFields: 'Ji kerema xwe hemû qadan tije bike',
     acceptConsent: 'Ji kerema xwe qutiya pejirandinê nîşan bide',
     walletNotConnected: 'Cûzdan girêdayî nîne',

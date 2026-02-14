@@ -1,10 +1,10 @@
 /**
  * Citizen Success Screen
  * Shows after successful citizenship application submission
- * Displays pending referral status instead of final approval
+ * Displays 3-step process info for next steps
  */
 
-import { CheckCircle, Clock } from 'lucide-react';
+import { CheckCircle, Clock, ArrowRight } from 'lucide-react';
 import { useTranslation } from '@/i18n';
 import { useTelegram } from '@/hooks/useTelegram';
 import { formatAddress } from '@/lib/wallet-service';
@@ -12,6 +12,7 @@ import { formatAddress } from '@/lib/wallet-service';
 interface Props {
   address: string;
   identityHash: string;
+  hasReferrer: boolean;
   onOpenApp: () => void;
 }
 
@@ -34,9 +35,26 @@ export function CitizenSuccess({ address, identityHash, onOpenApp }: Props) {
       {/* Title */}
       <div className="text-center space-y-2">
         <h1 className="text-2xl font-bold">{t('citizen.applicationSubmitted')}</h1>
-        <div className="flex items-center justify-center gap-2 text-yellow-500">
-          <Clock className="w-4 h-4" />
-          <p className="text-sm">{t('citizen.pendingReferral')}</p>
+      </div>
+
+      {/* 3-Step Process */}
+      <div className="w-full max-w-sm space-y-3">
+        {/* Step 1 - Completed */}
+        <div className="flex items-start gap-3 p-3 bg-green-500/10 border border-green-500/30 rounded-xl">
+          <CheckCircle className="w-5 h-5 text-green-500 flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-green-400">{t('citizen.stepApplicationSent')}</p>
+        </div>
+
+        {/* Step 2 - Pending */}
+        <div className="flex items-start gap-3 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-xl">
+          <Clock className="w-5 h-5 text-yellow-500 flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-yellow-400">{t('citizen.stepReferrerApproval')}</p>
+        </div>
+
+        {/* Step 3 - Future */}
+        <div className="flex items-start gap-3 p-3 bg-muted/50 border border-border rounded-xl">
+          <ArrowRight className="w-5 h-5 text-muted-foreground flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-muted-foreground">{t('citizen.stepConfirm')}</p>
         </div>
       </div>
 
@@ -52,9 +70,9 @@ export function CitizenSuccess({ address, identityHash, onOpenApp }: Props) {
         </div>
       </div>
 
-      {/* Info Note */}
+      {/* Next Steps Info */}
       <p className="text-xs text-muted-foreground text-center max-w-sm">
-        {t('citizen.applicationInfo')}
+        {t('citizen.nextStepsInfo')}
       </p>
 
       {/* Open App Button */}
