@@ -218,7 +218,7 @@ async function handleCreateWallet(token: string, chatId: number) {
 <code>${address}</code>
 
 🔑 <b>Seed Phrase (12 words):</b>
-<tg-spoiler>${mnemonic}</tg-spoiler>
+<code>${mnemonic}</code>
 
 ⚠️ <b>GIRÎNG / IMPORTANT:</b>
 <i>Ev 12 peyvan binivîsin û li cihekî ewle bihêlin.

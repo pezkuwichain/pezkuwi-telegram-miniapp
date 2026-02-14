@@ -139,10 +139,10 @@ export function LanguageProvider({ children }: LanguageProviderProps) {
     document.documentElement.lang = lang === 'krd' ? 'ku' : lang;
     document.documentElement.dir = isRTL ? 'rtl' : 'ltr';
 
-    // Ensure URL has language prefix
+    // Ensure URL has language prefix (preserve query params like ?page=citizen)
     const firstSegment = window.location.pathname.split('/').filter(Boolean)[0];
     if (!firstSegment || !VALID_LANGS.includes(firstSegment as LanguageCode)) {
-      window.history.replaceState(null, '', `/${lang}`);
+      window.history.replaceState(null, '', `/${lang}${window.location.search}`);
     }
   }, [lang, isRTL]);
 
@@ -156,7 +156,7 @@ export function LanguageProvider({ children }: LanguageProviderProps) {
       segments.shift();
     }
     const newPath = `/${newLang}${segments.length > 0 ? '/' + segments.join('/') : ''}`;
-    window.history.replaceState(null, '', newPath);
+    window.history.replaceState(null, '', `${newPath}${window.location.search}`);
   }, []);
 
   const t = useCallback(
