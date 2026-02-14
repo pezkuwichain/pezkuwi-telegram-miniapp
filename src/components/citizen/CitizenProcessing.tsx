@@ -11,16 +11,15 @@ import { useTelegram } from '@/hooks/useTelegram';
 import { useWallet } from '@/contexts/WalletContext';
 import type { CitizenshipData } from '@/lib/citizenship';
 import {
-  generateCommitmentHash,
-  generateNullifierHash,
+  calculateIdentityHash,
   saveCitizenshipLocally,
   uploadToIPFS,
-  submitCitizenshipApplication,
+  applyCitizenship,
 } from '@/lib/citizenship';
 
 interface Props {
   citizenshipData: CitizenshipData;
-  onSuccess: (blockHash?: string) => void;
+  onSuccess: (identityHash: string, blockHash?: string) => void;
   onError: (error: string) => void;
 }
 
@@ -32,22 +31,23 @@ export function CitizenProcessing({ citizenshipData, onSuccess, onError }: Props
   const { peopleApi, keypair } = useWallet();
 
   const [state, setState] = useState<ProcessingState>('preparing');
-  const [ipfsCid, setIpfsCid] = useState<string>('');
+  const [identityHash, setIdentityHash] = useState<string>('');
 
   // Prepare data on mount
   useEffect(() => {
     const prepare = async () => {
       try {
-        // Generate commitment hash
-        generateCommitmentHash(citizenshipData);
-        generateNullifierHash(citizenshipData.walletAddress, citizenshipData.timestamp);
+        // Mock IPFS upload
+        const ipfsCid = await uploadToIPFS(citizenshipData);
+
+        // Calculate identity hash (keccak256)
+        const hash = calculateIdentityHash(citizenshipData.fullName, citizenshipData.email, [
+          ipfsCid,
+        ]);
+        setIdentityHash(hash);
 
         // Save encrypted data locally
         saveCitizenshipLocally(citizenshipData);
-
-        // Mock IPFS upload
-        const cid = await uploadToIPFS(citizenshipData);
-        setIpfsCid(cid);
 
         // Small delay to show animation
         await new Promise((resolve) => setTimeout(resolve, 1500));
@@ -72,18 +72,16 @@ export function CitizenProcessing({ citizenshipData, onSuccess, onError }: Props
     hapticImpact('medium');
 
     try {
-      const result = await submitCitizenshipApplication(
+      const result = await applyCitizenship(
         peopleApi,
         keypair,
-        citizenshipData.fullName,
-        citizenshipData.email,
-        ipfsCid,
-        `Citizenship application - ${citizenshipData.region}`
+        identityHash,
+        citizenshipData.referrerAddress || null
       );
 
       if (result.success) {
         hapticNotification('success');
-        onSuccess(result.blockHash);
+        onSuccess(identityHash, result.blockHash);
       } else {
         hapticNotification('error');
         onError(result.error || t('citizen.submissionFailed'));
@@ -96,7 +94,7 @@ export function CitizenProcessing({ citizenshipData, onSuccess, onError }: Props
     peopleApi,
     keypair,
     citizenshipData,
-    ipfsCid,
+    identityHash,
     hapticImpact,
     hapticNotification,
     onSuccess,
@@ -123,6 +121,9 @@ export function CitizenProcessing({ citizenshipData, onSuccess, onError }: Props
         </p>
         {state === 'preparing' && (
           <p className="text-sm text-muted-foreground">{citizenshipData.fullName}</p>
+        )}
+        {state === 'ready' && (
+          <p className="text-xs text-muted-foreground">{t('citizen.depositRequired')}</p>
         )}
       </div>
 

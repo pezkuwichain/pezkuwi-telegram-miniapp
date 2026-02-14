@@ -1,26 +1,23 @@
 /**
  * Citizen Success Screen
  * Shows after successful citizenship application submission
+ * Displays pending referral status instead of final approval
  */
 
-import { CheckCircle } from 'lucide-react';
+import { CheckCircle, Clock } from 'lucide-react';
 import { useTranslation } from '@/i18n';
 import { useTelegram } from '@/hooks/useTelegram';
 import { formatAddress } from '@/lib/wallet-service';
-import { generateCitizenNumber } from '@/lib/citizenship';
 
 interface Props {
   address: string;
+  identityHash: string;
   onOpenApp: () => void;
 }
 
-export function CitizenSuccess({ address, onOpenApp }: Props) {
+export function CitizenSuccess({ address, identityHash, onOpenApp }: Props) {
   const { t } = useTranslation();
   const { hapticImpact } = useTelegram();
-
-  // Generate a citizen number based on address
-  const citizenNumber = generateCitizenNumber(address, 42, 0);
-  const citizenId = `#42-0-${citizenNumber}`;
 
   const handleOpenApp = () => {
     hapticImpact('medium');
@@ -36,21 +33,29 @@ export function CitizenSuccess({ address, onOpenApp }: Props) {
 
       {/* Title */}
       <div className="text-center space-y-2">
-        <h1 className="text-2xl font-bold">{t('citizen.successTitle')}</h1>
-        <p className="text-muted-foreground">{t('citizen.successSubtitle')}</p>
+        <h1 className="text-2xl font-bold">{t('citizen.applicationSubmitted')}</h1>
+        <div className="flex items-center justify-center gap-2 text-yellow-500">
+          <Clock className="w-4 h-4" />
+          <p className="text-sm">{t('citizen.pendingReferral')}</p>
+        </div>
       </div>
 
-      {/* Citizen ID Card */}
+      {/* Application Info Card */}
       <div className="w-full max-w-sm bg-muted/50 rounded-2xl p-5 space-y-4 border border-border">
         <div>
-          <p className="text-xs text-muted-foreground">{t('citizen.citizenId')}</p>
-          <p className="text-xl font-mono font-bold text-primary">{citizenId}</p>
+          <p className="text-xs text-muted-foreground">{t('citizen.identityHash')}</p>
+          <p className="text-sm font-mono break-all">{formatAddress(identityHash)}</p>
         </div>
         <div>
           <p className="text-xs text-muted-foreground">{t('citizen.walletAddress')}</p>
           <p className="text-sm font-mono">{formatAddress(address)}</p>
         </div>
       </div>
+
+      {/* Info Note */}
+      <p className="text-xs text-muted-foreground text-center max-w-sm">
+        {t('citizen.applicationInfo')}
+      </p>
 
       {/* Open App Button */}
       <button

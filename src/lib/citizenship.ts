@@ -4,12 +4,13 @@
  * Uses native KeyringPair signing (no browser extension)
  */
 
+import { keccak256 } from 'js-sha3';
 import type { ApiPromise } from '@pezkuwi/api';
 import type { KeyringPair } from '@pezkuwi/keyring/types';
 
 // ── Type Definitions ────────────────────────────────────────────────
 
-export type KycStatus = 'NotStarted' | 'Pending' | 'Approved' | 'Rejected';
+export type CitizenshipStatus = 'NotStarted' | 'PendingReferral' | 'ReferrerApproved' | 'Approved';
 
 export type Region = 'bakur' | 'basur' | 'rojava' | 'rojhelat' | 'diaspora' | 'kurdistan_a_sor';
 
@@ -32,7 +33,7 @@ export interface CitizenshipData {
   region: Region;
   email: string;
   profession: string;
-  referralCode?: string;
+  referrerAddress?: string;
   walletAddress: string;
   timestamp: number;
 }
@@ -41,28 +42,18 @@ export interface CitizenshipResult {
   success: boolean;
   error?: string;
   blockHash?: string;
+  identityHash?: string;
 }
 
-// ── Hash Generation ─────────────────────────────────────────────────
+// ── Identity Hash (Keccak-256) ──────────────────────────────────────
 
-function simpleHash(str: string): number {
-  let hash = 0;
-  for (let i = 0; i < str.length; i++) {
-    const char = str.charCodeAt(i);
-    hash = (hash << 5) - hash + char;
-    hash = hash & hash;
-  }
-  return hash;
-}
-
-export function generateCommitmentHash(data: CitizenshipData): string {
-  const str = JSON.stringify(data);
-  return simpleHash(str).toString(16);
-}
-
-export function generateNullifierHash(address: string, timestamp: number): string {
-  const str = address + timestamp.toString();
-  return 'nullifier_' + simpleHash(str).toString(16);
+export function calculateIdentityHash(name: string, email: string, documentCids: string[]): string {
+  const data = JSON.stringify({
+    name: name.trim().toLowerCase(),
+    email: email.trim().toLowerCase(),
+    documents: documentCids.sort(),
+  });
+  return '0x' + keccak256(data);
 }
 
 // ── Encryption & Storage ────────────────────────────────────────────
@@ -99,9 +90,12 @@ export async function uploadToIPFS(_data: CitizenshipData): Promise<string> {
   return mockCID;
 }
 
-// ── KYC Status ──────────────────────────────────────────────────────
+// ── Citizenship Status ──────────────────────────────────────────────
 
-export async function getKycStatus(api: ApiPromise, address: string): Promise<KycStatus> {
+export async function getCitizenshipStatus(
+  api: ApiPromise,
+  address: string
+): Promise<CitizenshipStatus> {
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (!(api?.query as any)?.identityKyc) {
@@ -117,101 +111,34 @@ export async function getKycStatus(api: ApiPromise, address: string): Promise<Ky
 
     const statusStr = status.toString();
     if (statusStr === 'Approved') return 'Approved';
-    if (statusStr === 'Pending') return 'Pending';
-    if (statusStr === 'Rejected') return 'Rejected';
+    if (statusStr === 'PendingReferral') return 'PendingReferral';
+    if (statusStr === 'ReferrerApproved') return 'ReferrerApproved';
 
     return 'NotStarted';
   } catch (error) {
-    console.error('[Citizenship] Error fetching KYC status:', error);
+    console.error('[Citizenship] Error fetching status:', error);
     return 'NotStarted';
   }
 }
 
 // ── Blockchain Submission ───────────────────────────────────────────
 
-export async function submitCitizenshipApplication(
+export async function applyCitizenship(
   api: ApiPromise,
   keypair: KeyringPair,
-  name: string,
-  email: string,
-  ipfsCid: string,
-  notes: string = 'Citizenship application via Telegram MiniApp'
+  identityHash: string,
+  referrerAddress: string | null = null
 ): Promise<CitizenshipResult> {
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const tx = api.tx as any;
-    if (!tx?.identityKyc?.setIdentity || !tx?.identityKyc?.applyForKyc) {
+    if (!tx?.identityKyc?.applyForCitizenship) {
       return { success: false, error: 'Identity KYC pallet not available' };
     }
 
-    const address = keypair.address;
-
-    // Check for pending application
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const pendingApp = await (api.query as any).identityKyc.pendingKycApplications(address);
-    if (!pendingApp.isEmpty) {
-      return {
-        success: false,
-        error: 'You already have a pending citizenship application.',
-      };
-    }
-
-    // Check if already approved
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const kycStatus = await (api.query as any).identityKyc.kycStatuses(address);
-    if (kycStatus.toString() === 'Approved') {
-      return {
-        success: false,
-        error: 'Your citizenship is already approved!',
-      };
-    }
-
-    const cidString = String(ipfsCid);
-    if (!cidString || cidString === 'undefined') {
-      return { success: false, error: 'Invalid IPFS CID' };
-    }
-
-    // Step 1: Set identity
-    const identityResult = await new Promise<CitizenshipResult>((resolve) => {
+    const result = await new Promise<CitizenshipResult>((resolve) => {
       tx.identityKyc
-        .setIdentity(name, email)
-        .signAndSend(
-          keypair,
-          { nonce: -1 },
-          ({
-            status,
-            dispatchError,
-          }: {
-            status: { isInBlock: boolean; isFinalized: boolean };
-            dispatchError?: { isModule: boolean; asModule: unknown; toString: () => string };
-          }) => {
-            if (status.isInBlock || status.isFinalized) {
-              if (dispatchError) {
-                let errorMessage = 'Identity transaction failed';
-                if (dispatchError.isModule) {
-                  const decoded = api.registry.findMetaError(
-                    dispatchError.asModule as Parameters<typeof api.registry.findMetaError>[0]
-                  );
-                  errorMessage = `${decoded.section}.${decoded.name}`;
-                }
-                resolve({ success: false, error: errorMessage });
-                return;
-              }
-              resolve({ success: true });
-            }
-          }
-        )
-        .catch((error: Error) => resolve({ success: false, error: error.message }));
-    });
-
-    if (!identityResult.success) {
-      return identityResult;
-    }
-
-    // Step 2: Apply for KYC
-    const kycResult = await new Promise<CitizenshipResult>((resolve) => {
-      tx.identityKyc
-        .applyForKyc(cidString, notes)
+        .applyForCitizenship(identityHash, referrerAddress)
         .signAndSend(
           keypair,
           { nonce: -1 },
@@ -229,46 +156,29 @@ export async function submitCitizenshipApplication(
           }) => {
             if (status.isInBlock || status.isFinalized) {
               if (dispatchError) {
-                let errorMessage = 'KYC application failed';
+                let errorMessage = 'Citizenship application failed';
                 if (dispatchError.isModule) {
                   const decoded = api.registry.findMetaError(
                     dispatchError.asModule as Parameters<typeof api.registry.findMetaError>[0]
                   );
                   errorMessage = `${decoded.section}.${decoded.name}`;
                 }
-                resolve({ success: false, error: errorMessage });
+                resolve({ success: false, error: errorMessage, identityHash });
                 return;
               }
               const blockHash = status.asFinalized?.toString() || status.asInBlock?.toString();
-              resolve({ success: true, blockHash });
+              resolve({ success: true, blockHash, identityHash });
             }
           }
         )
-        .catch((error: Error) => resolve({ success: false, error: error.message }));
+        .catch((error: Error) => resolve({ success: false, error: error.message, identityHash }));
     });
 
-    return kycResult;
+    return result;
   } catch (error) {
     return {
       success: false,
       error: error instanceof Error ? error.message : 'Unknown error',
     };
   }
-}
-
-// ── Citizen Number Generation ───────────────────────────────────────
-
-export function generateCitizenNumber(
-  ownerAddress: string,
-  collectionId: number,
-  itemId: number
-): string {
-  let hash = 0;
-  for (let i = 0; i < ownerAddress.length; i++) {
-    hash = (hash << 5) - hash + ownerAddress.charCodeAt(i);
-    hash = hash & hash;
-  }
-  hash += collectionId * 1000 + itemId;
-  hash = Math.abs(hash);
-  return (hash % 1000000).toString().padStart(6, '0');
 }

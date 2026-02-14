@@ -57,6 +57,7 @@ export function CitizenPage() {
   const { t, lang, setLang } = useTranslation();
   const [showLangMenu, setShowLangMenu] = useState(false);
   const [citizenshipData, setCitizenshipData] = useState<CitizenshipData | null>(null);
+  const [identityHash, setIdentityHash] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
 
   // Determine initial step based on wallet state
@@ -87,7 +88,8 @@ export function CitizenPage() {
   }, []);
 
   // Processing result
-  const handleSuccess = useCallback(() => {
+  const handleSuccess = useCallback((hash: string) => {
+    setIdentityHash(hash);
     setStep('success');
   }, []);
 
@@ -186,7 +188,11 @@ export function CitizenPage() {
           )}
 
           {step === 'success' && address && (
-            <CitizenSuccess address={address} onOpenApp={handleOpenApp} />
+            <CitizenSuccess
+              address={address}
+              identityHash={identityHash}
+              onOpenApp={handleOpenApp}
+            />
           )}
         </Suspense>
       </main>

@@ -616,8 +616,8 @@ export interface Translations {
     emailPlaceholder: string;
     profession: string;
     professionPlaceholder: string;
-    referralCode: string;
-    referralCodePlaceholder: string;
+    referrerAddress: string;
+    referrerPlaceholder: string;
     // Consent
     consentCheckbox: string;
     // Buttons
@@ -628,11 +628,13 @@ export interface Translations {
     preparingData: string;
     readyToSign: string;
     signingTx: string;
-    // Success
-    successTitle: string;
-    successSubtitle: string;
-    citizenId: string;
+    // Application submitted
+    applicationSubmitted: string;
+    pendingReferral: string;
+    identityHash: string;
     walletAddress: string;
+    applicationInfo: string;
+    depositRequired: string;
     // Errors
     fillAllFields: string;
     acceptConsent: string;
@@ -641,6 +643,7 @@ export interface Translations {
     submissionFailed: string;
     alreadyPending: string;
     alreadyApproved: string;
+    insufficientBalance: string;
     // Language selector
     selectLanguage: string;
   };

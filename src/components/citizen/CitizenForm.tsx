@@ -38,7 +38,7 @@ export function CitizenForm({ walletAddress, onSubmit }: Props) {
   const [region, setRegion] = useState<Region | ''>('');
   const [email, setEmail] = useState('');
   const [profession, setProfession] = useState('');
-  const [referralCode, setReferralCode] = useState('');
+  const [referrerAddress, setReferrerAddress] = useState('');
   const [consent, setConsent] = useState(false);
   const [error, setError] = useState('');
 
@@ -120,7 +120,7 @@ export function CitizenForm({ walletAddress, onSubmit }: Props) {
       region: region as Region,
       email,
       profession,
-      referralCode: referralCode || undefined,
+      referrerAddress: referrerAddress || undefined,
       walletAddress,
       timestamp: Date.now(),
     };
@@ -319,15 +319,15 @@ export function CitizenForm({ walletAddress, onSubmit }: Props) {
         />
       </div>
 
-      {/* Referral Code */}
+      {/* Referrer Address */}
       <div>
-        <label className={labelClass}>{t('citizen.referralCode')}</label>
+        <label className={labelClass}>{t('citizen.referrerAddress')}</label>
         <input
           type="text"
-          value={referralCode}
-          onChange={(e) => setReferralCode(e.target.value)}
+          value={referrerAddress}
+          onChange={(e) => setReferrerAddress(e.target.value)}
           className={inputClass}
-          placeholder={t('citizen.referralCodePlaceholder')}
+          placeholder={t('citizen.referrerPlaceholder')}
         />
       </div>
 
