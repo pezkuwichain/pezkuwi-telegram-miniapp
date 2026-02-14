@@ -24,6 +24,7 @@ import {
 import { validatePassword } from '@/lib/crypto';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from './AuthContext';
+import { translate } from '@/i18n';
 import {
   initRPCConnection,
   subscribeToConnection,
@@ -123,7 +124,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
           });
       } catch (err) {
         console.error('Wallet init error:', err);
-        setError('Wallet dest pê nekir');
+        setError(translate('context.walletInitFailed'));
         setIsLoading(false);
       }
     };
@@ -138,7 +139,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         setError(null);
       } else if (wasConnected && !connected) {
         // Only show disconnect error if we were previously connected
-        setError('Têkiliya RPC qut bû. Dîsa girêdan tê kirin...');
+        setError(translate('context.rpcDisconnected'));
       }
     });
 
@@ -195,7 +196,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     async (mnemonic: string, password: string): Promise<void> => {
       // User must be authenticated first
       if (!isAuthenticated || !user?.telegram_id) {
-        throw new Error('Ji kerema xwe pêşî têkeve');
+        throw new Error(translate('context.pleaseLoginFirst'));
       }
 
       const validation = validatePassword(password);
@@ -221,11 +222,11 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     async (mnemonic: string, password: string): Promise<string> => {
       // User must be authenticated first
       if (!isAuthenticated || !user?.telegram_id) {
-        throw new Error('Ji kerema xwe pêşî têkeve');
+        throw new Error(translate('context.pleaseLoginFirst'));
       }
 
       if (!validateMnemonic(mnemonic)) {
-        throw new Error('Seed phrase ne derbasdar e');
+        throw new Error(translate('context.invalidSeedPhrase'));
       }
 
       const validation = validatePassword(password);
@@ -258,7 +259,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
       setKeypair(pair);
       setIsConnected(true);
     } catch (err) {
-      const message = err instanceof Error ? err.message : 'Girêdan neserketî';
+      const message = err instanceof Error ? err.message : translate('context.connectionFailed');
       setError(message);
       throw err;
     } finally {

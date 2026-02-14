@@ -10,6 +10,8 @@
  * - Version header for future algorithm updates
  */
 
+import { translate } from '@/i18n';
+
 const SALT_LENGTH = 16;
 const IV_LENGTH = 12;
 const VERSION_LENGTH = 1;
@@ -162,12 +164,12 @@ export function validatePassword(password: string): {
   const strength = getPasswordStrength(password);
 
   if (password.length < 12) {
-    return { valid: false, message: 'Şîfre (password) herî kêm 12 tîp be', entropy, strength };
+    return { valid: false, message: translate('validation.minLength'), entropy, strength };
   }
   if (!/[a-z]/.test(password)) {
     return {
       valid: false,
-      message: 'Şîfre (password) herî kêm 1 tîpa biçûk hebe (a-z)',
+      message: translate('validation.needLowercase'),
       entropy,
       strength,
     };
@@ -175,7 +177,7 @@ export function validatePassword(password: string): {
   if (!/[A-Z]/.test(password)) {
     return {
       valid: false,
-      message: 'Şîfre (password) herî kêm 1 tîpa mezin hebe (A-Z)',
+      message: translate('validation.needUppercase'),
       entropy,
       strength,
     };
@@ -183,7 +185,7 @@ export function validatePassword(password: string): {
   if (!/[0-9]/.test(password)) {
     return {
       valid: false,
-      message: 'Şîfre (password) herî kêm 1 hejmar hebe (0-9)',
+      message: translate('validation.needNumber'),
       entropy,
       strength,
     };
@@ -191,7 +193,7 @@ export function validatePassword(password: string): {
   if (!/[!@#$%^&*()_+\-=[\]{};':"\\|,.<>/?]/.test(password)) {
     return {
       valid: false,
-      message: 'Şîfre (password) herî kêm 1 nîşana taybet hebe (!@#$%...)',
+      message: translate('validation.needSpecialChar'),
       entropy,
       strength,
     };
@@ -199,8 +201,7 @@ export function validatePassword(password: string): {
   if (entropy < 60) {
     return {
       valid: false,
-      message:
-        'Şîfre (password) ne têra qewî ye. Şîfreyek (password) dirêjtir bi tîpên cûrbecûr biceribîne.',
+      message: translate('validation.weakPassword'),
       entropy,
       strength,
     };

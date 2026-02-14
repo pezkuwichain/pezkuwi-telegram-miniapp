@@ -305,6 +305,281 @@ export interface Translations {
   loadingScreen: {
     loading: string;
   };
+
+  // Dashboard (WalletDashboard main view)
+  dashboard: {
+    connected: string;
+    send: string;
+    receive: string;
+    presaleMessage: string;
+    depositUsdt: string;
+    depositUsdtDesc: string;
+    recentActivity: string;
+    history: string;
+    refreshTx: string;
+    loadingTx: string;
+    noRecentTx: string;
+    historyAppears: string;
+    sent: string;
+    received: string;
+    selectStaking: string;
+    validatorNominate: string;
+    trustScorePlus: string;
+    lpStakeDesc: string;
+    pezRewardPlus: string;
+    goBack: string;
+  };
+
+  // Send Tab
+  send: {
+    back: string;
+    selectToken: string;
+    whichToken: string;
+    someChainNotConnected: string;
+    transferSuccess: string;
+    wasSent: string;
+    done: string;
+    sendToken: string;
+    changeToken: string;
+    recipientAddress: string;
+    scanQr: string;
+    scanQrText: string;
+    qrNotAvailable: string;
+    invalidAddress: string;
+    amount: string;
+    balanceLabel: string;
+    sending: string;
+    sendButton: string;
+    walletNotReady: string;
+    selectTokenFirst: string;
+    fillAddressAndAmount: string;
+    insufficientBalance: string;
+    mainnetApiNotReady: string;
+    assetHubApiNotReady: string;
+    transferFailed: string;
+  };
+
+  // Receive Tab
+  receive: {
+    title: string;
+    back: string;
+    qrFailed: string;
+    shareAddress: string;
+    addressCopied: string;
+    copyAddress: string;
+  };
+
+  // History Tab
+  history: {
+    title: string;
+    back: string;
+    loadingTx: string;
+    noTransactions: string;
+    historyAppears: string;
+    sent: string;
+    received: string;
+    to: string;
+    from: string;
+  };
+
+  // Swap Modal
+  swap: {
+    title: string;
+    fromLabel: string;
+    toLabel: string;
+    exchangeRate: string;
+    noPool: string;
+    swapping: string;
+    noPoolButton: string;
+    swapButton: string;
+    swapFailed: string;
+    swapSuccess: string;
+    balanceLabel: string;
+    insufficientBalance: string;
+  };
+
+  // Pools Modal
+  pools: {
+    title: string;
+    connectionError: string;
+    loadingPools: string;
+    noPools: string;
+    back: string;
+    addLiquidity: string;
+    removeLiquidity: string;
+    yourPosition: string;
+    addButton: string;
+    removeButton: string;
+    reserve: string;
+    lpBalance: string;
+    lpTokenAmount: string;
+    amountAuto: string;
+    adding: string;
+    removing: string;
+    addFailed: string;
+    removeFailed: string;
+    invalidLpAmount: string;
+    estimatedReturn: string;
+    success: string;
+    addedLiquidity: string;
+    removedLiquidity: string;
+  };
+
+  // HEZ Staking Modal
+  staking: {
+    palletNotFound: string;
+    fetchError: string;
+    statusTab: string;
+    bondTab: string;
+    nominateTab: string;
+    unbondTab: string;
+    activeStake: string;
+    totalBonded: string;
+    nominations: string;
+    rewardDestination: string;
+    unbondingChunks: string;
+    nominatedValidators: string;
+    stakingTip: string;
+    notStakedYet: string;
+    stakeForTrustScore: string;
+    startStaking: string;
+    yourBalance: string;
+    currentlyStaked: string;
+    amountHez: string;
+    bondWarning: string;
+    bonding: string;
+    bondExtra: string;
+    bondButton: string;
+    bondFirst: string;
+    selectValidators: string;
+    commission: string;
+    nominating: string;
+    nominateButton: string;
+    notStakedUnbond: string;
+    unbondWarning: string;
+    unbondProcessing: string;
+    unbondButton: string;
+    bondSuccess: string;
+    nominateSuccess: string;
+    unbondSuccess: string;
+    bondFailed: string;
+    nominateFailed: string;
+    unbondFailed: string;
+  };
+
+  // LP Staking Modal
+  lpStaking: {
+    palletNotReady: string;
+    poolsNotLoaded: string;
+    noPoolsYet: string;
+    selectPool: string;
+    totalStaked: string;
+    youStaked: string;
+    lpBalance: string;
+    reward: string;
+    stakeTab: string;
+    unstakeTab: string;
+    rewardTab: string;
+    amount: string;
+    balanceLabel: string;
+    stakedLabel: string;
+    staking: string;
+    stakeButton: string;
+    unstaking: string;
+    unstakeButton: string;
+    pendingRewards: string;
+    claiming: string;
+    claimButton: string;
+    stakeFailed: string;
+    stakeSuccess: string;
+    unstakeFailed: string;
+    unstakeSuccess: string;
+    claimFailed: string;
+    claimSuccess: string;
+  };
+
+  // Fund Fees Modal
+  fees: {
+    title: string;
+    subtitle: string;
+    success: string;
+    sentTo: string;
+    failed: string;
+    tryAgain: string;
+    targetChain: string;
+    forTransfers: string;
+    forIdentity: string;
+    minRecommended: string;
+    amountHez: string;
+    signing: string;
+    xcmTeleportPending: string;
+    signingButton: string;
+    processing: string;
+    sendTo: string;
+    walletNotConnected: string;
+    apiNotConnected: string;
+    enterValidAmount: string;
+    chainNotConnected: string;
+    insufficientBalance: string;
+    xcmPalletNotFound: string;
+    teleportFailed: string;
+    errorOccurred: string;
+  };
+
+  // Tokens Card
+  tokens: {
+    searchPlaceholder: string;
+    addToken: string;
+    assetIdPlaceholder: string;
+    cancel: string;
+    add: string;
+    blockchainConnected: string;
+    connectingBlockchain: string;
+    connectingRpc: string;
+    tokenNotFound: string;
+    total: string;
+    loadingBalance: string;
+  };
+
+  // Error messages (error-tracking.ts)
+  errors: {
+    networkError: string;
+    timeout: string;
+    walletNotFound: string;
+    wrongPassword: string;
+    default: string;
+  };
+
+  // Password validation (crypto.ts)
+  validation: {
+    minLength: string;
+    needLowercase: string;
+    needUppercase: string;
+    needNumber: string;
+    needSpecialChar: string;
+    weakPassword: string;
+  };
+
+  // Time formatting (utils.ts)
+  time: {
+    now: string;
+    minutesAgo: string;
+    hoursAgo: string;
+    daysAgo: string;
+  };
+
+  // Context messages (WalletContext, ReferralContext, wallet-storage)
+  context: {
+    walletInitFailed: string;
+    rpcDisconnected: string;
+    pleaseLoginFirst: string;
+    invalidSeedPhrase: string;
+    connectionFailed: string;
+    referralStatsError: string;
+    referralApproved: string;
+    wrongPasswordError: string;
+    walletSyncFailed: string;
+  };
 }
 
 export type LanguageCode = 'krd' | 'en' | 'tr' | 'ckb' | 'fa' | 'ar';

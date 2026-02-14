@@ -7,6 +7,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { X, Lock, Unlock, Users, AlertCircle, Loader2, Shield, TrendingUp } from 'lucide-react';
 import { useWallet } from '@/contexts/WalletContext';
 import { useTelegram } from '@/hooks/useTelegram';
+import { useTranslation } from '@/i18n';
 import { cn } from '@/lib/utils';
 
 interface StakingInfo {
@@ -35,6 +36,7 @@ const UNITS = 1_000_000_000_000; // 10^12
 export function HEZStakingModal({ isOpen, onClose }: HEZStakingModalProps) {
   const { api, keypair, address, balance } = useWallet();
   const { hapticImpact, hapticNotification, showAlert } = useTelegram();
+  const { t } = useTranslation();
 
   const [stakingInfo, setStakingInfo] = useState<StakingInfo | null>(null);
   const [validators, setValidators] = useState<ValidatorInfo[]>([]);
@@ -55,7 +57,7 @@ export function HEZStakingModal({ isOpen, onClose }: HEZStakingModalProps) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const stakingPallet = api.query.staking as any;
       if (!stakingPallet) {
-        setError('Staking palleti bulunamadı');
+        setError(t('staking.palletNotFound'));
         setIsLoading(false);
         return;
       }
@@ -114,7 +116,7 @@ export function HEZStakingModal({ isOpen, onClose }: HEZStakingModalProps) {
       setValidators(validatorList);
     } catch (err) {
       console.error('Error fetching staking info:', err);
-      setError('Staking bilgileri alınamadı');
+      setError(t('staking.fetchError'));
     } finally {
       setIsLoading(false);
     }
@@ -165,7 +167,7 @@ export function HEZStakingModal({ isOpen, onClose }: HEZStakingModalProps) {
           }) => {
             if (status.isFinalized) {
               if (dispatchError) {
-                let errorMsg = 'Bond neserketî';
+                let errorMsg = t('staking.bondFailed');
                 if (dispatchError.isModule) {
                   const decoded = api.registry.findMetaError(dispatchError.asModule);
                   errorMsg = `${decoded.section}.${decoded.name}`;
@@ -180,13 +182,13 @@ export function HEZStakingModal({ isOpen, onClose }: HEZStakingModalProps) {
       });
 
       hapticNotification('success');
-      showAlert(`${bondAmount} HEZ stake kirin serketî!`);
+      showAlert(t('staking.bondSuccess', { amount: bondAmount }));
       setBondAmount('');
       fetchStakingInfo();
       setActiveTab('status');
     } catch (err) {
       console.error('Bond error:', err);
-      setError(err instanceof Error ? err.message : 'Bond neserketî');
+      setError(err instanceof Error ? err.message : t('staking.bondFailed'));
       hapticNotification('error');
     } finally {
       setIsProcessing(false);
@@ -216,7 +218,7 @@ export function HEZStakingModal({ isOpen, onClose }: HEZStakingModalProps) {
           }) => {
             if (status.isFinalized) {
               if (dispatchError) {
-                let errorMsg = 'Nominate neserketî';
+                let errorMsg = t('staking.nominateFailed');
                 if (dispatchError.isModule) {
                   const decoded = api.registry.findMetaError(dispatchError.asModule);
                   errorMsg = `${decoded.section}.${decoded.name}`;
@@ -231,12 +233,12 @@ export function HEZStakingModal({ isOpen, onClose }: HEZStakingModalProps) {
       });
 
       hapticNotification('success');
-      showAlert(`${selectedValidators.length} validator nominate kirin serketî!`);
+      showAlert(t('staking.nominateSuccess', { count: selectedValidators.length }));
       fetchStakingInfo();
       setActiveTab('status');
     } catch (err) {
       console.error('Nominate error:', err);
-      setError(err instanceof Error ? err.message : 'Nominate neserketî');
+      setError(err instanceof Error ? err.message : t('staking.nominateFailed'));
       hapticNotification('error');
     } finally {
       setIsProcessing(false);
@@ -268,7 +270,7 @@ export function HEZStakingModal({ isOpen, onClose }: HEZStakingModalProps) {
           }) => {
             if (status.isFinalized) {
               if (dispatchError) {
-                let errorMsg = 'Unbond neserketî';
+                let errorMsg = t('staking.unbondFailed');
                 if (dispatchError.isModule) {
                   const decoded = api.registry.findMetaError(dispatchError.asModule);
                   errorMsg = `${decoded.section}.${decoded.name}`;
@@ -283,13 +285,13 @@ export function HEZStakingModal({ isOpen, onClose }: HEZStakingModalProps) {
       });
 
       hapticNotification('success');
-      showAlert(`${unbondAmount} HEZ unbond kirin serketî! (28 roj li bendê)`);
+      showAlert(t('staking.unbondSuccess', { amount: unbondAmount }));
       setUnbondAmount('');
       fetchStakingInfo();
       setActiveTab('status');
     } catch (err) {
       console.error('Unbond error:', err);
-      setError(err instanceof Error ? err.message : 'Unbond neserketî');
+      setError(err instanceof Error ? err.message : t('staking.unbondFailed'));
       hapticNotification('error');
     } finally {
       setIsProcessing(false);
@@ -330,10 +332,10 @@ export function HEZStakingModal({ isOpen, onClose }: HEZStakingModalProps) {
               {/* Tabs */}
               <div className="flex gap-1 bg-secondary/50 rounded-lg p-1 mb-4">
                 {[
-                  { id: 'status' as const, label: 'Durum', icon: TrendingUp },
-                  { id: 'bond' as const, label: 'Bond', icon: Lock },
-                  { id: 'nominate' as const, label: 'Nominate', icon: Users },
-                  { id: 'unbond' as const, label: 'Unbond', icon: Unlock },
+                  { id: 'status' as const, label: t('staking.statusTab'), icon: TrendingUp },
+                  { id: 'bond' as const, label: t('staking.bondTab'), icon: Lock },
+                  { id: 'nominate' as const, label: t('staking.nominateTab'), icon: Users },
+                  { id: 'unbond' as const, label: t('staking.unbondTab'), icon: Unlock },
                 ].map(({ id, label, icon: Icon }) => (
                   <button
                     key={id}
@@ -368,7 +370,9 @@ export function HEZStakingModal({ isOpen, onClose }: HEZStakingModalProps) {
                   {stakingInfo ? (
                     <>
                       <div className="bg-gradient-to-r from-green-500/20 to-emerald-500/20 border border-green-500/30 rounded-xl p-4">
-                        <div className="text-sm text-muted-foreground mb-1">Aktîf Stake</div>
+                        <div className="text-sm text-muted-foreground mb-1">
+                          {t('staking.activeStake')}
+                        </div>
                         <div className="text-2xl font-bold text-green-400">
                           {formatHEZ(stakingInfo.active)} HEZ
                         </div>
@@ -376,20 +380,24 @@ export function HEZStakingModal({ isOpen, onClose }: HEZStakingModalProps) {
 
                       <div className="bg-secondary/50 rounded-xl p-4 space-y-3">
                         <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Giştî Bonded</span>
+                          <span className="text-muted-foreground">{t('staking.totalBonded')}</span>
                           <span>{formatHEZ(stakingInfo.totalBonded)} HEZ</span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Nominations</span>
+                          <span className="text-muted-foreground">{t('staking.nominations')}</span>
                           <span>{stakingInfo.nominations.length} validator</span>
                         </div>
                         <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Xelat Armanc</span>
+                          <span className="text-muted-foreground">
+                            {t('staking.rewardDestination')}
+                          </span>
                           <span>{stakingInfo.rewardDestination}</span>
                         </div>
                         {stakingInfo.unlocking.length > 0 && (
                           <div className="flex justify-between text-sm">
-                            <span className="text-muted-foreground">Unbonding</span>
+                            <span className="text-muted-foreground">
+                              {t('staking.unbondingChunks')}
+                            </span>
                             <span className="text-yellow-400">
                               {stakingInfo.unlocking.length} chunk
                             </span>
@@ -400,7 +408,7 @@ export function HEZStakingModal({ isOpen, onClose }: HEZStakingModalProps) {
                       {stakingInfo.nominations.length > 0 && (
                         <div className="bg-secondary/50 rounded-xl p-4">
                           <div className="text-sm text-muted-foreground mb-2">
-                            Nominated Validators
+                            {t('staking.nominatedValidators')}
                           </div>
                           <div className="space-y-1 max-h-32 overflow-y-auto">
                             {stakingInfo.nominations.map((addr, i) => (
@@ -413,24 +421,21 @@ export function HEZStakingModal({ isOpen, onClose }: HEZStakingModalProps) {
                       )}
 
                       <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-                        <p className="text-blue-400 text-xs">
-                          💡 HEZ stake kirin Trust Score zêde dike. Herî kêm 1 meh stake bikî ji bo
-                          bonusê.
-                        </p>
+                        <p className="text-blue-400 text-xs">{t('staking.stakingTip')}</p>
                       </div>
                     </>
                   ) : (
                     <div className="text-center py-8">
                       <Shield className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
-                      <h3 className="text-lg font-medium mb-2">Hîn Stake Nekiriye</h3>
+                      <h3 className="text-lg font-medium mb-2">{t('staking.notStakedYet')}</h3>
                       <p className="text-muted-foreground text-sm mb-4">
-                        HEZ stake bike ji bo Trust Score qezenckirin
+                        {t('staking.stakeForTrustScore')}
                       </p>
                       <button
                         onClick={() => setActiveTab('bond')}
                         className="px-6 py-2 bg-green-600 text-white rounded-lg text-sm"
                       >
-                        Dest Pê Bike
+                        {t('staking.startStaking')}
                       </button>
                     </div>
                   )}
@@ -442,19 +447,23 @@ export function HEZStakingModal({ isOpen, onClose }: HEZStakingModalProps) {
                 <div className="space-y-4">
                   <div className="bg-secondary/50 rounded-xl p-4">
                     <div className="flex justify-between text-sm mb-2">
-                      <span className="text-muted-foreground">Bakiyê Te</span>
+                      <span className="text-muted-foreground">{t('staking.yourBalance')}</span>
                       <span>{balance || '0'} HEZ</span>
                     </div>
                     {stakingInfo && (
                       <div className="flex justify-between text-sm">
-                        <span className="text-muted-foreground">Niha Staked</span>
+                        <span className="text-muted-foreground">
+                          {t('staking.currentlyStaked')}
+                        </span>
                         <span className="text-green-400">{formatHEZ(stakingInfo.active)} HEZ</span>
                       </div>
                     )}
                   </div>
 
                   <div>
-                    <label className="text-sm text-muted-foreground mb-2 block">Mîqdar (HEZ)</label>
+                    <label className="text-sm text-muted-foreground mb-2 block">
+                      {t('staking.amountHez')}
+                    </label>
                     <div className="relative">
                       <input
                         type="number"
@@ -473,9 +482,7 @@ export function HEZStakingModal({ isOpen, onClose }: HEZStakingModalProps) {
                   </div>
 
                   <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-                    <p className="text-yellow-400 text-xs">
-                      ⚠️ Stake kirinê paşê 28 roj li bendê ye ji bo vekişandinê.
-                    </p>
+                    <p className="text-yellow-400 text-xs">{t('staking.bondWarning')}</p>
                   </div>
 
                   <button
@@ -488,7 +495,11 @@ export function HEZStakingModal({ isOpen, onClose }: HEZStakingModalProps) {
                     ) : (
                       <Lock className="w-5 h-5" />
                     )}
-                    {isProcessing ? 'Tê bond kirin...' : stakingInfo ? 'Zêde Bike' : 'Bond Bike'}
+                    {isProcessing
+                      ? t('staking.bonding')
+                      : stakingInfo
+                        ? t('staking.bondExtra')
+                        : t('staking.bondButton')}
                   </button>
                 </div>
               )}
@@ -499,14 +510,12 @@ export function HEZStakingModal({ isOpen, onClose }: HEZStakingModalProps) {
                   {!stakingInfo ? (
                     <div className="text-center py-8">
                       <AlertCircle className="w-12 h-12 text-yellow-400 mx-auto mb-4" />
-                      <p className="text-muted-foreground">
-                        Pêşî HEZ bond bike, paşê nominate bike
-                      </p>
+                      <p className="text-muted-foreground">{t('staking.bondFirst')}</p>
                     </div>
                   ) : (
                     <>
                       <div className="text-sm text-muted-foreground mb-2">
-                        Validator hilbijêre (max 16): {selectedValidators.length}/16
+                        {t('staking.selectValidators', { count: selectedValidators.length })}
                       </div>
 
                       <div className="space-y-2 max-h-64 overflow-y-auto">
@@ -525,7 +534,7 @@ export function HEZStakingModal({ isOpen, onClose }: HEZStakingModalProps) {
                               {v.address.slice(0, 16)}...{v.address.slice(-8)}
                             </div>
                             <div className="text-xs text-muted-foreground mt-1">
-                              Komîsyon: {v.commission.toFixed(2)}%
+                              {t('staking.commission')} {v.commission.toFixed(2)}%
                             </div>
                           </button>
                         ))}
@@ -541,7 +550,7 @@ export function HEZStakingModal({ isOpen, onClose }: HEZStakingModalProps) {
                         ) : (
                           <Users className="w-5 h-5" />
                         )}
-                        {isProcessing ? 'Tê nominate kirin...' : 'Nominate Bike'}
+                        {isProcessing ? t('staking.nominating') : t('staking.nominateButton')}
                       </button>
                     </>
                   )}
@@ -554,13 +563,13 @@ export function HEZStakingModal({ isOpen, onClose }: HEZStakingModalProps) {
                   {!stakingInfo ? (
                     <div className="text-center py-8">
                       <AlertCircle className="w-12 h-12 text-yellow-400 mx-auto mb-4" />
-                      <p className="text-muted-foreground">Tu hîn stake nekiriye</p>
+                      <p className="text-muted-foreground">{t('staking.notStakedUnbond')}</p>
                     </div>
                   ) : (
                     <>
                       <div className="bg-secondary/50 rounded-xl p-4">
                         <div className="flex justify-between text-sm">
-                          <span className="text-muted-foreground">Aktîf Stake</span>
+                          <span className="text-muted-foreground">{t('staking.activeStake')}</span>
                           <span className="text-green-400">
                             {formatHEZ(stakingInfo.active)} HEZ
                           </span>
@@ -569,7 +578,7 @@ export function HEZStakingModal({ isOpen, onClose }: HEZStakingModalProps) {
 
                       <div>
                         <label className="text-sm text-muted-foreground mb-2 block">
-                          Mîqdar (HEZ)
+                          {t('staking.amountHez')}
                         </label>
                         <div className="relative">
                           <input
@@ -589,9 +598,7 @@ export function HEZStakingModal({ isOpen, onClose }: HEZStakingModalProps) {
                       </div>
 
                       <div className="p-3 bg-orange-500/10 border border-orange-500/30 rounded-lg">
-                        <p className="text-orange-400 text-xs">
-                          ⚠️ Unbond kirin 28 roj digire. Paşê dikare vekişîne.
-                        </p>
+                        <p className="text-orange-400 text-xs">{t('staking.unbondWarning')}</p>
                       </div>
 
                       <button
@@ -604,7 +611,7 @@ export function HEZStakingModal({ isOpen, onClose }: HEZStakingModalProps) {
                         ) : (
                           <Unlock className="w-5 h-5" />
                         )}
-                        {isProcessing ? 'Tê unbond kirin...' : 'Unbond Bike'}
+                        {isProcessing ? t('staking.unbondProcessing') : t('staking.unbondButton')}
                       </button>
                     </>
                   )}

@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { useWallet } from '@/contexts/WalletContext';
 import { useTelegram } from '@/hooks/useTelegram';
+import { useTranslation } from '@/i18n';
 
 type TargetChain = 'asset-hub' | 'people';
 
@@ -31,14 +32,14 @@ const TARGET_CHAINS: ChainInfo[] = [
   {
     id: 'asset-hub',
     name: 'Asset Hub',
-    description: 'Ji bo PEZ veguheztin',
+    description: 'fees.forTransfers',
     teyrchainId: 1000,
     color: 'blue',
   },
   {
     id: 'people',
     name: 'People Chain',
-    description: 'Ji bo nasname',
+    description: 'fees.forIdentity',
     teyrchainId: 1004,
     color: 'purple',
   },
@@ -52,6 +53,7 @@ interface Props {
 export function FundFeesModal({ isOpen, onClose }: Props) {
   const { api, assetHubApi, peopleApi, address, keypair } = useWallet();
   const { hapticImpact, showAlert } = useTelegram();
+  const { t } = useTranslation();
 
   const [targetChain, setTargetChain] = useState<TargetChain>('asset-hub');
   const [toRelay, setToRelay] = useState(false); // false = Relay→Teyrchain, true = Teyrchain→Relay
@@ -142,7 +144,7 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
 
   const handleTeleport = async () => {
     if (!address || !keypair) {
-      showAlert('Cizdan girêdayî nîne');
+      showAlert(t('fees.walletNotConnected'));
       return;
     }
 
@@ -151,18 +153,18 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
     const sourceApi: any = toRelay ? (targetChain === 'asset-hub' ? assetHubApi : peopleApi) : api;
 
     if (!sourceApi) {
-      showAlert('API girêdayî nîne');
+      showAlert(t('fees.apiNotConnected'));
       return;
     }
 
     if (!amount || parseFloat(amount) <= 0) {
-      showAlert('Mîqdarek rast binivîse');
+      showAlert(t('fees.enterValidAmount'));
       return;
     }
 
     const sourceBalance = getSourceBalance();
     if (sourceBalance === '--') {
-      showAlert('Zincîr girêdayî nîne');
+      showAlert(t('fees.chainNotConnected'));
       return;
     }
 
@@ -170,7 +172,7 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
     const currentBalance = parseFloat(sourceBalance);
 
     if (sendAmount > currentBalance) {
-      showAlert('Bakiye têrê nake');
+      showAlert(t('fees.insufficientBalance'));
       return;
     }
 
@@ -282,7 +284,7 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
       const xcmPallet = toRelay ? (sourceApi.tx as any).pezkuwiXcm : sourceApi.tx.xcmPallet;
 
       if (!xcmPallet?.limitedTeleportAssets) {
-        throw new Error('XCM pallet nehate dîtin');
+        throw new Error(t('fees.xcmPalletNotFound'));
       }
 
       const tx = xcmPallet.limitedTeleportAssets(
@@ -306,7 +308,7 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
         }) => {
           if (status.isFinalized) {
             if (dispatchError) {
-              let errorMessage = 'Teleport neserketî';
+              let errorMessage = t('fees.teleportFailed');
 
               if (dispatchError.isModule) {
                 const decoded = sourceApi.registry.findMetaError(dispatchError.asModule);
@@ -337,7 +339,7 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
       setTxStatus('error');
       setIsTransferring(false);
       hapticImpact('heavy');
-      showAlert(error instanceof Error ? error.message : 'Çewtiyekî çêbû');
+      showAlert(error instanceof Error ? error.message : t('fees.errorOccurred'));
     }
   };
 
@@ -361,8 +363,8 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
               <Fuel className="w-5 h-5 text-yellow-400" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold">Fee Zêde Bike</h2>
-              <p className="text-xs text-muted-foreground">HEZ teleport</p>
+              <h2 className="text-lg font-semibold">{t('fees.title')}</h2>
+              <p className="text-xs text-muted-foreground">{t('fees.subtitle')}</p>
             </div>
           </div>
           <button
@@ -377,27 +379,29 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
         {txStatus === 'success' ? (
           <div className="py-8 text-center">
             <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold mb-2">Serketî!</h3>
+            <h3 className="text-xl font-semibold mb-2">{t('fees.success')}</h3>
             <p className="text-muted-foreground">
-              {amount} HEZ bo {getDestName()} hate şandin
+              {t('fees.sentTo', { amount, chain: getDestName() })}
             </p>
           </div>
         ) : txStatus === 'error' ? (
           <div className="py-8 text-center">
             <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
-            <h3 className="text-xl font-semibold mb-2">Neserketî</h3>
+            <h3 className="text-xl font-semibold mb-2">{t('fees.failed')}</h3>
             <button
               onClick={() => setTxStatus('idle')}
               className="mt-4 px-6 py-2 bg-muted rounded-lg"
             >
-              Dîsa Biceribîne
+              {t('fees.tryAgain')}
             </button>
           </div>
         ) : (
           <div className="space-y-4">
             {/* Target Chain Selection */}
             <div>
-              <label className="text-sm text-muted-foreground mb-2 block">Zincîra Armanc</label>
+              <label className="text-sm text-muted-foreground mb-2 block">
+                {t('fees.targetChain')}
+              </label>
               <div className="flex gap-2">
                 {TARGET_CHAINS.map((chain) => (
                   <button
@@ -420,7 +424,9 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
                       }`}
                     />
                     <div className="text-sm font-medium">{chain.name}</div>
-                    <div className="text-xs text-muted-foreground">{chain.description}</div>
+                    <div className="text-xs text-muted-foreground">
+                      {t(chain.description as any)}
+                    </div>
                   </button>
                 ))}
               </div>
@@ -499,13 +505,15 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
                   targetChain === 'asset-hub' ? 'text-blue-400' : 'text-purple-400'
                 }`}
               >
-                {selectedChain.description} kêmî 0.1 HEZ tê pêşniyarkirin.
+                {t('fees.minRecommended', { description: t(selectedChain.description as any) })}
               </p>
             </div>
 
             {/* Amount Input */}
             <div>
-              <label className="text-sm text-muted-foreground mb-2 block">Mîqdar (HEZ)</label>
+              <label className="text-sm text-muted-foreground mb-2 block">
+                {t('fees.amountHez')}
+              </label>
               <input
                 type="number"
                 step="0.0001"
@@ -537,7 +545,7 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
             {/* Status Messages */}
             {txStatus === 'signing' && (
               <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
-                <p className="text-yellow-400 text-sm">Danûstandinê îmze bikin...</p>
+                <p className="text-yellow-400 text-sm">{t('fees.signing')}</p>
               </div>
             )}
 
@@ -545,7 +553,7 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
               <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
                 <p className="text-blue-400 text-sm flex items-center gap-2">
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  XCM Teleport tê çêkirin...
+                  {t('fees.xcmTeleportPending')}
                 </p>
               </div>
             )}
@@ -559,12 +567,12 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
               {isTransferring ? (
                 <>
                   <Loader2 className="w-5 h-5 animate-spin" />
-                  {txStatus === 'signing' ? 'Tê îmzekirin...' : 'Tê çêkirin...'}
+                  {txStatus === 'signing' ? t('fees.signingButton') : t('fees.processing')}
                 </>
               ) : (
                 <>
                   <Fuel className="w-5 h-5" />
-                  Bo {getDestName()} Bişîne
+                  {t('fees.sendTo', { chain: getDestName() })}
                 </>
               )}
             </button>

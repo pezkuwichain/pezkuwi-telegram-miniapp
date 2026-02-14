@@ -1,5 +1,6 @@
 import { type ClassValue, clsx } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { translate, getCurrentLanguage } from '@/i18n';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -25,12 +26,21 @@ export function formatDate(date: Date | string): string {
   const hours = Math.floor(diff / 3600000);
   const days = Math.floor(diff / 86400000);
 
-  if (minutes < 1) return 'Niha';
-  if (minutes < 60) return `${minutes} deq berê`;
-  if (hours < 24) return `${hours} saet berê`;
-  if (days < 7) return `${days} roj berê`;
+  if (minutes < 1) return translate('time.now');
+  if (minutes < 60) return translate('time.minutesAgo', { count: minutes });
+  if (hours < 24) return translate('time.hoursAgo', { count: hours });
+  if (days < 7) return translate('time.daysAgo', { count: days });
 
-  return d.toLocaleDateString('ku', { day: 'numeric', month: 'short' });
+  const langMap: Record<string, string> = {
+    krd: 'ku',
+    en: 'en',
+    tr: 'tr',
+    ckb: 'ckb',
+    fa: 'fa',
+    ar: 'ar',
+  };
+  const locale = langMap[getCurrentLanguage()] || 'ku';
+  return d.toLocaleDateString(locale, { day: 'numeric', month: 'short' });
 }
 
 export function generateId(): string {

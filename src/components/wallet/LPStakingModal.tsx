@@ -7,6 +7,7 @@ import { useState, useEffect } from 'react';
 import { X, Lock, Unlock, Gift, AlertCircle, Loader2 } from 'lucide-react';
 import { useWallet } from '@/contexts/WalletContext';
 import { useTelegram } from '@/hooks/useTelegram';
+import { useTranslation } from '@/i18n';
 import { cn } from '@/lib/utils';
 
 interface StakingPool {
@@ -56,6 +57,7 @@ function formatAssetLocation(assetId: number): object {
 export function LPStakingModal({ isOpen, onClose }: LPStakingModalProps) {
   const { assetHubApi, keypair, address } = useWallet();
   const { hapticImpact, hapticNotification, showAlert } = useTelegram();
+  const { t } = useTranslation();
 
   const [pools, setPools] = useState<StakingPool[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -76,7 +78,7 @@ export function LPStakingModal({ isOpen, onClose }: LPStakingModalProps) {
         const poolEntries = await (assetHubApi.query.assetRewards as any)?.pools?.entries();
 
         if (!poolEntries) {
-          setError('Staking palleti amade nîne');
+          setError(t('lpStaking.palletNotReady'));
           setIsLoading(false);
           return;
         }
@@ -170,7 +172,7 @@ export function LPStakingModal({ isOpen, onClose }: LPStakingModalProps) {
         }
       } catch (err) {
         console.error('Error fetching staking pools:', err);
-        setError('Staking pools bar nekirin');
+        setError(t('lpStaking.poolsNotLoaded'));
       } finally {
         setIsLoading(false);
       }
@@ -212,7 +214,7 @@ export function LPStakingModal({ isOpen, onClose }: LPStakingModalProps) {
           }) => {
             if (status.isFinalized) {
               if (dispatchError) {
-                let errorMsg = 'Stake neserketî';
+                let errorMsg = t('lpStaking.stakeFailed');
                 if (dispatchError.isModule) {
                   const decoded = assetHubApi.registry.findMetaError(dispatchError.asModule);
                   errorMsg = `${decoded.section}.${decoded.name}`;
@@ -227,14 +229,14 @@ export function LPStakingModal({ isOpen, onClose }: LPStakingModalProps) {
       });
 
       hapticNotification('success');
-      showAlert('Stake serket!');
+      showAlert(t('lpStaking.stakeSuccess'));
       setStakeAmount('');
 
       setTimeout(() => {
         onClose();
       }, 1500);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Stake neserketî');
+      setError(err instanceof Error ? err.message : t('lpStaking.stakeFailed'));
       hapticNotification('error');
     } finally {
       setIsProcessing(false);
@@ -266,7 +268,7 @@ export function LPStakingModal({ isOpen, onClose }: LPStakingModalProps) {
           }) => {
             if (status.isFinalized) {
               if (dispatchError) {
-                let errorMsg = 'Unstake neserketî';
+                let errorMsg = t('lpStaking.unstakeFailed');
                 if (dispatchError.isModule) {
                   const decoded = assetHubApi.registry.findMetaError(dispatchError.asModule);
                   errorMsg = `${decoded.section}.${decoded.name}`;
@@ -281,14 +283,14 @@ export function LPStakingModal({ isOpen, onClose }: LPStakingModalProps) {
       });
 
       hapticNotification('success');
-      showAlert('Unstake serket!');
+      showAlert(t('lpStaking.unstakeSuccess'));
       setUnstakeAmount('');
 
       setTimeout(() => {
         onClose();
       }, 1500);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Unstake neserketî');
+      setError(err instanceof Error ? err.message : t('lpStaking.unstakeFailed'));
       hapticNotification('error');
     } finally {
       setIsProcessing(false);
@@ -318,7 +320,7 @@ export function LPStakingModal({ isOpen, onClose }: LPStakingModalProps) {
           }) => {
             if (status.isFinalized) {
               if (dispatchError) {
-                let errorMsg = 'Xelat stendin neserketî';
+                let errorMsg = t('lpStaking.claimFailed');
                 if (dispatchError.isModule) {
                   const decoded = assetHubApi.registry.findMetaError(dispatchError.asModule);
                   errorMsg = `${decoded.section}.${decoded.name}`;
@@ -333,13 +335,13 @@ export function LPStakingModal({ isOpen, onClose }: LPStakingModalProps) {
       });
 
       hapticNotification('success');
-      showAlert('Xelat hat stendin!');
+      showAlert(t('lpStaking.claimSuccess'));
 
       setTimeout(() => {
         onClose();
       }, 1500);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Xelat stendin neserketî');
+      setError(err instanceof Error ? err.message : t('lpStaking.claimFailed'));
       hapticNotification('error');
     } finally {
       setIsProcessing(false);
@@ -370,13 +372,15 @@ export function LPStakingModal({ isOpen, onClose }: LPStakingModalProps) {
           ) : pools.length === 0 ? (
             <div className="text-center py-12">
               <AlertCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-              <p className="text-muted-foreground">Hêj staking pool tune ne</p>
+              <p className="text-muted-foreground">{t('lpStaking.noPoolsYet')}</p>
             </div>
           ) : (
             <>
               {/* Pool Selector */}
               <div className="mb-4">
-                <label className="text-sm text-muted-foreground mb-2 block">Pool Hilbijêre</label>
+                <label className="text-sm text-muted-foreground mb-2 block">
+                  {t('lpStaking.selectPool')}
+                </label>
                 <div className="grid grid-cols-3 gap-2">
                   {pools.map((pool) => (
                     <button
@@ -403,21 +407,21 @@ export function LPStakingModal({ isOpen, onClose }: LPStakingModalProps) {
                 <div className="bg-secondary/50 rounded-xl p-4 mb-4 border border-border">
                   <div className="grid grid-cols-2 gap-4 text-sm">
                     <div>
-                      <div className="text-muted-foreground">Giştî Staked</div>
+                      <div className="text-muted-foreground">{t('lpStaking.totalStaked')}</div>
                       <div className="font-medium">{formatAmount(currentPool.totalStaked)}</div>
                     </div>
                     <div>
-                      <div className="text-muted-foreground">Te Stake Kiriye</div>
+                      <div className="text-muted-foreground">{t('lpStaking.youStaked')}</div>
                       <div className="font-medium text-green-400">
                         {formatAmount(currentPool.userStaked)}
                       </div>
                     </div>
                     <div>
-                      <div className="text-muted-foreground">LP Bakiye</div>
+                      <div className="text-muted-foreground">{t('lpStaking.lpBalance')}</div>
                       <div className="font-medium">{formatAmount(currentPool.lpBalance)}</div>
                     </div>
                     <div>
-                      <div className="text-muted-foreground">Xelat</div>
+                      <div className="text-muted-foreground">{t('lpStaking.reward')}</div>
                       <div className="font-medium text-yellow-400">
                         {formatAmount(currentPool.pendingRewards)} PEZ
                       </div>
@@ -429,9 +433,9 @@ export function LPStakingModal({ isOpen, onClose }: LPStakingModalProps) {
               {/* Tabs */}
               <div className="flex gap-1 bg-secondary/50 rounded-lg p-1 mb-4">
                 {[
-                  { id: 'stake' as const, label: 'Stake', icon: Lock },
-                  { id: 'unstake' as const, label: 'Unstake', icon: Unlock },
-                  { id: 'rewards' as const, label: 'Xelat', icon: Gift },
+                  { id: 'stake' as const, label: t('lpStaking.stakeTab'), icon: Lock },
+                  { id: 'unstake' as const, label: t('lpStaking.unstakeTab'), icon: Unlock },
+                  { id: 'rewards' as const, label: t('lpStaking.rewardTab'), icon: Gift },
                 ].map(({ id, label, icon: Icon }) => (
                   <button
                     key={id}
@@ -464,7 +468,7 @@ export function LPStakingModal({ isOpen, onClose }: LPStakingModalProps) {
                 <div className="space-y-4">
                   <div>
                     <label className="text-sm text-muted-foreground mb-2 block">
-                      Mîqdar ({currentPool.stakedAsset})
+                      {t('lpStaking.amount', { asset: currentPool.stakedAsset })}
                     </label>
                     <div className="relative">
                       <input
@@ -482,7 +486,7 @@ export function LPStakingModal({ isOpen, onClose }: LPStakingModalProps) {
                       </button>
                     </div>
                     <div className="text-xs text-muted-foreground mt-1">
-                      Bakiye: {formatAmount(currentPool.lpBalance)}
+                      {t('lpStaking.balanceLabel')} {formatAmount(currentPool.lpBalance)}
                     </div>
                   </div>
                   <button
@@ -495,7 +499,7 @@ export function LPStakingModal({ isOpen, onClose }: LPStakingModalProps) {
                     ) : (
                       <Lock className="w-5 h-5" />
                     )}
-                    {isProcessing ? 'Tê stake kirin...' : 'Stake Bike'}
+                    {isProcessing ? t('lpStaking.staking') : t('lpStaking.stakeButton')}
                   </button>
                 </div>
               )}
@@ -505,7 +509,7 @@ export function LPStakingModal({ isOpen, onClose }: LPStakingModalProps) {
                 <div className="space-y-4">
                   <div>
                     <label className="text-sm text-muted-foreground mb-2 block">
-                      Mîqdar ({currentPool.stakedAsset})
+                      {t('lpStaking.amount', { asset: currentPool.stakedAsset })}
                     </label>
                     <div className="relative">
                       <input
@@ -523,7 +527,7 @@ export function LPStakingModal({ isOpen, onClose }: LPStakingModalProps) {
                       </button>
                     </div>
                     <div className="text-xs text-muted-foreground mt-1">
-                      Staked: {formatAmount(currentPool.userStaked)}
+                      {t('lpStaking.stakedLabel')} {formatAmount(currentPool.userStaked)}
                     </div>
                   </div>
                   <button
@@ -536,7 +540,7 @@ export function LPStakingModal({ isOpen, onClose }: LPStakingModalProps) {
                     ) : (
                       <Unlock className="w-5 h-5" />
                     )}
-                    {isProcessing ? 'Tê unstake kirin...' : 'Unstake Bike'}
+                    {isProcessing ? t('lpStaking.unstaking') : t('lpStaking.unstakeButton')}
                   </button>
                 </div>
               )}
@@ -549,7 +553,9 @@ export function LPStakingModal({ isOpen, onClose }: LPStakingModalProps) {
                     <div className="text-2xl font-bold text-yellow-400 mb-1">
                       {formatAmount(currentPool.pendingRewards)} PEZ
                     </div>
-                    <div className="text-sm text-muted-foreground">Xelatên li bendê</div>
+                    <div className="text-sm text-muted-foreground">
+                      {t('lpStaking.pendingRewards')}
+                    </div>
                   </div>
                   <button
                     onClick={handleClaimRewards}
@@ -561,7 +567,7 @@ export function LPStakingModal({ isOpen, onClose }: LPStakingModalProps) {
                     ) : (
                       <Gift className="w-5 h-5" />
                     )}
-                    {isProcessing ? 'Tê stendin...' : 'Xelatan Bistîne'}
+                    {isProcessing ? t('lpStaking.claiming') : t('lpStaking.claimButton')}
                   </button>
                 </div>
               )}

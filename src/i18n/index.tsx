@@ -17,6 +17,39 @@ const translations: Record<LanguageCode, Translations> = {
   ar,
 };
 
+// Module-level language tracking for non-React contexts
+let currentLanguage: LanguageCode = 'krd';
+
+/**
+ * Standalone translate function for non-React files (utils, crypto, error-tracking, etc.)
+ * Language is synced from LanguageProvider automatically.
+ */
+export function translate(key: string, params?: Record<string, string | number>): string {
+  let value = getNestedValue(
+    translations[currentLanguage] as unknown as Record<string, unknown>,
+    key
+  );
+  if (value === undefined && currentLanguage !== DEFAULT_LANG) {
+    value = getNestedValue(translations[DEFAULT_LANG] as unknown as Record<string, unknown>, key);
+  }
+  if (value === undefined) return key;
+
+  if (params) {
+    let result = value;
+    for (const [paramKey, paramValue] of Object.entries(params)) {
+      result = result.replace(`{${paramKey}}`, String(paramValue));
+    }
+    return result;
+  }
+
+  return value;
+}
+
+/** Get current language code (for locale-dependent formatting) */
+export function getCurrentLanguage(): LanguageCode {
+  return currentLanguage;
+}
+
 const VALID_LANGS: LanguageCode[] = ['krd', 'en', 'tr', 'ckb', 'fa', 'ar'];
 const DEFAULT_LANG: LanguageCode = 'krd';
 
@@ -95,6 +128,11 @@ export function LanguageProvider({ children }: LanguageProviderProps) {
   const [lang, setLangState] = useState<LanguageCode>(detectLanguage);
 
   const isRTL = RTL_LANGUAGES.includes(lang);
+
+  // Sync module-level language for standalone translate()
+  useEffect(() => {
+    currentLanguage = lang;
+  }, [lang]);
 
   // Update document direction, lang attribute, and URL when language changes
   useEffect(() => {

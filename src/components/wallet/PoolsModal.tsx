@@ -8,6 +8,7 @@ import { X, Droplets, Plus, Minus, AlertCircle, Check } from 'lucide-react';
 import { useWallet } from '@/contexts/WalletContext';
 import { useTelegram } from '@/hooks/useTelegram';
 import { KurdistanSun } from '@/components/KurdistanSun';
+import { useTranslation } from '@/i18n';
 
 interface PoolsModalProps {
   isOpen: boolean;
@@ -52,6 +53,7 @@ const formatAssetLocation = (id: number) => {
 export function PoolsModal({ isOpen, onClose }: PoolsModalProps) {
   const { assetHubApi, keypair } = useWallet();
   const { hapticImpact, hapticNotification } = useTelegram();
+  const { t } = useTranslation();
 
   const [pools, setPools] = useState<Pool[]>([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -267,7 +269,7 @@ export function PoolsModal({ isOpen, onClose }: PoolsModalProps) {
       } catch (err) {
         console.error('Failed to fetch pools:', err);
         if (!isCancelled) {
-          setError('Bağlantı hatası - tekrar deneyin');
+          setError(t('pools.connectionError'));
         }
       } finally {
         if (!isCancelled) {
@@ -331,7 +333,7 @@ export function PoolsModal({ isOpen, onClose }: PoolsModalProps) {
           ({ status, dispatchError }: { status: any; dispatchError: any }) => {
             if (status.isFinalized) {
               if (dispatchError) {
-                let errorMsg = 'Zêdekirin neserketî';
+                let errorMsg = t('pools.addFailed');
                 if (dispatchError.isModule) {
                   const decoded = assetHubApi.registry.findMetaError(dispatchError.asModule);
                   errorMsg = `${decoded.section}.${decoded.name}: ${decoded.docs.join(' ')}`;
@@ -349,7 +351,12 @@ export function PoolsModal({ isOpen, onClose }: PoolsModalProps) {
       });
 
       setSuccessMessage(
-        `${amount0} ${selectedPool.asset0Symbol} + ${amount1} ${selectedPool.asset1Symbol} hate zêdekirin`
+        t('pools.addedLiquidity', {
+          amount0,
+          token0: selectedPool.asset0Symbol,
+          amount1,
+          token1: selectedPool.asset1Symbol,
+        })
       );
       setSuccess(true);
       hapticNotification('success');
@@ -363,7 +370,7 @@ export function PoolsModal({ isOpen, onClose }: PoolsModalProps) {
       }, 2000);
     } catch (err) {
       console.error('Add liquidity failed:', err);
-      setError(err instanceof Error ? err.message : 'Zêdekirin neserketî');
+      setError(err instanceof Error ? err.message : t('pools.addFailed'));
       hapticNotification('error');
     } finally {
       setIsSubmitting(false);
@@ -376,7 +383,7 @@ export function PoolsModal({ isOpen, onClose }: PoolsModalProps) {
 
     const lpAmount = parseFloat(lpAmountToRemove);
     if (lpAmount <= 0 || lpAmount > (selectedPool.userLpBalance || 0)) {
-      setError('Mîqdara LP ne derbasdar e');
+      setError(t('pools.invalidLpAmount'));
       hapticNotification('error');
       return;
     }
@@ -420,7 +427,7 @@ export function PoolsModal({ isOpen, onClose }: PoolsModalProps) {
           ({ status, dispatchError }: { status: any; dispatchError: any }) => {
             if (status.isFinalized) {
               if (dispatchError) {
-                let errorMsg = 'Derxistin neserketî';
+                let errorMsg = t('pools.removeFailed');
                 if (dispatchError.isModule) {
                   const decoded = assetHubApi.registry.findMetaError(dispatchError.asModule);
                   errorMsg = `${decoded.section}.${decoded.name}: ${decoded.docs.join(' ')}`;
@@ -437,7 +444,7 @@ export function PoolsModal({ isOpen, onClose }: PoolsModalProps) {
         ).catch(reject);
       });
 
-      setSuccessMessage(`${lpAmountToRemove} LP token hate vegerandin`);
+      setSuccessMessage(t('pools.removedLiquidity', { amount: lpAmountToRemove }));
       setSuccess(true);
       hapticNotification('success');
 
@@ -449,7 +456,7 @@ export function PoolsModal({ isOpen, onClose }: PoolsModalProps) {
       }, 2000);
     } catch (err) {
       console.error('Remove liquidity failed:', err);
-      setError(err instanceof Error ? err.message : 'Derxistin neserketî');
+      setError(err instanceof Error ? err.message : t('pools.removeFailed'));
       hapticNotification('error');
     } finally {
       setIsSubmitting(false);
@@ -466,7 +473,7 @@ export function PoolsModal({ isOpen, onClose }: PoolsModalProps) {
           <div className="w-16 h-16 mx-auto bg-green-500/20 rounded-full flex items-center justify-center">
             <Check className="w-8 h-8 text-green-500" />
           </div>
-          <h2 className="text-xl font-semibold">Serketî!</h2>
+          <h2 className="text-xl font-semibold">{t('pools.success')}</h2>
           <p className="text-muted-foreground">{successMessage}</p>
         </div>
       </div>
@@ -489,9 +496,9 @@ export function PoolsModal({ isOpen, onClose }: PoolsModalProps) {
               }}
               className="text-muted-foreground"
             >
-              ← Paş
+              {t('pools.back')}
             </button>
-            <h2 className="text-lg font-semibold">Liquidity Zêde Bike</h2>
+            <h2 className="text-lg font-semibold">{t('pools.addLiquidity')}</h2>
             <div className="w-10" />
           </div>
 
@@ -515,7 +522,7 @@ export function PoolsModal({ isOpen, onClose }: PoolsModalProps) {
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">{selectedPool.asset0Symbol} Mîqdar</span>
                 <span className="text-muted-foreground">
-                  Bakiye: {balances[selectedPool.asset0Symbol]}
+                  {t('swap.balanceLabel')} {balances[selectedPool.asset0Symbol]}
                 </span>
               </div>
               <div className="flex gap-2">
@@ -543,10 +550,10 @@ export function PoolsModal({ isOpen, onClose }: PoolsModalProps) {
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground">
-                  {selectedPool.asset1Symbol} Mîqdar (otomatîk)
+                  {t('pools.amountAuto', { token: selectedPool.asset1Symbol })}
                 </span>
                 <span className="text-muted-foreground">
-                  Bakiye: {balances[selectedPool.asset1Symbol]}
+                  {t('swap.balanceLabel')} {balances[selectedPool.asset1Symbol]}
                 </span>
               </div>
               <input
@@ -570,7 +577,7 @@ export function PoolsModal({ isOpen, onClose }: PoolsModalProps) {
             {isSubmitting ? (
               <div className="flex flex-col items-center justify-center py-4 space-y-3">
                 <KurdistanSun size={80} />
-                <p className="text-sm text-muted-foreground animate-pulse">Tê zêdekirin...</p>
+                <p className="text-sm text-muted-foreground animate-pulse">{t('pools.adding')}</p>
               </div>
             ) : (
               <button
@@ -579,7 +586,7 @@ export function PoolsModal({ isOpen, onClose }: PoolsModalProps) {
                 className="w-full py-4 bg-gradient-to-r from-green-600 to-blue-600 text-white font-semibold rounded-xl disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 <Droplets className="w-5 h-5" />
-                Liquidity Zêde Bike
+                {t('pools.addLiquidity')}
               </button>
             )}
           </div>
@@ -603,9 +610,9 @@ export function PoolsModal({ isOpen, onClose }: PoolsModalProps) {
               }}
               className="text-muted-foreground"
             >
-              ← Paş
+              {t('pools.back')}
             </button>
-            <h2 className="text-lg font-semibold">Liquidity Derxe</h2>
+            <h2 className="text-lg font-semibold">{t('pools.removeLiquidity')}</h2>
             <div className="w-10" />
           </div>
 
@@ -617,7 +624,7 @@ export function PoolsModal({ isOpen, onClose }: PoolsModalProps) {
               </span>
             </div>
             <p className="text-center text-sm text-muted-foreground mt-1">
-              LP Bakiye: {selectedPool.userLpBalance?.toFixed(4) || '0'} LP
+              {t('pools.lpBalance')} {selectedPool.userLpBalance?.toFixed(4) || '0'} LP
             </p>
           </div>
 
@@ -626,7 +633,7 @@ export function PoolsModal({ isOpen, onClose }: PoolsModalProps) {
             {/* LP Amount */}
             <div className="space-y-2">
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">LP Token Mîqdar</span>
+                <span className="text-muted-foreground">{t('pools.lpTokenAmount')}</span>
                 <span className="text-muted-foreground">
                   Max: {selectedPool.userLpBalance?.toFixed(4) || '0'}
                 </span>
@@ -651,7 +658,7 @@ export function PoolsModal({ isOpen, onClose }: PoolsModalProps) {
             {/* Estimated Returns */}
             {lpAmountToRemove && parseFloat(lpAmountToRemove) > 0 && (
               <div className="bg-muted/50 rounded-xl p-3 space-y-2 text-sm">
-                <p className="text-muted-foreground">Texmînî vegerandin:</p>
+                <p className="text-muted-foreground">{t('pools.estimatedReturn')}</p>
                 <div className="flex justify-between">
                   <span>{selectedPool.asset0Symbol}</span>
                   <span className="font-mono">
@@ -691,7 +698,7 @@ export function PoolsModal({ isOpen, onClose }: PoolsModalProps) {
             {isSubmitting ? (
               <div className="flex flex-col items-center justify-center py-4 space-y-3">
                 <KurdistanSun size={80} />
-                <p className="text-sm text-muted-foreground animate-pulse">Tê derxistin...</p>
+                <p className="text-sm text-muted-foreground animate-pulse">{t('pools.removing')}</p>
               </div>
             ) : (
               <button
@@ -700,7 +707,7 @@ export function PoolsModal({ isOpen, onClose }: PoolsModalProps) {
                 className="w-full py-4 bg-gradient-to-r from-red-600 to-orange-600 text-white font-semibold rounded-xl disabled:opacity-50 flex items-center justify-center gap-2"
               >
                 <Minus className="w-5 h-5" />
-                Liquidity Derxe
+                {t('pools.removeLiquidity')}
               </button>
             )}
           </div>
@@ -715,7 +722,7 @@ export function PoolsModal({ isOpen, onClose }: PoolsModalProps) {
       <div className="w-full max-w-md bg-card rounded-2xl shadow-xl border border-border overflow-hidden max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
-          <h2 className="text-lg font-semibold">Liquidity Pools</h2>
+          <h2 className="text-lg font-semibold">{t('pools.title')}</h2>
           <button onClick={onClose} className="p-2 rounded-full hover:bg-muted">
             <X className="w-5 h-5 text-muted-foreground" />
           </button>
@@ -726,12 +733,12 @@ export function PoolsModal({ isOpen, onClose }: PoolsModalProps) {
           {isLoading ? (
             <div className="flex flex-col items-center justify-center py-8">
               <KurdistanSun size={80} />
-              <p className="text-muted-foreground mt-3 animate-pulse">Tê barkirin...</p>
+              <p className="text-muted-foreground mt-3 animate-pulse">{t('pools.loadingPools')}</p>
             </div>
           ) : pools.length === 0 ? (
             <div className="text-center py-8">
               <Droplets className="w-12 h-12 mx-auto text-muted-foreground mb-2" />
-              <p className="text-muted-foreground">Pool tune</p>
+              <p className="text-muted-foreground">{t('pools.noPools')}</p>
             </div>
           ) : (
             pools.map((pool) => (
@@ -760,13 +767,17 @@ export function PoolsModal({ isOpen, onClose }: PoolsModalProps) {
                 {/* Pool Stats */}
                 <div className="grid grid-cols-2 gap-2 text-sm mb-3">
                   <div>
-                    <span className="text-muted-foreground">Rezerv {pool.asset0Symbol}</span>
+                    <span className="text-muted-foreground">
+                      {t('pools.reserve')} {pool.asset0Symbol}
+                    </span>
                     <p className="font-mono">
                       {pool.reserve0.toLocaleString('en-US', { maximumFractionDigits: 0 })}
                     </p>
                   </div>
                   <div>
-                    <span className="text-muted-foreground">Rezerv {pool.asset1Symbol}</span>
+                    <span className="text-muted-foreground">
+                      {t('pools.reserve')} {pool.asset1Symbol}
+                    </span>
                     <p className="font-mono">
                       {pool.reserve1.toLocaleString('en-US', { maximumFractionDigits: 0 })}
                     </p>
@@ -777,7 +788,7 @@ export function PoolsModal({ isOpen, onClose }: PoolsModalProps) {
                 {pool.userLpBalance && pool.userLpBalance > 0 && (
                   <div className="bg-green-500/10 border border-green-500/30 rounded-lg p-2 mb-3 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-green-400">Pozîsyona Te</span>
+                      <span className="text-green-400">{t('pools.yourPosition')}</span>
                       <span className="text-green-400 font-mono">
                         {pool.userShare?.toFixed(2)}%
                       </span>
@@ -799,7 +810,7 @@ export function PoolsModal({ isOpen, onClose }: PoolsModalProps) {
                     className="flex-1 py-2 bg-gradient-to-r from-green-600/20 to-blue-600/20 border border-green-500/30 text-green-400 font-medium rounded-lg flex items-center justify-center gap-1 text-sm"
                   >
                     <Plus className="w-4 h-4" />
-                    Zêde Bike
+                    {t('pools.addButton')}
                   </button>
                   {pool.userLpBalance && pool.userLpBalance > 0 && (
                     <button
@@ -811,7 +822,7 @@ export function PoolsModal({ isOpen, onClose }: PoolsModalProps) {
                       className="flex-1 py-2 bg-gradient-to-r from-red-600/20 to-orange-600/20 border border-red-500/30 text-red-400 font-medium rounded-lg flex items-center justify-center gap-1 text-sm"
                     >
                       <Minus className="w-4 h-4" />
-                      Derxe
+                      {t('pools.removeButton')}
                     </button>
                   )}
                 </div>

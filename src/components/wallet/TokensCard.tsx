@@ -23,6 +23,7 @@ import {
 } from 'lucide-react';
 import { useWallet } from '@/contexts/WalletContext';
 import { useTelegram } from '@/hooks/useTelegram';
+import { useTranslation } from '@/i18n';
 import {
   subscribeToConnection,
   getLastError,
@@ -189,6 +190,7 @@ interface Props {
 export function TokensCard({ onSendToken }: Props) {
   const { address, balance: hezBalance } = useWallet();
   const { hapticImpact } = useTelegram();
+  const { t } = useTranslation();
   const [rpcConnected, setRpcConnected] = useState(false);
   const [endpointName, setEndpointName] = useState<string | null>(null);
 
@@ -615,7 +617,7 @@ export function TokensCard({ onSendToken }: Props) {
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Token bigere..."
+                placeholder={t('tokens.searchPlaceholder')}
                 className="w-full pl-9 pr-4 py-2 bg-background rounded-lg text-sm"
               />
             </div>
@@ -629,7 +631,7 @@ export function TokensCard({ onSendToken }: Props) {
                 className="w-full py-2 border border-dashed border-border rounded-lg text-sm text-muted-foreground hover:text-white hover:border-cyan-500/50 flex items-center justify-center gap-2"
               >
                 <Plus className="w-4 h-4" />
-                Token Zêde Bike
+                {t('tokens.addToken')}
               </button>
             )}
 
@@ -639,7 +641,7 @@ export function TokensCard({ onSendToken }: Props) {
                   type="number"
                   value={newAssetId}
                   onChange={(e) => setNewAssetId(e.target.value)}
-                  placeholder="Asset ID binivîse (mînak: 3)"
+                  placeholder={t('tokens.assetIdPlaceholder')}
                   className="w-full px-3 py-2 bg-muted rounded-lg text-sm"
                   min="0"
                 />
@@ -648,14 +650,14 @@ export function TokensCard({ onSendToken }: Props) {
                     onClick={() => setShowAddToken(false)}
                     className="flex-1 py-2 bg-muted rounded-lg text-sm"
                   >
-                    Betal
+                    {t('tokens.cancel')}
                   </button>
                   <button
                     onClick={handleAddToken}
                     disabled={!newAssetId}
                     className="flex-1 py-2 bg-cyan-600 rounded-lg text-sm disabled:opacity-50"
                   >
-                    Zêde Bike
+                    {t('tokens.add')}
                   </button>
                 </div>
               </div>
@@ -667,7 +669,9 @@ export function TokensCard({ onSendToken }: Props) {
             <div className="mx-4 mb-2 px-3 py-2 bg-green-500/10 border border-green-500/30 rounded-lg flex items-center gap-2">
               <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
               <div>
-                <p className="text-xs text-green-400 font-medium">Pezkuwichain Girêdayî</p>
+                <p className="text-xs text-green-400 font-medium">
+                  {t('tokens.blockchainConnected')}
+                </p>
                 {endpointName && <p className="text-[10px] text-green-400/70">{endpointName}</p>}
               </div>
             </div>
@@ -675,9 +679,11 @@ export function TokensCard({ onSendToken }: Props) {
             <div className="mx-4 mb-2 px-3 py-2 bg-yellow-500/10 border border-yellow-500/30 rounded-lg flex items-center gap-2">
               <RefreshCw className="w-4 h-4 text-yellow-400 animate-spin flex-shrink-0" />
               <div>
-                <p className="text-xs text-yellow-400 font-medium">Girêdana Blockchain...</p>
+                <p className="text-xs text-yellow-400 font-medium">
+                  {t('tokens.connectingBlockchain')}
+                </p>
                 <p className="text-[10px] text-yellow-400/70">
-                  {getLastError() || 'RPC serverê tê girêdan...'}
+                  {getLastError() || t('tokens.connectingRpc')}
                 </p>
               </div>
             </div>
@@ -688,7 +694,7 @@ export function TokensCard({ onSendToken }: Props) {
             {filteredTokens.length === 0 ? (
               <div className="text-center py-8">
                 <Coins className="w-6 h-6 text-muted-foreground mx-auto mb-2" />
-                <p className="text-sm text-muted-foreground">Token nehat dîtin</p>
+                <p className="text-sm text-muted-foreground">{t('tokens.tokenNotFound')}</p>
               </div>
             ) : (
               filteredTokens.map((token) =>
@@ -793,7 +799,7 @@ export function TokensCard({ onSendToken }: Props) {
                     {/* Total Value */}
                     {token.valueUsd !== undefined && token.balance !== '--' && (
                       <div className="mt-2 pt-2 border-t border-white/10 flex justify-between items-center">
-                        <span className="text-xs text-muted-foreground">Toplam</span>
+                        <span className="text-xs text-muted-foreground">{t('tokens.total')}</span>
                         <span className="text-sm font-semibold">
                           ≈ $
                           {(
@@ -879,7 +885,9 @@ export function TokensCard({ onSendToken }: Props) {
                             {token.balance}
                           </p>
                           {token.balance === '--' ? (
-                            <p className="text-xs text-muted-foreground">Tê barkirin...</p>
+                            <p className="text-xs text-muted-foreground">
+                              {t('tokens.loadingBalance')}
+                            </p>
                           ) : token.valueUsd !== undefined ? (
                             <p className="text-xs text-muted-foreground">
                               ≈ ${token.valueUsd.toFixed(2)}

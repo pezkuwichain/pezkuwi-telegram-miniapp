@@ -5,6 +5,7 @@
  */
 
 import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { translate } from '@/i18n';
 import { useWallet } from '@/contexts/WalletContext';
 import { useTelegram } from '@/hooks/useTelegram';
 import {
@@ -53,7 +54,7 @@ export function ReferralProvider({ children }: { children: ReactNode }) {
       setMyReferrals(fetchedReferrals);
     } catch (error) {
       console.error('Error fetching referral stats:', error);
-      showAlert('Referral stats bar nekirin');
+      showAlert(translate('context.referralStatsError'));
     } finally {
       setLoading(false);
     }
@@ -75,7 +76,7 @@ export function ReferralProvider({ children }: { children: ReactNode }) {
       if (event.referrer === address || event.referred === address) {
         if (event.type === 'confirmed') {
           hapticNotification('success');
-          showAlert(`Referral hat pejirandin! Hejmara te: ${event.count}`);
+          showAlert(translate('context.referralApproved', { count: event.count ?? 0 }));
         }
         fetchStats();
       }

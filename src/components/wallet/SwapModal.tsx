@@ -8,6 +8,7 @@ import { X, ArrowDownUp, RefreshCw, AlertCircle, Check } from 'lucide-react';
 import { useWallet } from '@/contexts/WalletContext';
 import { useTelegram } from '@/hooks/useTelegram';
 import { KurdistanSun } from '@/components/KurdistanSun';
+import { useTranslation } from '@/i18n';
 
 interface SwapModalProps {
   isOpen: boolean;
@@ -36,6 +37,7 @@ const formatAssetLocation = (id: number) => {
 export function SwapModal({ isOpen, onClose }: SwapModalProps) {
   const { assetHubApi, keypair } = useWallet();
   const { hapticImpact, hapticNotification } = useTelegram();
+  const { t } = useTranslation();
 
   const [fromToken, setFromToken] = useState(TOKENS[0]); // HEZ
   const [toToken, setToToken] = useState(TOKENS[1]); // PEZ
@@ -218,7 +220,7 @@ export function SwapModal({ isOpen, onClose }: SwapModalProps) {
     const swapAmount = parseFloat(fromAmount);
 
     if (swapAmount > fromBalance) {
-      setError('Bakiye têrê nake');
+      setError(t('swap.insufficientBalance'));
       hapticNotification('error');
       return;
     }
@@ -262,7 +264,7 @@ export function SwapModal({ isOpen, onClose }: SwapModalProps) {
           ({ status, dispatchError }: { status: any; dispatchError: any }) => {
             if (status.isFinalized) {
               if (dispatchError) {
-                let errorMsg = 'Swap neserketî';
+                let errorMsg = t('swap.swapFailed');
                 if (dispatchError.isModule) {
                   const decoded = assetHubApi.registry.findMetaError(dispatchError.asModule);
                   errorMsg = `${decoded.section}.${decoded.name}: ${decoded.docs.join(' ')}`;
@@ -291,7 +293,7 @@ export function SwapModal({ isOpen, onClose }: SwapModalProps) {
       }, 2000);
     } catch (err) {
       console.error('Swap failed:', err);
-      setError(err instanceof Error ? err.message : 'Swap neserketî');
+      setError(err instanceof Error ? err.message : t('swap.swapFailed'));
       hapticNotification('error');
     } finally {
       setIsSwapping(false);
@@ -307,7 +309,7 @@ export function SwapModal({ isOpen, onClose }: SwapModalProps) {
           <div className="w-16 h-16 mx-auto bg-green-500/20 rounded-full flex items-center justify-center">
             <Check className="w-8 h-8 text-green-500" />
           </div>
-          <h2 className="text-xl font-semibold">Swap Serketî!</h2>
+          <h2 className="text-xl font-semibold">{t('swap.swapSuccess')}</h2>
           <p className="text-muted-foreground">
             {fromAmount} {fromToken.symbol} → {toAmount} {toToken.symbol}
           </p>
@@ -321,7 +323,7 @@ export function SwapModal({ isOpen, onClose }: SwapModalProps) {
       <div className="w-full max-w-md bg-card rounded-2xl shadow-xl border border-border overflow-hidden max-h-[90vh] overflow-y-auto">
         {/* Header */}
         <div className="flex items-center justify-between p-4 border-b border-border">
-          <h2 className="text-lg font-semibold">Token Swap</h2>
+          <h2 className="text-lg font-semibold">{t('swap.title')}</h2>
           <button onClick={onClose} className="p-2 rounded-full hover:bg-muted">
             <X className="w-5 h-5 text-muted-foreground" />
           </button>
@@ -332,7 +334,7 @@ export function SwapModal({ isOpen, onClose }: SwapModalProps) {
           {/* From Token */}
           <div className="bg-muted/50 rounded-xl p-4 space-y-3">
             <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">Ji (From)</span>
+              <span className="text-sm text-muted-foreground">{t('swap.fromLabel')}</span>
               <select
                 value={fromToken.symbol}
                 onChange={(e) => {
@@ -368,7 +370,7 @@ export function SwapModal({ isOpen, onClose }: SwapModalProps) {
                 Max
               </button>
               <span className="text-muted-foreground">
-                Bakiye: {balances[fromToken.symbol]} {fromToken.symbol}
+                {t('swap.balanceLabel')} {balances[fromToken.symbol]} {fromToken.symbol}
               </span>
             </div>
           </div>
@@ -386,7 +388,7 @@ export function SwapModal({ isOpen, onClose }: SwapModalProps) {
           {/* To Token */}
           <div className="bg-muted/50 rounded-xl p-4 space-y-3">
             <div className="flex justify-between items-center">
-              <span className="text-sm text-muted-foreground">Bo (To)</span>
+              <span className="text-sm text-muted-foreground">{t('swap.toLabel')}</span>
               <select
                 value={toToken.symbol}
                 onChange={(e) => {
@@ -416,7 +418,7 @@ export function SwapModal({ isOpen, onClose }: SwapModalProps) {
             />
             <div className="flex justify-end text-sm">
               <span className="text-muted-foreground">
-                Bakiye: {balances[toToken.symbol]} {toToken.symbol}
+                {t('swap.balanceLabel')} {balances[toToken.symbol]} {toToken.symbol}
               </span>
             </div>
           </div>
@@ -424,14 +426,14 @@ export function SwapModal({ isOpen, onClose }: SwapModalProps) {
           {/* Exchange Rate */}
           <div className="bg-muted/30 rounded-xl p-3 space-y-2 text-sm">
             <div className="flex justify-between">
-              <span className="text-muted-foreground">Rêjeya Guherandinê</span>
+              <span className="text-muted-foreground">{t('swap.exchangeRate')}</span>
               <span className="flex items-center gap-2">
                 {isLoadingRate ? (
                   <RefreshCw className="w-4 h-4 animate-spin" />
                 ) : exchangeRate ? (
                   `1 ${fromToken.symbol} = ${exchangeRate.toFixed(4)} ${toToken.symbol}`
                 ) : (
-                  <span className="text-yellow-500">Pool tune</span>
+                  <span className="text-yellow-500">{t('swap.noPool')}</span>
                 )}
                 <button onClick={fetchExchangeRate} className="p-1 hover:bg-muted rounded">
                   <RefreshCw className="w-3 h-3" />
@@ -457,7 +459,7 @@ export function SwapModal({ isOpen, onClose }: SwapModalProps) {
           {isSwapping ? (
             <div className="flex flex-col items-center justify-center py-4 space-y-3">
               <KurdistanSun size={80} />
-              <p className="text-sm text-muted-foreground animate-pulse">Tê guhertin...</p>
+              <p className="text-sm text-muted-foreground animate-pulse">{t('swap.swapping')}</p>
             </div>
           ) : (
             <button
@@ -465,7 +467,7 @@ export function SwapModal({ isOpen, onClose }: SwapModalProps) {
               disabled={!fromAmount || !exchangeRate || parseFloat(fromAmount) <= 0}
               className="w-full py-4 bg-gradient-to-r from-blue-600 to-purple-600 text-white font-semibold rounded-xl disabled:opacity-50 flex items-center justify-center gap-2"
             >
-              {!exchangeRate ? 'Pool Tune' : 'Swap Bike'}
+              {!exchangeRate ? t('swap.noPoolButton') : t('swap.swapButton')}
             </button>
           )}
         </div>

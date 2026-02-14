@@ -29,6 +29,7 @@ import { HEZStakingModal } from './HEZStakingModal';
 import { DepositUSDTModal } from './DepositUSDTModal';
 import { useWallet } from '@/contexts/WalletContext';
 import { useTelegram } from '@/hooks/useTelegram';
+import { useTranslation } from '@/i18n';
 import { formatAddress } from '@/lib/wallet-service';
 
 interface Props {
@@ -51,6 +52,7 @@ interface Transaction {
 export function WalletDashboard({ onDisconnect }: Props) {
   const { address, balance, api, assetHubApi, disconnect, isLoading } = useWallet();
   const { hapticImpact, hapticNotification, showAlert } = useTelegram();
+  const { t } = useTranslation();
 
   const [copied, setCopied] = useState(false);
   const [activeTab, setActiveTab] = useState<'main' | 'send' | 'receive' | 'history'>('main');
@@ -583,7 +585,7 @@ export function WalletDashboard({ onDisconnect }: Props) {
                   )}
                 </button>
               </div>
-              <p className="text-xs text-green-400">Girêdayî</p>
+              <p className="text-xs text-green-400">{t('dashboard.connected')}</p>
             </div>
           </div>
           <button
@@ -644,7 +646,7 @@ export function WalletDashboard({ onDisconnect }: Props) {
           <div className="w-8 h-8 bg-green-500/20 rounded-full flex items-center justify-center">
             <Send className="w-4 h-4 text-green-400" />
           </div>
-          <span className="text-xs font-medium">Bişîne</span>
+          <span className="text-xs font-medium">{t('dashboard.send')}</span>
         </button>
 
         <button
@@ -657,7 +659,7 @@ export function WalletDashboard({ onDisconnect }: Props) {
           <div className="w-8 h-8 bg-cyan-500/20 rounded-full flex items-center justify-center">
             <QrCode className="w-4 h-4 text-cyan-400" />
           </div>
-          <span className="text-xs font-medium">Werbigire</span>
+          <span className="text-xs font-medium">{t('dashboard.receive')}</span>
         </button>
 
         <button
@@ -702,7 +704,7 @@ export function WalletDashboard({ onDisconnect }: Props) {
         <button
           onClick={() => {
             hapticImpact('light');
-            showAlert('Presale tê de ye! Zûtirîn demekê de dê bête vekirin.');
+            showAlert(t('dashboard.presaleMessage'));
           }}
           className="flex flex-col items-center gap-1 p-3 bg-gradient-to-r from-pink-600/20 to-red-500/20 border border-pink-500/30 rounded-xl"
         >
@@ -726,10 +728,8 @@ export function WalletDashboard({ onDisconnect }: Props) {
             <img src="/tokens/USDT.png" alt="USDT" className="w-8 h-8 rounded-full" />
           </div>
           <div className="flex-1 text-left">
-            <div className="font-semibold text-emerald-400">USDT Zêde Bike</div>
-            <div className="text-xs text-muted-foreground">
-              TON, Polkadot an TRC20 ji zincîrên din
-            </div>
+            <div className="font-semibold text-emerald-400">{t('dashboard.depositUsdt')}</div>
+            <div className="text-xs text-muted-foreground">{t('dashboard.depositUsdtDesc')}</div>
           </div>
           <ArrowDownLeft className="w-5 h-5 text-emerald-400" />
         </button>
@@ -739,7 +739,7 @@ export function WalletDashboard({ onDisconnect }: Props) {
       <div className="px-4 pb-4">
         <div className="bg-muted/50 border border-border rounded-xl p-4">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-semibold">Çalakiya Dawî</h3>
+            <h3 className="font-semibold">{t('dashboard.recentActivity')}</h3>
             <div className="flex items-center gap-2">
               <button
                 onClick={() => {
@@ -747,7 +747,7 @@ export function WalletDashboard({ onDisconnect }: Props) {
                   setActiveTab('history');
                 }}
                 className="text-gray-400 hover:text-white p-1"
-                title="Dîrok"
+                title={t('dashboard.history')}
               >
                 <History className="w-4 h-4" />
               </button>
@@ -755,7 +755,7 @@ export function WalletDashboard({ onDisconnect }: Props) {
                 onClick={handleRefresh}
                 disabled={isLoadingTxs}
                 className="text-gray-400 hover:text-white p-1"
-                title="Nûkirin"
+                title={t('dashboard.refreshTx')}
               >
                 <RefreshCw className={`w-4 h-4 ${isLoadingTxs ? 'animate-spin' : ''}`} />
               </button>
@@ -765,13 +765,13 @@ export function WalletDashboard({ onDisconnect }: Props) {
           {isLoadingTxs ? (
             <div className="text-center py-8">
               <RefreshCw className="w-8 h-8 text-gray-600 mx-auto mb-2 animate-spin" />
-              <p className="text-gray-400 text-sm">Tê barkirin...</p>
+              <p className="text-gray-400 text-sm">{t('dashboard.loadingTx')}</p>
             </div>
           ) : recentTxs.length === 0 ? (
             <div className="text-center py-8">
               <History className="w-8 h-8 text-gray-600 mx-auto mb-2" />
-              <p className="text-gray-500 text-sm">Transaksiyona dawî tune</p>
-              <p className="text-gray-600 text-xs mt-1">Dîroka te dê li vir xuya bibe</p>
+              <p className="text-gray-500 text-sm">{t('dashboard.noRecentTx')}</p>
+              <p className="text-gray-600 text-xs mt-1">{t('dashboard.historyAppears')}</p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -792,7 +792,7 @@ export function WalletDashboard({ onDisconnect }: Props) {
                     </div>
                     <div>
                       <div className="text-sm font-medium">
-                        {tx.direction === 'sent' ? 'Şandin' : 'Wergirtin'}
+                        {tx.direction === 'sent' ? t('dashboard.sent') : t('dashboard.received')}
                       </div>
                       <div className="text-xs text-gray-400">Block #{tx.blockNumber}</div>
                     </div>
@@ -852,7 +852,9 @@ export function WalletDashboard({ onDisconnect }: Props) {
       {isStakingSelectorOpen && (
         <div className="fixed inset-0 z-50 bg-black/80 flex items-end justify-center">
           <div className="bg-background w-full max-w-lg rounded-t-3xl p-6 animate-in slide-in-from-bottom duration-300">
-            <h2 className="text-lg font-semibold mb-4 text-center">Staking Hilbijêre</h2>
+            <h2 className="text-lg font-semibold mb-4 text-center">
+              {t('dashboard.selectStaking')}
+            </h2>
             <div className="grid grid-cols-2 gap-4">
               <button
                 onClick={() => {
@@ -865,8 +867,10 @@ export function WalletDashboard({ onDisconnect }: Props) {
                   <Coins className="w-6 h-6 text-green-400" />
                 </div>
                 <div className="font-medium">HEZ Staking</div>
-                <div className="text-xs text-muted-foreground mt-1">Validator nominate bike</div>
-                <div className="text-xs text-green-400 mt-2">Trust Score +</div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  {t('dashboard.validatorNominate')}
+                </div>
+                <div className="text-xs text-green-400 mt-2">{t('dashboard.trustScorePlus')}</div>
               </button>
 
               <button
@@ -880,8 +884,10 @@ export function WalletDashboard({ onDisconnect }: Props) {
                   <Droplets className="w-6 h-6 text-purple-400" />
                 </div>
                 <div className="font-medium">LP Staking</div>
-                <div className="text-xs text-muted-foreground mt-1">LP token stake bike</div>
-                <div className="text-xs text-purple-400 mt-2">PEZ Xelat +</div>
+                <div className="text-xs text-muted-foreground mt-1">
+                  {t('dashboard.lpStakeDesc')}
+                </div>
+                <div className="text-xs text-purple-400 mt-2">{t('dashboard.pezRewardPlus')}</div>
               </button>
             </div>
 
@@ -889,7 +895,7 @@ export function WalletDashboard({ onDisconnect }: Props) {
               onClick={() => setIsStakingSelectorOpen(false)}
               className="w-full mt-4 py-3 bg-secondary text-muted-foreground rounded-xl"
             >
-              Paşve
+              {t('dashboard.goBack')}
             </button>
           </div>
         </div>
@@ -948,6 +954,7 @@ const SEND_TOKENS: TokenOption[] = [
 function SendTab({ onBack }: { onBack: () => void }) {
   const { balance, api, assetHubApi, keypair } = useWallet();
   const { hapticNotification, hapticImpact } = useTelegram();
+  const { t } = useTranslation();
 
   const [selectedToken, setSelectedToken] = useState<SendToken | null>(null);
   const [toAddress, setToAddress] = useState('');
@@ -1013,11 +1020,11 @@ function SendTab({ onBack }: { onBack: () => void }) {
     const tg = window.Telegram?.WebApp;
 
     if (!tg?.showScanQrPopup) {
-      setError('QR okuyucu vê platformê de amade nîne');
+      setError(t('send.qrNotAvailable'));
       return;
     }
 
-    tg.showScanQrPopup({ text: 'Navnîşana cîzdanê bişoxîne' }, (scannedText: string) => {
+    tg.showScanQrPopup({ text: t('send.scanQrText') }, (scannedText: string) => {
       if (scannedText) {
         // Extract address - might be raw address or URI format
         let address = scannedText;
@@ -1035,7 +1042,7 @@ function SendTab({ onBack }: { onBack: () => void }) {
           tg.closeScanQrPopup?.();
           return true; // Close popup
         } else {
-          setError('Navnîşana derbasdar nîne');
+          setError(t('send.invalidAddress'));
           hapticNotification('error');
         }
       }
@@ -1045,17 +1052,17 @@ function SendTab({ onBack }: { onBack: () => void }) {
 
   const handleSend = async () => {
     if (!keypair) {
-      setError('Cîzdan amade nîne');
+      setError(t('send.walletNotReady'));
       return;
     }
 
     if (!selectedToken) {
-      setError('Token hilbijêre');
+      setError(t('send.selectTokenFirst'));
       return;
     }
 
     if (!toAddress || !amount) {
-      setError('Navnîşan û mîqdar binivîse');
+      setError(t('send.fillAddressAndAmount'));
       return;
     }
 
@@ -1063,20 +1070,20 @@ function SendTab({ onBack }: { onBack: () => void }) {
     const sendAmount = parseFloat(amount);
 
     if (sendAmount > currentBalance) {
-      setError('Bakiye têrê nake');
+      setError(t('send.insufficientBalance'));
       return;
     }
 
     // Check if appropriate API is available
     if (selectedToken === 'HEZ' && !api) {
-      setError('Mainnet API amade nîne');
+      setError(t('send.mainnetApiNotReady'));
       return;
     }
     if (
       (selectedToken === 'PEZ' || selectedToken === 'USDT' || selectedToken === 'DOT') &&
       !assetHubApi
     ) {
-      setError('Asset Hub API amade nîne');
+      setError(t('send.assetHubApiNotReady'));
       return;
     }
 
@@ -1106,7 +1113,7 @@ function SendTab({ onBack }: { onBack: () => void }) {
       setSuccess(true);
       hapticNotification('success');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Transfer neserketî');
+      setError(err instanceof Error ? err.message : t('send.transferFailed'));
       hapticNotification('error');
     } finally {
       setIsLoading(false);
@@ -1119,13 +1126,13 @@ function SendTab({ onBack }: { onBack: () => void }) {
       <div className="p-4 space-y-6">
         <div className="flex items-center justify-between">
           <button onClick={onBack} className="text-muted-foreground">
-            ← Paş
+            {t('send.back')}
           </button>
-          <h2 className="text-lg font-semibold">Token Hilbijêre</h2>
+          <h2 className="text-lg font-semibold">{t('send.selectToken')}</h2>
           <div className="w-10" />
         </div>
 
-        <p className="text-sm text-muted-foreground text-center">Kîjan token bişîne?</p>
+        <p className="text-sm text-muted-foreground text-center">{t('send.whichToken')}</p>
 
         <div className="space-y-3">
           {SEND_TOKENS.map((token) => {
@@ -1170,7 +1177,7 @@ function SendTab({ onBack }: { onBack: () => void }) {
         </div>
 
         {(!api || !assetHubApi) && (
-          <p className="text-xs text-yellow-500 text-center">⚠️ Hinek chain girêdayî nîne</p>
+          <p className="text-xs text-yellow-500 text-center">{t('send.someChainNotConnected')}</p>
         )}
       </div>
     );
@@ -1183,9 +1190,9 @@ function SendTab({ onBack }: { onBack: () => void }) {
           <Check className="w-10 h-10 text-green-500" />
         </div>
         <div>
-          <h2 className="text-xl font-semibold mb-2">Transfer Serketî!</h2>
+          <h2 className="text-xl font-semibold mb-2">{t('send.transferSuccess')}</h2>
           <p className="text-muted-foreground text-sm">
-            {amount} {selectedToken} hat şandin
+            {t('send.wasSent', { amount, token: selectedToken || '' })}
           </p>
         </div>
         {txHash && (
@@ -1198,7 +1205,7 @@ function SendTab({ onBack }: { onBack: () => void }) {
           onClick={onBack}
           className="w-full py-3 bg-primary text-primary-foreground rounded-xl font-semibold"
         >
-          Temam
+          {t('send.done')}
         </button>
       </div>
     );
@@ -1210,9 +1217,11 @@ function SendTab({ onBack }: { onBack: () => void }) {
     <div className="p-4 space-y-6">
       <div className="flex items-center justify-between">
         <button onClick={() => setSelectedToken(null)} className="text-muted-foreground">
-          ← Paş
+          {t('send.back')}
         </button>
-        <h2 className="text-lg font-semibold">Bişîne {selectedToken}</h2>
+        <h2 className="text-lg font-semibold">
+          {t('send.sendToken', { token: selectedToken || '' })}
+        </h2>
         <div className="w-10" />
       </div>
 
@@ -1231,13 +1240,13 @@ function SendTab({ onBack }: { onBack: () => void }) {
           onClick={() => setSelectedToken(null)}
           className="text-xs text-primary hover:underline"
         >
-          Biguhere
+          {t('send.changeToken')}
         </button>
       </div>
 
       <div className="space-y-4">
         <div className="space-y-2">
-          <label className="text-sm text-muted-foreground">Navnîşana Wergir</label>
+          <label className="text-sm text-muted-foreground">{t('send.recipientAddress')}</label>
           <div className="flex gap-2">
             <input
               type="text"
@@ -1249,7 +1258,7 @@ function SendTab({ onBack }: { onBack: () => void }) {
             <button
               onClick={handleScanQR}
               className="px-4 py-3 bg-cyan-600 hover:bg-cyan-700 rounded-xl flex items-center justify-center"
-              title="QR Bişoxîne"
+              title={t('send.scanQr')}
             >
               <ScanLine className="w-5 h-5" />
             </button>
@@ -1258,9 +1267,9 @@ function SendTab({ onBack }: { onBack: () => void }) {
 
         <div className="space-y-2">
           <div className="flex justify-between">
-            <label className="text-sm text-muted-foreground">Mîqdar (HEZ)</label>
+            <label className="text-sm text-muted-foreground">{t('send.amount')}</label>
             <span className="text-sm text-muted-foreground">
-              Bakiye: {getCurrentBalance()} {selectedToken}
+              {t('send.balanceLabel')} {getCurrentBalance()} {selectedToken}
             </span>
           </div>
           <input
@@ -1287,12 +1296,12 @@ function SendTab({ onBack }: { onBack: () => void }) {
           {isLoading ? (
             <>
               <RefreshCw className="w-4 h-4 animate-spin" />
-              Tê şandin...
+              {t('send.sending')}
             </>
           ) : (
             <>
               <Send className="w-4 h-4" />
-              Bişîne
+              {t('send.sendButton')}
             </>
           )}
         </button>
@@ -1307,6 +1316,7 @@ function ReceiveTab({ address, onBack }: { address: string | null; onBack: () =>
   const [qrCodeUrl, setQrCodeUrl] = useState<string | null>(null);
   const [qrError, setQrError] = useState(false);
   const { hapticNotification } = useTelegram();
+  const { t } = useTranslation();
 
   // Generate QR code when address changes
   useEffect(() => {
@@ -1344,9 +1354,9 @@ function ReceiveTab({ address, onBack }: { address: string | null; onBack: () =>
     <div className="p-4 space-y-6">
       <div className="flex items-center justify-between">
         <button onClick={onBack} className="text-muted-foreground">
-          ← Paş
+          {t('receive.back')}
         </button>
-        <h2 className="text-lg font-semibold">Werbigire</h2>
+        <h2 className="text-lg font-semibold">{t('receive.title')}</h2>
         <div className="w-10" />
       </div>
 
@@ -1358,16 +1368,14 @@ function ReceiveTab({ address, onBack }: { address: string | null; onBack: () =>
           ) : qrError ? (
             <div className="text-center">
               <QrCode className="w-16 h-16 text-gray-400 mx-auto mb-2" />
-              <p className="text-xs text-gray-500">QR çênebû</p>
+              <p className="text-xs text-gray-500">{t('receive.qrFailed')}</p>
             </div>
           ) : (
             <div className="animate-pulse bg-gray-200 w-full h-full rounded-lg" />
           )}
         </div>
 
-        <p className="text-sm text-muted-foreground">
-          Ev navnîşana te ye. Ji bo wergirtina token vê navnîşanê parve bike.
-        </p>
+        <p className="text-sm text-muted-foreground">{t('receive.shareAddress')}</p>
 
         <div className="p-4 bg-muted rounded-xl">
           <p className="font-mono text-sm break-all">{address}</p>
@@ -1380,12 +1388,12 @@ function ReceiveTab({ address, onBack }: { address: string | null; onBack: () =>
           {copied ? (
             <>
               <Check className="w-4 h-4" />
-              Hat kopîkirin!
+              {t('receive.addressCopied')}
             </>
           ) : (
             <>
               <Copy className="w-4 h-4" />
-              Navnîşanê Kopî Bike
+              {t('receive.copyAddress')}
             </>
           )}
         </button>
@@ -1407,6 +1415,7 @@ function HistoryTab({
   onBack: () => void;
 }) {
   const { hapticImpact } = useTelegram();
+  const { t } = useTranslation();
 
   const getDecimalsForAsset = (section: string, assetId?: string): number => {
     if (section === 'balances') return 12; // HEZ
@@ -1433,9 +1442,9 @@ function HistoryTab({
     <div className="p-4 space-y-4">
       <div className="flex items-center justify-between">
         <button onClick={onBack} className="text-muted-foreground">
-          ← Paş
+          {t('history.back')}
         </button>
-        <h2 className="text-lg font-semibold">Dîroka Transaksiyonan</h2>
+        <h2 className="text-lg font-semibold">{t('history.title')}</h2>
         <button
           onClick={() => {
             hapticImpact('light');
@@ -1451,13 +1460,13 @@ function HistoryTab({
       {isLoading ? (
         <div className="text-center py-12">
           <RefreshCw className="w-10 h-10 text-gray-600 mx-auto mb-3 animate-spin" />
-          <p className="text-gray-400">Tê barkirin...</p>
+          <p className="text-gray-400">{t('history.loadingTx')}</p>
         </div>
       ) : transactions.length === 0 ? (
         <div className="text-center py-12">
           <History className="w-12 h-12 text-gray-600 mx-auto mb-3" />
-          <p className="text-gray-400 mb-1">Transaksiyona tune</p>
-          <p className="text-gray-600 text-sm">Dîroka te dê li vir xuya bibe</p>
+          <p className="text-gray-400 mb-1">{t('history.noTransactions')}</p>
+          <p className="text-gray-600 text-sm">{t('history.historyAppears')}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -1479,7 +1488,7 @@ function HistoryTab({
                   </div>
                   <div>
                     <div className="font-medium">
-                      {tx.direction === 'sent' ? 'Şandin' : 'Wergirtin'}
+                      {tx.direction === 'sent' ? t('history.sent') : t('history.received')}
                     </div>
                     <div className="text-xs text-gray-400">Block #{tx.blockNumber}</div>
                   </div>
@@ -1504,12 +1513,12 @@ function HistoryTab({
               <div className="pt-2 border-t border-border/50 space-y-1">
                 {tx.direction === 'sent' ? (
                   <div className="flex justify-between text-xs">
-                    <span className="text-gray-500">Ji bo:</span>
+                    <span className="text-gray-500">{t('history.to')}</span>
                     <span className="font-mono text-gray-400">{formatAddress(tx.to || '')}</span>
                   </div>
                 ) : (
                   <div className="flex justify-between text-xs">
-                    <span className="text-gray-500">Ji:</span>
+                    <span className="text-gray-500">{t('history.from')}</span>
                     <span className="font-mono text-gray-400">{formatAddress(tx.from)}</span>
                   </div>
                 )}

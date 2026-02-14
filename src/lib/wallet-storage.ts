@@ -4,6 +4,7 @@
  */
 
 import { encrypt, decrypt } from './crypto';
+import { translate } from '@/i18n';
 
 const STORAGE_KEY = 'pezkuwi_wallet';
 
@@ -72,7 +73,7 @@ export async function unlockWallet(password: string): Promise<string> {
     const mnemonic = await decrypt(wallet.encryptedMnemonic, password);
     return mnemonic;
   } catch {
-    throw new Error('Şîfre (password) çewt e');
+    throw new Error(translate('context.wrongPasswordError'));
   }
 }
 
@@ -116,6 +117,6 @@ export async function syncWalletToSupabase(
 
   if (error) {
     console.error('Wallet sync error:', error);
-    throw new Error('Wallet adresa DB-ê re senkronîze nebû');
+    throw new Error(translate('context.walletSyncFailed'));
   }
 }

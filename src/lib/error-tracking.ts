@@ -8,6 +8,8 @@
  * - Custom analytics endpoint
  */
 
+import { translate } from '@/i18n';
+
 export interface ErrorContext {
   component?: string;
   action?: string;
@@ -118,20 +120,20 @@ export function extractError(caught: unknown): Error {
  * Format error for user display
  */
 export function formatUserError(error: Error): string {
-  // Map technical errors to user-friendly messages
+  // Map technical errors to translation keys
   const errorMap: Record<string, string> = {
-    'Network Error': 'Têkiliya înternetê tune ye. Ji kerema xwe têkiliya xwe kontrol bike.',
-    'Failed to fetch': 'Têkiliya înternetê tune ye. Ji kerema xwe têkiliya xwe kontrol bike.',
-    TIMEOUT: 'Operasyon zêde dirêj kişand. Ji kerema xwe dîsa biceribîne.',
-    'Wallet not found': 'Wallet nehate dîtin. Ji kerema xwe wallet çêke an jî restore bike.',
-    'Şîfre (password) çewt e': 'Şîfre (password) çewt e. Ji kerema xwe dîsa biceribîne.',
+    'Network Error': 'errors.networkError',
+    'Failed to fetch': 'errors.networkError',
+    TIMEOUT: 'errors.timeout',
+    'Wallet not found': 'errors.walletNotFound',
+    'Şîfre (password) çewt e': 'errors.wrongPassword',
   };
 
-  for (const [key, message] of Object.entries(errorMap)) {
+  for (const [key, translationKey] of Object.entries(errorMap)) {
     if (error.message.includes(key)) {
-      return message;
+      return translate(translationKey);
     }
   }
 
-  return 'Tiştek çewt çêbû. Ji kerema xwe dîsa biceribîne.';
+  return translate('errors.default');
 }
