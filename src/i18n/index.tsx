@@ -143,7 +143,7 @@ export function LanguageProvider({ children }: LanguageProviderProps) {
     const pathSegments = window.location.pathname.split('/').filter(Boolean);
     const firstSegment = pathSegments[0];
     // Don't rewrite URL for standalone pages like /citizens
-    const STANDALONE_PATHS = ['citizens'];
+    const STANDALONE_PATHS = ['citizens', 'explorer'];
     if (firstSegment && STANDALONE_PATHS.includes(firstSegment)) {
       // Keep standalone path as-is
     } else if (!firstSegment || !VALID_LANGS.includes(firstSegment as LanguageCode)) {

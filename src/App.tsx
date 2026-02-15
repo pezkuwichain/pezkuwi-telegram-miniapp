@@ -23,6 +23,9 @@ const WalletSection = lazy(() =>
 const CitizenPage = lazy(() =>
   import('@/pages/CitizenPage').then((m) => ({ default: m.CitizenPage }))
 );
+const ExplorerPage = lazy(() =>
+  import('@/pages/ExplorerPage').then((m) => ({ default: m.ExplorerPage }))
+);
 
 // Loading fallback component
 function SectionLoader() {
@@ -57,12 +60,21 @@ const P2P_WEB_URL = 'https://telegram.pezkuwichain.io/p2p';
 // Check for standalone pages via URL query params or path (evaluated once at module level)
 const PAGE_PARAM = new URLSearchParams(window.location.search).get('page');
 const IS_CITIZEN_PAGE = PAGE_PARAM === 'citizen' || window.location.pathname === '/citizens';
+const IS_EXPLORER_PAGE = window.location.pathname.replace(/\/$/, '') === '/explorer';
 
 export default function App() {
   if (IS_CITIZEN_PAGE) {
     return (
       <Suspense fallback={<SectionLoader />}>
         <CitizenPage />
+      </Suspense>
+    );
+  }
+
+  if (IS_EXPLORER_PAGE) {
+    return (
+      <Suspense fallback={<SectionLoader />}>
+        <ExplorerPage />
       </Suspense>
     );
   }

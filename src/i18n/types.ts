@@ -581,6 +581,32 @@ export interface Translations {
     walletSyncFailed: string;
   };
 
+  // Explorer page
+  explorer: {
+    title: string;
+    subtitle: string;
+    search: string;
+    chainStats: string;
+    latestBlocks: string;
+    recentTransfers: string;
+    block: string;
+    validators: string;
+    era: string;
+    blockTime: string;
+    extrinsics: string;
+    noResults: string;
+    connecting: string;
+    hash: string;
+    from: string;
+    to: string;
+    amount: string;
+    time: string;
+    balance: string;
+    seconds: string;
+    finalized: string;
+    searchResult: string;
+  };
+
   // Citizen page
   citizen: {
     pageTitle: string;
