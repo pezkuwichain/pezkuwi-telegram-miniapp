@@ -34,15 +34,17 @@ jobs:
 
       - run: npm run build
 
-      - name: Deploy to telegram.pezkuwichain.io
-        uses: appleboy/scp-action@v1.0.0
-        with:
-          host: ${{ secrets.VPS1_HOST }}
-          username: ${{ secrets.VPS1_USER }}
-          key: ${{ secrets.VPS1_SSH_KEY }}
-          source: 'dist/*'
-          target: '/var/www/telegram.pezkuwichain.io'
-          strip_components: 1
+      # VPS1 (telegram.pezkuwichain.io) is currently running Zagros testnet - deployed manually
+      # Re-enable this step when testnet period is over
+      # - name: Deploy to telegram.pezkuwichain.io
+      #   uses: appleboy/scp-action@v1.0.0
+      #   with:
+      #     host: ${{ secrets.VPS1_HOST }}
+      #     username: ${{ secrets.VPS1_USER }}
+      #     key: ${{ secrets.VPS1_SSH_KEY }}
+      #     source: 'dist/*'
+      #     target: '/var/www/telegram.pezkuwichain.io'
+      #     strip_components: 1
 
       - name: Deploy to telegram.pezkiwi.app
         uses: appleboy/scp-action@v1.0.0
