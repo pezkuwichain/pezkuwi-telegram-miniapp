@@ -69,25 +69,46 @@ export async function getTrustScore(peopleApi: ApiPromise, address: string): Pro
 // REFERRAL SCORE (pezpallet-referral on People Chain)
 // ========================================
 
+function computeReferralBaseScore(goodReferrals: number): number {
+  if (goodReferrals <= 0) return 0;
+  if (goodReferrals <= 10) return goodReferrals * 10;
+  if (goodReferrals <= 50) return 100 + (goodReferrals - 10) * 5;
+  if (goodReferrals <= 100) return 300 + (goodReferrals - 50) * 4;
+  return 500;
+}
+
 /**
- * Fetch user's referral score based on referral count
- * Storage: referral.referralCount(address)
+ * Fetch user's referral score using the same formula as pezpallet-referral.
+ * Storage: referral.referrerStatsStorage(address)
+ *
+ * Tiered scoring (max 500):
+ *   0 referrals = 0
+ *   1-10  = count * 10  (10..100)
+ *   11-50 = 100 + (count-10) * 5  (105..300)
+ *   51-100 = 300 + (count-50) * 4  (304..500)
+ *   101+  = 500
+ * Minus penalty_score from revocations.
  */
 export async function getReferralScore(peopleApi: ApiPromise, address: string): Promise<number> {
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if (!(peopleApi?.query as any)?.referral?.referralCount) {
-      return 0;
+    const queryRef = peopleApi?.query as any;
+    if (!queryRef?.referral?.referrerStatsStorage) {
+      // Fallback: use referralCount if stats storage unavailable
+      if (!queryRef?.referral?.referralCount) return 0;
+      const count = Number((await queryRef.referral.referralCount(address)).toString());
+      return computeReferralBaseScore(count);
     }
 
+    const stats = await queryRef.referral.referrerStatsStorage(address);
+    if (stats.isEmpty) return 0;
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const count = await (peopleApi.query as any).referral.referralCount(address);
-    const referralCount = Number(count.toString());
-
-    if (referralCount === 0) return 0;
-    if (referralCount <= 5) return referralCount * 4;
-    if (referralCount <= 20) return 20 + (referralCount - 5) * 2;
-    return 50; // Capped at 50 points
+    const json = stats.toJSON() as any;
+    const total = json.totalReferrals ?? json.total_referrals ?? 0;
+    const revoked = json.revokedReferrals ?? json.revoked_referrals ?? 0;
+    const penalty = json.penaltyScore ?? json.penalty_score ?? 0;
+    const goodReferrals = Math.max(0, total - revoked);
+    return Math.max(0, computeReferralBaseScore(goodReferrals) - penalty);
   } catch (error) {
     console.error('Error fetching referral score:', error);
     return 0;
@@ -219,18 +240,52 @@ export interface TikiInfo {
   name: string;
 }
 
+// Must match pezpallet-tiki get_bonus_for_tiki() exactly
 const TIKI_NAME_SCORES: Record<string, number> = {
   welati: 10,
-  parlementer: 30,
-  serokimeclise: 40,
-  serok: 50,
-  wezir: 40,
-  endamediwane: 30,
-  dadger: 35,
-  dozger: 35,
-  mamoste: 25,
-  perwerdekar: 25,
-  bazargan: 20,
+  parlementer: 100,
+  serokimeclise: 150,
+  serok: 200,
+  wezir: 100,
+  serokweziran: 125,
+  weziredarayiye: 100,
+  wezireparez: 100,
+  weziredad: 100,
+  wezirebelaw: 100,
+  weziretend: 100,
+  wezireava: 100,
+  wezirecand: 100,
+  endamediwane: 175,
+  dadger: 150,
+  dozger: 120,
+  hiquqnas: 75,
+  xezinedar: 100,
+  pisporêewlehiyasîber: 100,
+  mufetîs: 90,
+  balyoz: 80,
+  berdevk: 70,
+  mamoste: 70,
+  operatorêtorê: 60,
+  noter: 50,
+  bacgir: 50,
+  mela: 50,
+  feqî: 50,
+  perwerdekar: 40,
+  rewsenbîr: 40,
+  gerinendeyecavkaniye: 40,
+  gerinendeyedaneye: 40,
+  kalîtekontrolker: 30,
+  navbeynkar: 30,
+  hekem: 30,
+  qeydkar: 25,
+  parêzvaneçandî: 25,
+  sêwirmend: 20,
+  bazargan: 60,
+  pêseng: 80,
+  axa: 250,
+  rêveberêprojeyê: 250,
+  moderatorêcivakê: 200,
+  serokêkomele: 100,
 };
 
 /**
@@ -278,21 +333,22 @@ export async function fetchUserTikis(peopleApi: ApiPromise, address: string): Pr
 }
 
 /**
- * Calculate tiki score from user's tikis
+ * Calculate tiki score from user's tikis.
+ * Must match pallet: sum of all tiki bonuses (NOT max).
  */
 export function calculateTikiScore(tikis: TikiInfo[]): number {
   if (!tikis.length) return 0;
 
-  let maxScore = 0;
+  let totalScore = 0;
   for (const tiki of tikis) {
     const tikiScore =
       (tiki as TikiInfo & { score?: number }).score ||
       TIKI_NAME_SCORES[tiki.name.toLowerCase()] ||
       10;
-    maxScore = Math.max(maxScore, tikiScore);
+    totalScore += tikiScore;
   }
 
-  return Math.min(maxScore, 50);
+  return totalScore;
 }
 
 /**
