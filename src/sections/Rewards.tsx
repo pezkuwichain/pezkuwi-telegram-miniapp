@@ -609,10 +609,16 @@ export function RewardsSection() {
                     </div>
                     <p className="text-2xl font-bold text-blue-400">
                       {stakingStatus?.isTracking ? (
-                        <span className="flex items-center gap-1">
-                          <Clock className="w-4 h-4" />
-                          {formatDuration(stakingStatus.durationBlocks)}
-                        </span>
+                        stakingStatus.hasCachedData ? (
+                          <span className="flex items-center gap-1">
+                            <Clock className="w-4 h-4" />
+                            {formatDuration(stakingStatus.durationBlocks)}
+                          </span>
+                        ) : (
+                          <span className="text-sm text-yellow-400">
+                            {t('rewards.stakingWaitingData')}
+                          </span>
+                        )
                       ) : (
                         <span className="text-sm text-muted-foreground">
                           {t('rewards.stakingNotStarted')}

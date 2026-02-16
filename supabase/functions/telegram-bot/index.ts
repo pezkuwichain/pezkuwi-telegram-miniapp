@@ -1,8 +1,8 @@
 /**
  * PezkuwiChain Telegram Bot - Supabase Edge Function
  * Handles webhook updates from two separate bots:
- *   - @Pezkuwichain_Bot (main)  → telegram.pezkuwichain.io
- *   - @pezkuwichainBot  (krd)   → telegram.pezkiwi.app
+ *   - @Pezkuwichain_Bot  (main) → telegram.pezkuwichain.io
+ *   - @pezkuwichainBot   (krd)  → telegram.pezkiwi.app
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';

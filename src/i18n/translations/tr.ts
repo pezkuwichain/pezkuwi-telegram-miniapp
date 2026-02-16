@@ -110,6 +110,7 @@ const tr: Translations = {
     citizen: 'Vatandaş',
     staking: 'Staking',
     stakingNotStarted: 'Başlamadı',
+    stakingWaitingData: 'Veri bekleniyor...',
     stakingCountedInTrust: 'Güven puanına dahil',
     people: '{count} kişi',
     tiki: 'Tiki',

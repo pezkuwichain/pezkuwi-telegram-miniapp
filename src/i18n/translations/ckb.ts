@@ -111,6 +111,7 @@ const ckb: Translations = {
     citizen: 'هاوڵاتی',
     staking: 'ستەیکینگ',
     stakingNotStarted: 'دەستپێنەکراوە',
+    stakingWaitingData: 'چاوەڕوانی داتا...',
     stakingCountedInTrust: 'لە خاڵی متمانە ژمێردراوە',
     people: '{count} کەس',
     tiki: 'تیکی',

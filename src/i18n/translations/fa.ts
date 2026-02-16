@@ -110,6 +110,7 @@ const fa: Translations = {
     citizen: 'شهروند',
     staking: 'سهام‌گذاری',
     stakingNotStarted: 'شروع نشده',
+    stakingWaitingData: 'در انتظار داده‌ها...',
     stakingCountedInTrust: 'در امتیاز اعتماد محاسبه می‌شود',
     people: '{count} نفر',
     tiki: 'تیکی',

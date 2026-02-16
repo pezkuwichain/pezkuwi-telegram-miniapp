@@ -110,6 +110,7 @@ const ar: Translations = {
     citizen: 'مواطن',
     staking: 'التخزين',
     stakingNotStarted: 'لم يبدأ بعد',
+    stakingWaitingData: 'في انتظار البيانات...',
     stakingCountedInTrust: 'يُحتسب في نقاط الثقة',
     people: '{count} شخص',
     tiki: 'تيكي',

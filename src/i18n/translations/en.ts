@@ -110,6 +110,7 @@ const en: Translations = {
     citizen: 'Citizen',
     staking: 'Staking',
     stakingNotStarted: 'Not started',
+    stakingWaitingData: 'Waiting for data...',
     stakingCountedInTrust: 'Counted in Trust score',
     people: '{count} people',
     tiki: 'Tiki',

@@ -112,6 +112,7 @@ export interface Translations {
     citizen: string;
     staking: string;
     stakingNotStarted: string;
+    stakingWaitingData: string;
     stakingCountedInTrust: string;
     people: string;
     tiki: string;

@@ -114,6 +114,7 @@ const krd: Translations = {
     citizen: 'Welat\u00ee',
     staking: 'Staking',
     stakingNotStarted: 'Nehat\u00eeye destp\u00eakirin',
+    stakingWaitingData: 'Li benda daneyan...',
     stakingCountedInTrust: 'Di Trust de t\u00ea hesibandin',
     people: '{count} kes',
     tiki: 'Tiki',
