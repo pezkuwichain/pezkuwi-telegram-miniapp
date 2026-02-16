@@ -21,7 +21,6 @@ import {
   Target,
   Sparkles,
   GraduationCap,
-  Clock,
 } from 'lucide-react';
 import { cn, formatAddress } from '@/lib/utils';
 import { useTelegram } from '@/hooks/useTelegram';
@@ -608,25 +607,14 @@ export function RewardsSection() {
                       <span className="text-xs text-muted-foreground">{t('rewards.staking')}</span>
                     </div>
                     <p className="text-2xl font-bold text-blue-400">
-                      {stakingStatus?.isTracking ? (
-                        stakingStatus.hasCachedData ? (
-                          <span className="flex items-center gap-1">
-                            <Clock className="w-4 h-4" />
-                            {formatDuration(stakingStatus.durationBlocks)}
-                          </span>
-                        ) : (
-                          <span className="text-sm text-yellow-400">
-                            {t('rewards.stakingWaitingData')}
-                          </span>
-                        )
-                      ) : (
-                        <span className="text-sm text-muted-foreground">
-                          {t('rewards.stakingNotStarted')}
-                        </span>
-                      )}
+                      {userScores?.stakingScore ?? 0}
                     </p>
                     <p className="text-xs text-muted-foreground mt-1">
-                      {t('rewards.stakingCountedInTrust')}
+                      {stakingStatus?.isTracking
+                        ? stakingStatus.hasCachedData
+                          ? formatDuration(stakingStatus.durationBlocks)
+                          : t('rewards.stakingWaitingData')
+                        : t('rewards.stakingNotStarted')}
                     </p>
                   </div>
 

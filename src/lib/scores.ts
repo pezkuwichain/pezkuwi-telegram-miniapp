@@ -28,7 +28,8 @@ export interface UserScores {
 
 export interface StakingScoreStatus {
   isTracking: boolean;
-  hasCachedData: boolean; // Whether noter has submitted staking data
+  hasCachedData: boolean;
+  score: number; // 0-100 computed from CachedStakingDetails + duration
   startBlock: number | null;
   currentBlock: number;
   durationBlocks: number;
@@ -98,23 +99,34 @@ export async function getReferralScore(peopleApi: ApiPromise, address: string): 
 // ========================================
 
 /**
- * Check staking score tracking status
- * Storage: stakingScore.stakingStartBlock(address)
+ * Check staking score tracking status and compute actual staking score.
+ * Queries CachedStakingDetails from People Chain and calculates score
+ * using the same formula as pallet_staking_score::get_staking_score().
+ *
+ * Score Formula:
+ * 1. Amount Score (20-50 points based on staked HEZ)
+ *    - 0-100 HEZ: 20,  101-250: 30,  251-750: 40,  751+: 50
+ * 2. Duration Multiplier (time since startScoreTracking)
+ *    - <1mo: x1.0, 1-2mo: x1.2, 3-5mo: x1.4, 6-11mo: x1.7, 12+mo: x2.0
+ * 3. Final = min(100, floor(amountScore * durationMultiplier))
  */
 export async function getStakingScoreStatus(
   peopleApi: ApiPromise,
   address: string
 ): Promise<StakingScoreStatus> {
+  const empty: StakingScoreStatus = {
+    isTracking: false,
+    hasCachedData: false,
+    score: 0,
+    startBlock: null,
+    currentBlock: 0,
+    durationBlocks: 0,
+  };
+
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if (!(peopleApi?.query as any)?.stakingScore?.stakingStartBlock) {
-      return {
-        isTracking: false,
-        hasCachedData: false,
-        startBlock: null,
-        currentBlock: 0,
-        durationBlocks: 0,
-      };
+      return empty;
     }
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -122,20 +134,15 @@ export async function getStakingScoreStatus(
     const currentBlock = Number((await peopleApi.query.system.number()).toString());
 
     if (startBlockResult.isEmpty || startBlockResult.isNone) {
-      return {
-        isTracking: false,
-        hasCachedData: false,
-        startBlock: null,
-        currentBlock,
-        durationBlocks: 0,
-      };
+      return { ...empty, currentBlock };
     }
 
     const startBlock = Number(startBlockResult.toString());
     const durationBlocks = currentBlock - startBlock;
 
-    // Check if noter has submitted cached staking data
+    // Query CachedStakingDetails for both sources
     let hasCachedData = false;
+    let totalStakeWei = BigInt(0);
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     if ((peopleApi.query as any).stakingScore?.cachedStakingDetails) {
       try {
@@ -143,38 +150,62 @@ export async function getStakingScoreStatus(
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (peopleApi.query as any).stakingScore
             .cachedStakingDetails(address, 'RelayChain')
-            .catch(() => ({ isSome: false, isEmpty: true })),
+            .catch(() => null),
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           (peopleApi.query as any).stakingScore
             .cachedStakingDetails(address, 'AssetHub')
-            .catch(() => ({ isSome: false, isEmpty: true })),
+            .catch(() => null),
         ]);
-        hasCachedData =
-          relayResult.isSome ||
-          !relayResult.isEmpty ||
-          assetHubResult.isSome ||
-          !assetHubResult.isEmpty;
+        if (relayResult && !relayResult.isEmpty && relayResult.isSome) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const json = (relayResult.unwrap() as any).toJSON();
+          totalStakeWei += BigInt(json.stakedAmount ?? json.staked_amount ?? '0');
+          hasCachedData = true;
+        }
+        if (assetHubResult && !assetHubResult.isEmpty && assetHubResult.isSome) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const json = (assetHubResult.unwrap() as any).toJSON();
+          totalStakeWei += BigInt(json.stakedAmount ?? json.staked_amount ?? '0');
+          hasCachedData = true;
+        }
       } catch {
-        hasCachedData = false;
+        // keep defaults
       }
+    }
+
+    // Calculate staking score from cached data
+    let score = 0;
+    if (hasCachedData && totalStakeWei > BigInt(0)) {
+      const stakedHEZ = Number(totalStakeWei / BigInt(10 ** 12));
+
+      // Amount tier
+      let amountScore = 20;
+      if (stakedHEZ > 750) amountScore = 50;
+      else if (stakedHEZ > 250) amountScore = 40;
+      else if (stakedHEZ > 100) amountScore = 30;
+
+      // Duration multiplier
+      const MONTH = 30 * 24 * 60 * 10; // ~432,000 blocks
+      let mult = 1.0;
+      if (durationBlocks >= 12 * MONTH) mult = 2.0;
+      else if (durationBlocks >= 6 * MONTH) mult = 1.7;
+      else if (durationBlocks >= 3 * MONTH) mult = 1.4;
+      else if (durationBlocks >= MONTH) mult = 1.2;
+
+      score = Math.min(100, Math.floor(amountScore * mult));
     }
 
     return {
       isTracking: true,
       hasCachedData,
+      score,
       startBlock,
       currentBlock,
       durationBlocks,
     };
   } catch (error) {
     console.error('Error fetching staking score status:', error);
-    return {
-      isTracking: false,
-      hasCachedData: false,
-      startBlock: null,
-      currentBlock: 0,
-      durationBlocks: 0,
-    };
+    return empty;
   }
 }
 
@@ -363,21 +394,23 @@ export async function getAllScores(
   if (!peopleApi || !address) return empty;
 
   try {
-    const [trustScore, referralScore, tikiScore, perwerdeScore, isCitizen] = await Promise.all([
-      getTrustScore(peopleApi, address),
-      getReferralScore(peopleApi, address),
-      getTikiScore(peopleApi, address),
-      getPerwerdeScore(peopleApi, address),
-      checkCitizenshipStatus(peopleApi, address),
-    ]);
+    const [trustScore, referralScore, tikiScore, perwerdeScore, isCitizen, stakingStatus] =
+      await Promise.all([
+        getTrustScore(peopleApi, address),
+        getReferralScore(peopleApi, address),
+        getTikiScore(peopleApi, address),
+        getPerwerdeScore(peopleApi, address),
+        checkCitizenshipStatus(peopleApi, address),
+        getStakingScoreStatus(peopleApi, address),
+      ]);
 
     return {
       trustScore,
       referralScore,
-      stakingScore: 0, // Trust pallet already includes staking in composite
+      stakingScore: stakingStatus.score,
       tikiScore,
       perwerdeScore,
-      totalScore: trustScore, // Trust score = composite score (on-chain calculated)
+      totalScore: trustScore,
       isCitizen,
     };
   } catch (error) {
