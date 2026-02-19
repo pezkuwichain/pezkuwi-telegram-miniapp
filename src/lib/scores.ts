@@ -11,6 +11,7 @@
  */
 
 import type { ApiPromise } from '@pezkuwi/api';
+import type { KeyringPair } from '@pezkuwi/keyring/types';
 
 // ========================================
 // TYPE DEFINITIONS
@@ -422,6 +423,130 @@ export async function getPerwerdeScore(
   } catch (err) {
     console.error('Error fetching perwerde score:', err);
     return 0;
+  }
+}
+
+// ========================================
+// SCORE TRACKING & RECORDING (People Chain Extrinsics)
+// ========================================
+
+/**
+ * Start staking score tracking on People Chain.
+ * Calls stakingScore.startScoreTracking() - no arguments.
+ * This enables the noter to cache staking details.
+ */
+export async function startScoreTracking(
+  peopleApi: ApiPromise,
+  keypair: KeyringPair
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const tx = peopleApi.tx as any;
+    if (!tx?.stakingScore?.startScoreTracking) {
+      return { success: false, error: 'stakingScore pallet not available' };
+    }
+
+    const result = await new Promise<{ success: boolean; error?: string }>((resolve) => {
+      tx.stakingScore
+        .startScoreTracking()
+        .signAndSend(
+          keypair,
+          { nonce: -1 },
+          ({
+            status,
+            dispatchError,
+          }: {
+            status: {
+              isInBlock: boolean;
+              isFinalized: boolean;
+            };
+            dispatchError?: { isModule: boolean; asModule: unknown; toString: () => string };
+          }) => {
+            if (status.isInBlock || status.isFinalized) {
+              if (dispatchError) {
+                let errorMessage = 'startScoreTracking failed';
+                if (dispatchError.isModule) {
+                  const decoded = peopleApi.registry.findMetaError(
+                    dispatchError.asModule as Parameters<typeof peopleApi.registry.findMetaError>[0]
+                  );
+                  errorMessage = `${decoded.section}.${decoded.name}`;
+                }
+                resolve({ success: false, error: errorMessage });
+                return;
+              }
+              resolve({ success: true });
+            }
+          }
+        )
+        .catch((error: Error) => resolve({ success: false, error: error.message }));
+    });
+
+    return result;
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+/**
+ * Record trust score for current epoch on People Chain.
+ * Calls pezRewards.recordTrustScore() - no arguments.
+ * Required for PEZ epoch rewards.
+ */
+export async function recordTrustScore(
+  peopleApi: ApiPromise,
+  keypair: KeyringPair
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const tx = peopleApi.tx as any;
+    if (!tx?.pezRewards?.recordTrustScore) {
+      return { success: false, error: 'pezRewards pallet not available' };
+    }
+
+    const result = await new Promise<{ success: boolean; error?: string }>((resolve) => {
+      tx.pezRewards
+        .recordTrustScore()
+        .signAndSend(
+          keypair,
+          { nonce: -1 },
+          ({
+            status,
+            dispatchError,
+          }: {
+            status: {
+              isInBlock: boolean;
+              isFinalized: boolean;
+            };
+            dispatchError?: { isModule: boolean; asModule: unknown; toString: () => string };
+          }) => {
+            if (status.isInBlock || status.isFinalized) {
+              if (dispatchError) {
+                let errorMessage = 'recordTrustScore failed';
+                if (dispatchError.isModule) {
+                  const decoded = peopleApi.registry.findMetaError(
+                    dispatchError.asModule as Parameters<typeof peopleApi.registry.findMetaError>[0]
+                  );
+                  errorMessage = `${decoded.section}.${decoded.name}`;
+                }
+                resolve({ success: false, error: errorMessage });
+                return;
+              }
+              resolve({ success: true });
+            }
+          }
+        )
+        .catch((error: Error) => resolve({ success: false, error: error.message }));
+    });
+
+    return result;
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
   }
 }
 

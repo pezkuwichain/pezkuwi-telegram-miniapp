@@ -135,6 +135,16 @@ const ckb: Translations = {
     signingBlockchain: 'لەسەر بلۆکچەین واژوو دەکرێت',
     citizenshipConfirmed: 'پیرۆزبێت! تۆ ئێستا هاوڵاتیت!',
     citizenshipFailed: 'پشتڕاستکردنەوە سەرنەکەوت',
+    startTracking: 'شوێنکەوتن دەست پێ بکە',
+    startTrackingDesc: 'شوێنکەوتنی خاڵی ستەیکینگ چالاک بکە',
+    startingTracking: 'شوێنکەوتن دەست پێ دەکات...',
+    trackingStarted: 'شوێنکەوتن دەست پێ کرد!',
+    trackingFailed: 'دەست پێکردنی شوێنکەوتن سەرنەکەوت',
+    recordTrustScore: 'خاڵی متمانە تۆمار بکە',
+    recordTrustDesc: 'خاڵەکەت بۆ خەڵاتەکانی ئەم سەردەمە تۆمار بکە',
+    recordingTrustScore: 'خاڵ تۆمار دەکرێت...',
+    trustScoreRecorded: 'خاڵی متمانە تۆمار کرا!',
+    trustScoreRecordFailed: 'تۆمارکردنی خاڵ سەرنەکەوت',
   },
 
   wallet: {

@@ -134,6 +134,16 @@ const fa: Translations = {
     signingBlockchain: 'در حال امضا روی بلاکچین',
     citizenshipConfirmed: 'تبریک! شما اکنون شهروند هستید!',
     citizenshipFailed: 'تایید ناموفق بود',
+    startTracking: 'شروع ردیابی',
+    startTrackingDesc: 'ردیابی امتیاز سهام‌گذاری را فعال کنید',
+    startingTracking: 'در حال شروع ردیابی...',
+    trackingStarted: 'ردیابی شروع شد!',
+    trackingFailed: 'شروع ردیابی ناموفق بود',
+    recordTrustScore: 'ثبت امتیاز اعتماد',
+    recordTrustDesc: 'امتیاز خود را برای پاداش‌های این دوره ثبت کنید',
+    recordingTrustScore: 'در حال ثبت امتیاز اعتماد...',
+    trustScoreRecorded: 'امتیاز اعتماد ثبت شد!',
+    trustScoreRecordFailed: 'ثبت امتیاز ناموفق بود',
   },
 
   wallet: {

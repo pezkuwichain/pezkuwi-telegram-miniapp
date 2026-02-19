@@ -136,6 +136,16 @@ export interface Translations {
     signingBlockchain: string;
     citizenshipConfirmed: string;
     citizenshipFailed: string;
+    startTracking: string;
+    startTrackingDesc: string;
+    startingTracking: string;
+    trackingStarted: string;
+    trackingFailed: string;
+    recordTrustScore: string;
+    recordTrustDesc: string;
+    recordingTrustScore: string;
+    trustScoreRecorded: string;
+    trustScoreRecordFailed: string;
   };
 
   // Wallet section

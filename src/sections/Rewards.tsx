@@ -21,6 +21,8 @@ import {
   Target,
   Sparkles,
   GraduationCap,
+  Play,
+  PenTool,
 } from 'lucide-react';
 import { cn, formatAddress } from '@/lib/utils';
 import { useTelegram } from '@/hooks/useTelegram';
@@ -32,6 +34,8 @@ import { useTranslation } from '@/i18n';
 import {
   getAllScores,
   getStakingScoreStatus,
+  startScoreTracking,
+  recordTrustScore,
   formatDuration,
   getScoreColor,
   getScoreRating,
@@ -72,6 +76,8 @@ export function RewardsSection() {
   const [scoresLoading, setScoresLoading] = useState(false);
   const [citizenshipStatus, setCitizenshipStatus] = useState<CitizenshipStatus>('NotStarted');
   const [showConfirmAnimation, setShowConfirmAnimation] = useState(false);
+  const [showTrackingAnimation, setShowTrackingAnimation] = useState(false);
+  const [trackingAnimationText, setTrackingAnimationText] = useState('');
 
   // Check activity status
   const checkActivityStatus = useCallback(() => {
@@ -165,6 +171,52 @@ export function RewardsSection() {
       showAlert(err instanceof Error ? err.message : t('rewards.citizenshipFailed'));
     } finally {
       setShowConfirmAnimation(false);
+    }
+  };
+
+  const handleStartTracking = async () => {
+    if (!peopleApi || !keypair) return;
+    setTrackingAnimationText(t('rewards.startingTracking'));
+    setShowTrackingAnimation(true);
+    hapticImpact('medium');
+    try {
+      const result = await startScoreTracking(peopleApi, keypair);
+      if (result.success) {
+        hapticNotification('success');
+        showAlert(t('rewards.trackingStarted'));
+        fetchUserScores();
+      } else {
+        hapticNotification('error');
+        showAlert(result.error || t('rewards.trackingFailed'));
+      }
+    } catch (err) {
+      hapticNotification('error');
+      showAlert(err instanceof Error ? err.message : t('rewards.trackingFailed'));
+    } finally {
+      setShowTrackingAnimation(false);
+    }
+  };
+
+  const handleRecordTrustScore = async () => {
+    if (!peopleApi || !keypair) return;
+    setTrackingAnimationText(t('rewards.recordingTrustScore'));
+    setShowTrackingAnimation(true);
+    hapticImpact('medium');
+    try {
+      const result = await recordTrustScore(peopleApi, keypair);
+      if (result.success) {
+        hapticNotification('success');
+        showAlert(t('rewards.trustScoreRecorded'));
+        fetchUserScores();
+      } else {
+        hapticNotification('error');
+        showAlert(result.error || t('rewards.trustScoreRecordFailed'));
+      }
+    } catch (err) {
+      hapticNotification('error');
+      showAlert(err instanceof Error ? err.message : t('rewards.trustScoreRecordFailed'));
+    } finally {
+      setShowTrackingAnimation(false);
     }
   };
 
@@ -758,6 +810,37 @@ export function RewardsSection() {
                   </div>
                 </div>
 
+                {/* Start Tracking / Record Trust Score Button */}
+                {!stakingStatus?.isTracking ? (
+                  <div className="bg-secondary/30 rounded-xl p-4 border border-border/50">
+                    <button
+                      onClick={handleStartTracking}
+                      disabled={!keypair || !peopleApi}
+                      className="w-full py-3 rounded-lg font-medium flex items-center justify-center gap-2 bg-gradient-to-r from-blue-500 to-cyan-600 text-white hover:opacity-90 transition-all disabled:opacity-50"
+                    >
+                      <Play className="w-5 h-5" />
+                      {t('rewards.startTracking')}
+                    </button>
+                    <p className="text-xs text-muted-foreground text-center mt-2">
+                      {t('rewards.startTrackingDesc')}
+                    </p>
+                  </div>
+                ) : (
+                  <div className="bg-secondary/30 rounded-xl p-4 border border-border/50">
+                    <button
+                      onClick={handleRecordTrustScore}
+                      disabled={!keypair || !peopleApi}
+                      className="w-full py-3 rounded-lg font-medium flex items-center justify-center gap-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:opacity-90 transition-all disabled:opacity-50"
+                    >
+                      <PenTool className="w-5 h-5" />
+                      {t('rewards.recordTrustScore')}
+                    </button>
+                    <p className="text-xs text-muted-foreground text-center mt-2">
+                      {t('rewards.recordTrustDesc')}
+                    </p>
+                  </div>
+                )}
+
                 {/* Staking Rewards from SubQuery */}
                 <div className="bg-secondary/30 rounded-xl p-4 border border-border/50">
                   <h3 className="font-medium text-foreground mb-3 flex items-center gap-2">
@@ -853,6 +936,15 @@ export function RewardsSection() {
         <div className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center">
           <KurdistanSun size={120} />
           <p className="text-white mt-6 text-lg">{t('rewards.confirmingCitizenship')}</p>
+          <p className="text-white/60 text-sm mt-2">{t('rewards.signingBlockchain')}</p>
+        </div>
+      )}
+
+      {/* Score Tracking Overlay */}
+      {showTrackingAnimation && (
+        <div className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center">
+          <KurdistanSun size={120} />
+          <p className="text-white mt-6 text-lg">{trackingAnimationText}</p>
           <p className="text-white/60 text-sm mt-2">{t('rewards.signingBlockchain')}</p>
         </div>
       )}

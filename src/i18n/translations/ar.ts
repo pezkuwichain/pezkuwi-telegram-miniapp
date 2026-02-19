@@ -134,6 +134,16 @@ const ar: Translations = {
     signingBlockchain: 'جاري التوقيع على البلوكتشين',
     citizenshipConfirmed: 'مبروك! أنت الآن مواطن!',
     citizenshipFailed: 'فشل التأكيد',
+    startTracking: 'بدء التتبع',
+    startTrackingDesc: 'تفعيل تتبع نقاط التخزين',
+    startingTracking: 'جاري بدء التتبع...',
+    trackingStarted: 'بدأ التتبع!',
+    trackingFailed: 'فشل بدء التتبع',
+    recordTrustScore: 'تسجيل نقاط الثقة',
+    recordTrustDesc: 'سجل نقاطك لمكافآت هذه الفترة',
+    recordingTrustScore: 'جاري تسجيل نقاط الثقة...',
+    trustScoreRecorded: 'تم تسجيل نقاط الثقة!',
+    trustScoreRecordFailed: 'فشل تسجيل النقاط',
   },
 
   wallet: {

@@ -134,6 +134,16 @@ const en: Translations = {
     signingBlockchain: 'Signing on blockchain',
     citizenshipConfirmed: 'Congratulations! You are now a citizen!',
     citizenshipFailed: 'Confirmation failed',
+    startTracking: 'Start Tracking',
+    startTrackingDesc: 'Enable staking score tracking',
+    startingTracking: 'Starting tracking...',
+    trackingStarted: 'Tracking started!',
+    trackingFailed: 'Failed to start tracking',
+    recordTrustScore: 'Record Trust Score',
+    recordTrustDesc: "Record your score for this epoch's rewards",
+    recordingTrustScore: 'Recording trust score...',
+    trustScoreRecorded: 'Trust score recorded!',
+    trustScoreRecordFailed: 'Failed to record score',
   },
 
   wallet: {
