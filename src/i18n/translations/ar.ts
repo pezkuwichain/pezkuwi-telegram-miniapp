@@ -125,6 +125,15 @@ const ar: Translations = {
     stakingZeroWarning: 'إذا كان التخزين 0، فنقاط الثقة أيضًا 0. قم بالتخزين أولاً!',
     refreshScores: 'تحديث النقاط',
     points: 'نقاط',
+    citizenshipStatus: 'حالة المواطنة',
+    pendingApproval: 'بانتظار الموافقة',
+    approved: 'تمت الموافقة',
+    waitingReferrer: 'بانتظار موافقة المُحيل...',
+    confirmCitizenship: 'تأكيد المواطنة',
+    confirmingCitizenship: 'جاري تأكيد المواطنة...',
+    signingBlockchain: 'جاري التوقيع على البلوكتشين',
+    citizenshipConfirmed: 'مبروك! أنت الآن مواطن!',
+    citizenshipFailed: 'فشل التأكيد',
   },
 
   wallet: {

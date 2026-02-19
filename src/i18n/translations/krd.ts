@@ -130,6 +130,15 @@ const krd: Translations = {
       'Staking 0 be, Trust p\u00fban j\u00ee 0 dibe. Ber\u00ee her ti\u015ft\u00ee stake bike!',
     refreshScores: 'P\u00fbanan N\u00fbve Bike',
     points: 'p\u00fban',
+    citizenshipStatus: 'Rew\u015fa Welat\u00eeb\u00fbn\u00ea',
+    pendingApproval: 'Li benda pejrandin\u00ea',
+    approved: 'Pejrand\u00ee',
+    waitingReferrer: 'Li benda pejirandina referrer...',
+    confirmCitizenship: 'Welat\u00eeb\u00fbn\u00ea Pi\u015ftrast Bike',
+    confirmingCitizenship: 'Welat\u00eeb\u00fbn t\u00ea pi\u015ftrastkirin...',
+    signingBlockchain: 'Li blockchain t\u00ea \u00eemzekirin',
+    citizenshipConfirmed: 'P\u00eeroz be! Tu b\u00fby\u00ee welat\u00ee!',
+    citizenshipFailed: 'Pi\u015ftrastkirin biserneket',
   },
 
   wallet: {

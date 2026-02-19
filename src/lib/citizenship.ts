@@ -183,3 +183,63 @@ export async function applyCitizenship(
     };
   }
 }
+
+// ── Confirm Citizenship ─────────────────────────────────────────────
+
+export async function confirmCitizenship(
+  api: ApiPromise,
+  keypair: KeyringPair
+): Promise<CitizenshipResult> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const tx = api.tx as any;
+    if (!tx?.identityKyc?.confirmCitizenship) {
+      return { success: false, error: 'Identity KYC pallet not available' };
+    }
+
+    const result = await new Promise<CitizenshipResult>((resolve) => {
+      tx.identityKyc
+        .confirmCitizenship()
+        .signAndSend(
+          keypair,
+          { nonce: -1 },
+          ({
+            status,
+            dispatchError,
+          }: {
+            status: {
+              isInBlock: boolean;
+              isFinalized: boolean;
+              asInBlock?: { toString: () => string };
+              asFinalized?: { toString: () => string };
+            };
+            dispatchError?: { isModule: boolean; asModule: unknown; toString: () => string };
+          }) => {
+            if (status.isInBlock || status.isFinalized) {
+              if (dispatchError) {
+                let errorMessage = 'Citizenship confirmation failed';
+                if (dispatchError.isModule) {
+                  const decoded = api.registry.findMetaError(
+                    dispatchError.asModule as Parameters<typeof api.registry.findMetaError>[0]
+                  );
+                  errorMessage = `${decoded.section}.${decoded.name}`;
+                }
+                resolve({ success: false, error: errorMessage });
+                return;
+              }
+              const blockHash = status.asFinalized?.toString() || status.asInBlock?.toString();
+              resolve({ success: true, blockHash });
+            }
+          }
+        )
+        .catch((error: Error) => resolve({ success: false, error: error.message }));
+    });
+
+    return result;
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}

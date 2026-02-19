@@ -125,6 +125,15 @@ const fa: Translations = {
     stakingZeroWarning: 'اگر سهام‌گذاری ۰ باشد، امتیاز اعتماد نیز ۰ است. ابتدا سهام‌گذاری کنید!',
     refreshScores: 'بازنشانی امتیازها',
     points: 'امتیاز',
+    citizenshipStatus: 'وضعیت شهروندی',
+    pendingApproval: 'در انتظار تایید',
+    approved: 'تایید شده',
+    waitingReferrer: 'در انتظار تایید معرف...',
+    confirmCitizenship: 'تایید شهروندی',
+    confirmingCitizenship: 'در حال تایید شهروندی...',
+    signingBlockchain: 'در حال امضا روی بلاکچین',
+    citizenshipConfirmed: 'تبریک! شما اکنون شهروند هستید!',
+    citizenshipFailed: 'تایید ناموفق بود',
   },
 
   wallet: {

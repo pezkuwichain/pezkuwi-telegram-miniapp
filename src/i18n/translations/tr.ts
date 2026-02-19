@@ -125,6 +125,15 @@ const tr: Translations = {
     stakingZeroWarning: 'Staking 0 ise Güven puanı da 0 olur. Önce stake yapın!',
     refreshScores: 'Puanları Yenile',
     points: 'puan',
+    citizenshipStatus: 'Vatanda\u015fl\u0131k Durumu',
+    pendingApproval: 'Onay Bekliyor',
+    approved: 'Onaylandı',
+    waitingReferrer: 'Referrer onay\u0131 bekleniyor...',
+    confirmCitizenship: 'Vatanda\u015fl\u0131\u011f\u0131 Onayla',
+    confirmingCitizenship: 'Vatanda\u015fl\u0131k onaylan\u0131yor...',
+    signingBlockchain: "Blockchain'de imzalan\u0131yor",
+    citizenshipConfirmed: 'Tebrikler! Art\u0131k vatanda\u015fs\u0131n\u0131z!',
+    citizenshipFailed: 'Onay ba\u015far\u0131s\u0131z oldu',
   },
 
   wallet: {

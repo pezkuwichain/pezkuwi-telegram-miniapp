@@ -44,6 +44,12 @@ import {
   formatRewardDate,
   type StakingRewardsResult,
 } from '@/lib/subquery';
+import {
+  getCitizenshipStatus,
+  confirmCitizenship,
+  type CitizenshipStatus,
+} from '@/lib/citizenship';
+import { KurdistanSun } from '@/components/KurdistanSun';
 
 // Activity tracking constants
 const ACTIVITY_STORAGE_KEY = 'pezkuwi_last_active';
@@ -53,7 +59,7 @@ export function RewardsSection() {
   const { hapticImpact, hapticNotification, shareUrl, showAlert } = useTelegram();
   const { user: authUser } = useAuth();
   const { stats, myReferrals, loading, refreshStats } = useReferral();
-  const { isConnected, address, peopleApi } = useWallet();
+  const { isConnected, address, peopleApi, keypair } = useWallet();
   const { t } = useTranslation();
 
   const [copied, setCopied] = useState(false);
@@ -64,6 +70,8 @@ export function RewardsSection() {
   const [stakingStatus, setStakingStatus] = useState<StakingScoreStatus | null>(null);
   const [stakingRewards, setStakingRewards] = useState<StakingRewardsResult | null>(null);
   const [scoresLoading, setScoresLoading] = useState(false);
+  const [citizenshipStatus, setCitizenshipStatus] = useState<CitizenshipStatus>('NotStarted');
+  const [showConfirmAnimation, setShowConfirmAnimation] = useState(false);
 
   // Check activity status
   const checkActivityStatus = useCallback(() => {
@@ -131,6 +139,34 @@ export function RewardsSection() {
       fetchUserScores();
     }
   }, [activeTab, address, fetchUserScores]);
+
+  // Fetch citizenship status
+  useEffect(() => {
+    if (!peopleApi || !address) return;
+    getCitizenshipStatus(peopleApi, address).then(setCitizenshipStatus);
+  }, [peopleApi, address]);
+
+  const handleConfirmCitizenship = async () => {
+    if (!peopleApi || !keypair) return;
+    setShowConfirmAnimation(true);
+    hapticImpact('medium');
+    try {
+      const result = await confirmCitizenship(peopleApi, keypair);
+      if (result.success) {
+        hapticNotification('success');
+        setCitizenshipStatus('Approved');
+        showAlert(t('rewards.citizenshipConfirmed'));
+      } else {
+        hapticNotification('error');
+        showAlert(result.error || t('rewards.citizenshipFailed'));
+      }
+    } catch (err) {
+      hapticNotification('error');
+      showAlert(err instanceof Error ? err.message : t('rewards.citizenshipFailed'));
+    } finally {
+      setShowConfirmAnimation(false);
+    }
+  };
 
   const handleActivate = () => {
     hapticNotification('success');
@@ -329,6 +365,69 @@ export function RewardsSection() {
                         </div>
                       </div>
                     </div>
+                  </div>
+                )}
+
+                {/* Citizenship Status Card */}
+                {(citizenshipStatus === 'PendingReferral' ||
+                  citizenshipStatus === 'ReferrerApproved') && (
+                  <div className="bg-secondary/30 rounded-xl p-4 border border-border/50">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Shield className="w-5 h-5 text-emerald-400" />
+                      <h3 className="font-medium text-foreground">
+                        {t('rewards.citizenshipStatus')}
+                      </h3>
+                    </div>
+                    <div className="flex items-center gap-3 mb-3">
+                      <div
+                        className={cn(
+                          'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium',
+                          citizenshipStatus === 'PendingReferral'
+                            ? 'bg-green-500/20 text-green-400'
+                            : 'bg-secondary text-muted-foreground'
+                        )}
+                      >
+                        <div
+                          className={cn(
+                            'w-2 h-2 rounded-full',
+                            citizenshipStatus === 'PendingReferral'
+                              ? 'bg-green-400'
+                              : 'bg-muted-foreground'
+                          )}
+                        />
+                        {t('rewards.pendingApproval')}
+                      </div>
+                      <div
+                        className={cn(
+                          'flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium',
+                          citizenshipStatus === 'ReferrerApproved'
+                            ? 'bg-green-500/20 text-green-400'
+                            : 'bg-secondary text-muted-foreground'
+                        )}
+                      >
+                        {citizenshipStatus === 'ReferrerApproved' ? (
+                          <Check className="w-3 h-3" />
+                        ) : (
+                          <div className="w-2 h-2 rounded-full bg-muted-foreground" />
+                        )}
+                        {t('rewards.approved')}
+                      </div>
+                    </div>
+                    {citizenshipStatus === 'PendingReferral' && (
+                      <p className="text-sm text-muted-foreground">
+                        {t('rewards.waitingReferrer')}
+                      </p>
+                    )}
+                    {citizenshipStatus === 'ReferrerApproved' && (
+                      <button
+                        onClick={handleConfirmCitizenship}
+                        disabled={!keypair}
+                        className="w-full py-3 rounded-lg font-medium flex items-center justify-center gap-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:opacity-90 transition-all"
+                      >
+                        <Check className="w-5 h-5" />
+                        {t('rewards.confirmCitizenship')}
+                      </button>
+                    )}
                   </div>
                 )}
 
@@ -748,6 +847,15 @@ export function RewardsSection() {
           </div>
         )}
       </div>
+
+      {/* Confirm Citizenship Overlay */}
+      {showConfirmAnimation && (
+        <div className="fixed inset-0 z-50 bg-black/90 flex flex-col items-center justify-center">
+          <KurdistanSun size={120} />
+          <p className="text-white mt-6 text-lg">{t('rewards.confirmingCitizenship')}</p>
+          <p className="text-white/60 text-sm mt-2">{t('rewards.signingBlockchain')}</p>
+        </div>
+      )}
     </div>
   );
 }

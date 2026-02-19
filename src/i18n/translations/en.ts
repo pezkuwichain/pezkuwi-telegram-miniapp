@@ -125,6 +125,15 @@ const en: Translations = {
     stakingZeroWarning: 'If Staking is 0, Trust score is also 0. Stake first!',
     refreshScores: 'Refresh Scores',
     points: 'points',
+    citizenshipStatus: 'Citizenship Status',
+    pendingApproval: 'Pending',
+    approved: 'Approved',
+    waitingReferrer: 'Waiting for referrer approval...',
+    confirmCitizenship: 'Confirm Citizenship',
+    confirmingCitizenship: 'Confirming citizenship...',
+    signingBlockchain: 'Signing on blockchain',
+    citizenshipConfirmed: 'Congratulations! You are now a citizen!',
+    citizenshipFailed: 'Confirmation failed',
   },
 
   wallet: {

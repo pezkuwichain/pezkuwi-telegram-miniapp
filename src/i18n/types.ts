@@ -127,6 +127,15 @@ export interface Translations {
     stakingZeroWarning: string;
     refreshScores: string;
     points: string;
+    citizenshipStatus: string;
+    pendingApproval: string;
+    approved: string;
+    waitingReferrer: string;
+    confirmCitizenship: string;
+    confirmingCitizenship: string;
+    signingBlockchain: string;
+    citizenshipConfirmed: string;
+    citizenshipFailed: string;
   };
 
   // Wallet section

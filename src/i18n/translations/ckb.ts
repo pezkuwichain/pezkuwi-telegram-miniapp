@@ -126,6 +126,15 @@ const ckb: Translations = {
     stakingZeroWarning: 'ئەگەر ستەیکینگ ٠ بێت، خاڵی متمانەش ٠ دەبێت. سەرەتا ستەیک بکە!',
     refreshScores: 'نوێکردنەوەی خاڵەکان',
     points: 'خاڵ',
+    citizenshipStatus: 'بارودۆخی هاوڵاتیبوون',
+    pendingApproval: 'چاوەڕوانی پەسەندکردن',
+    approved: 'پەسەندکراو',
+    waitingReferrer: 'چاوەڕوانی پەسەندکردنی ناساندنکەر...',
+    confirmCitizenship: 'هاوڵاتیبوون پشتڕاست بکەرەوە',
+    confirmingCitizenship: 'هاوڵاتیبوون پشتڕاست دەکرێتەوە...',
+    signingBlockchain: 'لەسەر بلۆکچەین واژوو دەکرێت',
+    citizenshipConfirmed: 'پیرۆزبێت! تۆ ئێستا هاوڵاتیت!',
+    citizenshipFailed: 'پشتڕاستکردنەوە سەرنەکەوت',
   },
 
   wallet: {
