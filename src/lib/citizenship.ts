@@ -106,10 +106,7 @@ export async function getCitizenshipStatus(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const status = await (api.query as any).identityKyc.kycStatuses(address);
 
-    if (status.isEmpty) {
-      return 'NotStarted';
-    }
-
+    // Check toString() first - isEmpty is unreliable for enum types
     const statusStr = status.toString();
     if (statusStr === 'Approved') return 'Approved';
     if (statusStr === 'PendingReferral') return 'PendingReferral';
