@@ -144,6 +144,9 @@ const fa: Translations = {
     recordingTrustScore: 'در حال ثبت امتیاز اعتماد...',
     trustScoreRecorded: 'امتیاز اعتماد ثبت شد!',
     trustScoreRecordFailed: 'ثبت امتیاز ناموفق بود',
+    citizenCountTitle: 'کوردها در جهان',
+    citizenCountDesc: 'شهروندان ثبت‌شده در PezkuwiChain',
+    beCitizen: 'شهروند شوید',
   },
 
   wallet: {

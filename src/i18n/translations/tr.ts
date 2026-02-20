@@ -144,6 +144,9 @@ const tr: Translations = {
     recordingTrustScore: 'Güven puanı kaydediliyor...',
     trustScoreRecorded: 'Güven puanı kaydedildi!',
     trustScoreRecordFailed: 'Puan kaydedilemedi',
+    citizenCountTitle: 'Dünyadaki Kürt Sayısı',
+    citizenCountDesc: "PezkuwiChain'de kayıtlı vatandaşlar",
+    beCitizen: 'Vatandaş Ol',
   },
 
   wallet: {

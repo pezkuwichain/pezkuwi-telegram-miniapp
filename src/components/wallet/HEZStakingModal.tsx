@@ -1,6 +1,7 @@
 /**
  * HEZ Staking Modal for Telegram Mini App
- * Allows users to stake HEZ on Relay Chain for Trust Score
+ * Allows users to stake HEZ on Asset Hub for Trust Score
+ * (Staking moved from Relay Chain to Asset Hub)
  */
 
 import { useState, useEffect, useCallback } from 'react';
@@ -34,7 +35,7 @@ interface HEZStakingModalProps {
 const UNITS = 1_000_000_000_000; // 10^12
 
 export function HEZStakingModal({ isOpen, onClose }: HEZStakingModalProps) {
-  const { api, keypair, address, balance } = useWallet();
+  const { assetHubApi, keypair, address } = useWallet();
   const { hapticImpact, hapticNotification, showAlert } = useTelegram();
   const { t } = useTranslation();
 
@@ -47,19 +48,31 @@ export function HEZStakingModal({ isOpen, onClose }: HEZStakingModalProps) {
   const [bondAmount, setBondAmount] = useState('');
   const [unbondAmount, setUnbondAmount] = useState('');
   const [selectedValidators, setSelectedValidators] = useState<string[]>([]);
+  const [ahBalance, setAhBalance] = useState<string | null>(null);
 
-  // Fetch staking info
+  // Fetch staking info from Asset Hub
   const fetchStakingInfo = useCallback(async () => {
-    if (!api || !address) return;
+    if (!assetHubApi || !address) return;
 
     setIsLoading(true);
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const stakingPallet = api.query.staking as any;
+      const stakingPallet = assetHubApi.query.staking as any;
       if (!stakingPallet) {
         setError(t('staking.palletNotFound'));
         setIsLoading(false);
         return;
+      }
+
+      // Fetch AH native HEZ balance
+      try {
+        const accountInfo = await assetHubApi.query.system.account(address);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const free = (accountInfo as any).data.free.toString();
+        const balanceNum = Number(free) / UNITS;
+        setAhBalance(balanceNum.toFixed(4));
+      } catch {
+        setAhBalance(null);
       }
 
       // Check if user has bonded
@@ -93,7 +106,7 @@ export function HEZStakingModal({ isOpen, onClose }: HEZStakingModalProps) {
         setStakingInfo(null);
       }
 
-      // Fetch validators
+      // Fetch validators from AH staking pallet
       const validatorEntries = await stakingPallet.validators.entries();
       const validatorList: ValidatorInfo[] = validatorEntries
         .slice(0, 20) // Limit to 20 validators
@@ -120,13 +133,13 @@ export function HEZStakingModal({ isOpen, onClose }: HEZStakingModalProps) {
     } finally {
       setIsLoading(false);
     }
-  }, [api, address]);
+  }, [assetHubApi, address]);
 
   useEffect(() => {
-    if (isOpen && api && address) {
+    if (isOpen && assetHubApi && address) {
       fetchStakingInfo();
     }
-  }, [isOpen, api, address, fetchStakingInfo]);
+  }, [isOpen, assetHubApi, address, fetchStakingInfo]);
 
   const formatHEZ = (amount: bigint): string => {
     const hez = Number(amount) / UNITS;
@@ -134,7 +147,7 @@ export function HEZStakingModal({ isOpen, onClose }: HEZStakingModalProps) {
   };
 
   const handleBond = async () => {
-    if (!api || !keypair || !bondAmount) return;
+    if (!assetHubApi || !keypair || !bondAmount) return;
 
     setIsProcessing(true);
     setError(null);
@@ -143,7 +156,7 @@ export function HEZStakingModal({ isOpen, onClose }: HEZStakingModalProps) {
       const amountBN = BigInt(Math.floor(parseFloat(bondAmount) * UNITS));
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const stakingPallet = api.tx.staking as any;
+      const stakingPallet = assetHubApi.tx.staking as any;
 
       let tx;
       if (stakingInfo) {
@@ -169,7 +182,7 @@ export function HEZStakingModal({ isOpen, onClose }: HEZStakingModalProps) {
               if (dispatchError) {
                 let errorMsg = t('staking.bondFailed');
                 if (dispatchError.isModule) {
-                  const decoded = api.registry.findMetaError(dispatchError.asModule);
+                  const decoded = assetHubApi.registry.findMetaError(dispatchError.asModule);
                   errorMsg = `${decoded.section}.${decoded.name}`;
                 }
                 reject(new Error(errorMsg));
@@ -196,14 +209,14 @@ export function HEZStakingModal({ isOpen, onClose }: HEZStakingModalProps) {
   };
 
   const handleNominate = async () => {
-    if (!api || !keypair || selectedValidators.length === 0) return;
+    if (!assetHubApi || !keypair || selectedValidators.length === 0) return;
 
     setIsProcessing(true);
     setError(null);
 
     try {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const tx = (api.tx.staking as any).nominate(selectedValidators);
+      const tx = (assetHubApi.tx.staking as any).nominate(selectedValidators);
 
       await new Promise<void>((resolve, reject) => {
         tx.signAndSend(
@@ -220,7 +233,7 @@ export function HEZStakingModal({ isOpen, onClose }: HEZStakingModalProps) {
               if (dispatchError) {
                 let errorMsg = t('staking.nominateFailed');
                 if (dispatchError.isModule) {
-                  const decoded = api.registry.findMetaError(dispatchError.asModule);
+                  const decoded = assetHubApi.registry.findMetaError(dispatchError.asModule);
                   errorMsg = `${decoded.section}.${decoded.name}`;
                 }
                 reject(new Error(errorMsg));
@@ -246,7 +259,7 @@ export function HEZStakingModal({ isOpen, onClose }: HEZStakingModalProps) {
   };
 
   const handleUnbond = async () => {
-    if (!api || !keypair || !unbondAmount) return;
+    if (!assetHubApi || !keypair || !unbondAmount) return;
 
     setIsProcessing(true);
     setError(null);
@@ -255,7 +268,7 @@ export function HEZStakingModal({ isOpen, onClose }: HEZStakingModalProps) {
       const amountBN = BigInt(Math.floor(parseFloat(unbondAmount) * UNITS));
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const tx = (api.tx.staking as any).unbond(amountBN.toString());
+      const tx = (assetHubApi.tx.staking as any).unbond(amountBN.toString());
 
       await new Promise<void>((resolve, reject) => {
         tx.signAndSend(
@@ -272,7 +285,7 @@ export function HEZStakingModal({ isOpen, onClose }: HEZStakingModalProps) {
               if (dispatchError) {
                 let errorMsg = t('staking.unbondFailed');
                 if (dispatchError.isModule) {
-                  const decoded = api.registry.findMetaError(dispatchError.asModule);
+                  const decoded = assetHubApi.registry.findMetaError(dispatchError.asModule);
                   errorMsg = `${decoded.section}.${decoded.name}`;
                 }
                 reject(new Error(errorMsg));
@@ -448,7 +461,7 @@ export function HEZStakingModal({ isOpen, onClose }: HEZStakingModalProps) {
                   <div className="bg-secondary/50 rounded-xl p-4">
                     <div className="flex justify-between text-sm mb-2">
                       <span className="text-muted-foreground">{t('staking.yourBalance')}</span>
-                      <span>{balance || '0'} HEZ</span>
+                      <span>{ahBalance || '0'} HEZ</span>
                     </div>
                     {stakingInfo && (
                       <div className="flex justify-between text-sm">
@@ -473,7 +486,7 @@ export function HEZStakingModal({ isOpen, onClose }: HEZStakingModalProps) {
                         className="w-full bg-secondary border border-border rounded-xl p-4 pr-20 text-lg"
                       />
                       <button
-                        onClick={() => setBondAmount(balance || '0')}
+                        onClick={() => setBondAmount(ahBalance || '0')}
                         className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-primary"
                       >
                         MAX

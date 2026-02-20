@@ -149,6 +149,9 @@ const krd: Translations = {
     recordingTrustScore: 'Pûan tê tomarkirin...',
     trustScoreRecorded: 'Pûana pêbaweriyê hat tomarkirin!',
     trustScoreRecordFailed: 'Tomarkirina pûanê biserneket',
+    citizenCountTitle: 'Hejmara Kurd Le Cîhanê',
+    citizenCountDesc: 'Welatiyên ku li ser PezkuwiChain qeyd bûne',
+    beCitizen: 'Bibe Welatî',
   },
 
   wallet: {

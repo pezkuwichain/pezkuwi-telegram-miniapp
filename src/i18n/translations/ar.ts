@@ -144,6 +144,9 @@ const ar: Translations = {
     recordingTrustScore: 'جاري تسجيل نقاط الثقة...',
     trustScoreRecorded: 'تم تسجيل نقاط الثقة!',
     trustScoreRecordFailed: 'فشل تسجيل النقاط',
+    citizenCountTitle: 'الأكراد في العالم',
+    citizenCountDesc: 'المواطنون المسجلون على PezkuwiChain',
+    beCitizen: 'كن مواطناً',
   },
 
   wallet: {

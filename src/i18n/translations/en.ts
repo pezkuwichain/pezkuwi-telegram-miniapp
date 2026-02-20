@@ -144,6 +144,9 @@ const en: Translations = {
     recordingTrustScore: 'Recording trust score...',
     trustScoreRecorded: 'Trust score recorded!',
     trustScoreRecordFailed: 'Failed to record score',
+    citizenCountTitle: 'Kurds in the World',
+    citizenCountDesc: 'Citizens registered on PezkuwiChain',
+    beCitizen: 'Be Citizen',
   },
 
   wallet: {

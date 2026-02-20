@@ -146,6 +146,9 @@ export interface Translations {
     recordingTrustScore: string;
     trustScoreRecorded: string;
     trustScoreRecordFailed: string;
+    citizenCountTitle: string;
+    citizenCountDesc: string;
+    beCitizen: string;
   };
 
   // Wallet section

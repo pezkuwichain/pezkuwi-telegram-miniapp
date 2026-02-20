@@ -23,6 +23,7 @@ import {
   GraduationCap,
   Play,
   PenTool,
+  Globe2,
 } from 'lucide-react';
 import { cn, formatAddress } from '@/lib/utils';
 import { useTelegram } from '@/hooks/useTelegram';
@@ -50,6 +51,7 @@ import {
 } from '@/lib/subquery';
 import {
   getCitizenshipStatus,
+  getCitizenCount,
   confirmCitizenship,
   type CitizenshipStatus,
 } from '@/lib/citizenship';
@@ -75,6 +77,7 @@ export function RewardsSection() {
   const [stakingRewards, setStakingRewards] = useState<StakingRewardsResult | null>(null);
   const [scoresLoading, setScoresLoading] = useState(false);
   const [citizenshipStatus, setCitizenshipStatus] = useState<CitizenshipStatus>('NotStarted');
+  const [citizenCount, setCitizenCount] = useState<number | null>(null);
   const [showConfirmAnimation, setShowConfirmAnimation] = useState(false);
   const [showTrackingAnimation, setShowTrackingAnimation] = useState(false);
   const [trackingAnimationText, setTrackingAnimationText] = useState('');
@@ -146,10 +149,13 @@ export function RewardsSection() {
     }
   }, [activeTab, address, fetchUserScores]);
 
-  // Fetch citizenship status
+  // Fetch citizenship status and citizen count
   useEffect(() => {
-    if (!peopleApi || !address) return;
-    getCitizenshipStatus(peopleApi, address).then(setCitizenshipStatus);
+    if (!peopleApi) return;
+    if (address) {
+      getCitizenshipStatus(peopleApi, address).then(setCitizenshipStatus);
+    }
+    getCitizenCount(peopleApi).then(setCitizenCount);
   }, [peopleApi, address]);
 
   const handleConfirmCitizenship = async () => {
@@ -335,6 +341,36 @@ export function RewardsSection() {
               </div>
             ) : (
               <>
+                {/* Citizen Count Card */}
+                <div className="bg-gradient-to-br from-emerald-600 to-teal-700 rounded-2xl p-4 text-white">
+                  <div className="flex items-center justify-between mb-3">
+                    <div>
+                      <p className="text-emerald-100 text-sm font-medium">
+                        {t('rewards.citizenCountTitle')}
+                      </p>
+                      <p className="text-4xl font-bold mt-1">
+                        {citizenCount !== null ? citizenCount.toLocaleString() : '...'}
+                      </p>
+                    </div>
+                    <div className="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center">
+                      <KurdistanSun size={40} />
+                    </div>
+                  </div>
+                  <p className="text-emerald-200/80 text-xs mb-3">
+                    {t('rewards.citizenCountDesc')}
+                  </p>
+                  <button
+                    onClick={() => {
+                      hapticImpact('medium');
+                      window.location.href = `${window.location.origin}/citizens${window.location.hash}`;
+                    }}
+                    className="w-full py-2.5 bg-white/20 hover:bg-white/30 rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition-colors"
+                  >
+                    <Globe2 className="w-4 h-4" />
+                    {t('rewards.beCitizen')}
+                  </button>
+                </div>
+
                 {/* Score Card */}
                 <div className="bg-gradient-to-br from-purple-600 to-pink-600 rounded-2xl p-4 text-white">
                   <div className="flex items-center justify-between mb-4">

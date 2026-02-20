@@ -91,6 +91,27 @@ export async function uploadToIPFS(_data: CitizenshipData): Promise<string> {
   return mockCID;
 }
 
+// ── Citizen Count ───────────────────────────────────────────────────
+
+/**
+ * Get total number of citizens by counting citizenNft entries on People Chain.
+ * Citizen NFTs are in collection 42.
+ */
+export async function getCitizenCount(api: ApiPromise): Promise<number> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (!(api?.query as any)?.tiki?.citizenNft) {
+      return 0;
+    }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const entries = await (api.query as any).tiki.citizenNft.entries();
+    return entries.length;
+  } catch (error) {
+    console.error('[Citizenship] Error fetching citizen count:', error);
+    return 0;
+  }
+}
+
 // ── Citizenship Status ──────────────────────────────────────────────
 
 export async function getCitizenshipStatus(

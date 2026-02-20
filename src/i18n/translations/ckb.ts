@@ -145,6 +145,9 @@ const ckb: Translations = {
     recordingTrustScore: 'خاڵ تۆمار دەکرێت...',
     trustScoreRecorded: 'خاڵی متمانە تۆمار کرا!',
     trustScoreRecordFailed: 'تۆمارکردنی خاڵ سەرنەکەوت',
+    citizenCountTitle: 'ژمارەی کورد لە جیهان',
+    citizenCountDesc: 'هاوڵاتییانی تۆمارکراو لە PezkuwiChain',
+    beCitizen: 'ببە هاوڵاتی',
   },
 
   wallet: {
