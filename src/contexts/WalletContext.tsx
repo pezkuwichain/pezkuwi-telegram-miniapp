@@ -148,41 +148,112 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // Subscribe to balance changes when connected
+  // Subscribe to total HEZ balance (RC free + AH free + AH staked)
+  const rcFreeRef = React.useRef(0n);
+  const ahFreeRef = React.useRef(0n);
+  const ahStakedRef = React.useRef(0n);
+
+  const updateTotalBalance = useCallback(() => {
+    const total = rcFreeRef.current + ahFreeRef.current + ahStakedRef.current;
+    const balanceNum = Number(total) / 1e12;
+    setBalance(balanceNum.toFixed(4));
+  }, []);
+
+  // RC free balance subscription
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
 
     if (!api || !address || !isConnected) {
-      setBalance(null);
+      rcFreeRef.current = 0n;
       return;
     }
 
-    const subscribeToBalance = async () => {
+    const subscribe = async () => {
       try {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const unsub = await (api.query.system.account as any)(
           address,
-          (accountInfo: { data: { free: { toString: () => string } } }) => {
-            const free = accountInfo.data.free.toString();
-            // Convert from smallest unit (12 decimals)
-            const balanceNum = Number(free) / 1e12;
-            setBalance(balanceNum.toFixed(4));
+          (accountInfo: {
+            data: { free: { toBigInt?: () => bigint; toString: () => string } };
+          }) => {
+            rcFreeRef.current = accountInfo.data.free.toBigInt
+              ? accountInfo.data.free.toBigInt()
+              : BigInt(accountInfo.data.free.toString());
+            updateTotalBalance();
           }
         );
         unsubscribe = unsub;
       } catch (err) {
-        console.error('Balance subscription error:', err);
+        console.error('RC balance subscription error:', err);
       }
     };
 
-    subscribeToBalance();
+    subscribe();
 
     return () => {
-      if (unsubscribe) {
-        unsubscribe();
+      if (unsubscribe) unsubscribe();
+    };
+  }, [api, address, isConnected, updateTotalBalance]);
+
+  // AH free balance + staked balance
+  useEffect(() => {
+    let unsubAccount: (() => void) | undefined;
+    let unsubLedger: (() => void) | undefined;
+
+    if (!assetHubApi || !address) {
+      ahFreeRef.current = 0n;
+      ahStakedRef.current = 0n;
+      return;
+    }
+
+    const subscribe = async () => {
+      try {
+        // AH free balance
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        unsubAccount = await (assetHubApi.query.system.account as any)(
+          address,
+          (accountInfo: {
+            data: { free: { toBigInt?: () => bigint; toString: () => string } };
+          }) => {
+            ahFreeRef.current = accountInfo.data.free.toBigInt
+              ? accountInfo.data.free.toBigInt()
+              : BigInt(accountInfo.data.free.toString());
+            updateTotalBalance();
+          }
+        );
+
+        // AH staked balance
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        if ((assetHubApi.query as any).staking?.ledger) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          unsubLedger = await (assetHubApi.query.staking as any).ledger(
+            address,
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            (result: any) => {
+              if (result.isSome) {
+                const ledger = result.unwrap();
+                ahStakedRef.current = ledger.active.toBigInt
+                  ? ledger.active.toBigInt()
+                  : BigInt(ledger.active.toString());
+              } else {
+                ahStakedRef.current = 0n;
+              }
+              updateTotalBalance();
+            }
+          );
+        }
+      } catch (err) {
+        console.error('AH balance subscription error:', err);
       }
     };
-  }, [api, address, isConnected]);
+
+    subscribe();
+
+    return () => {
+      if (unsubAccount) unsubAccount();
+      if (unsubLedger) unsubLedger();
+    };
+  }, [assetHubApi, address, updateTotalBalance]);
 
   // Generate new wallet (does NOT save - just creates mnemonic)
   const generateNewWallet = useCallback((): { mnemonic: string; address: string } => {
@@ -272,6 +343,9 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     setKeypair(null);
     setIsConnected(false);
     setBalance(null);
+    rcFreeRef.current = 0n;
+    ahFreeRef.current = 0n;
+    ahStakedRef.current = 0n;
   }, []);
 
   // Delete wallet
@@ -281,6 +355,9 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     setKeypair(null);
     setIsConnected(false);
     setBalance(null);
+    rcFreeRef.current = 0n;
+    ahFreeRef.current = 0n;
+    ahStakedRef.current = 0n;
   }, []);
 
   return (
