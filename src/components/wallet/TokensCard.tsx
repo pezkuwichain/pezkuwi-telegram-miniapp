@@ -188,7 +188,7 @@ interface Props {
 }
 
 export function TokensCard({ onSendToken }: Props) {
-  const { address, balance: hezBalance } = useWallet();
+  const { address, rcBalance: hezBalance } = useWallet();
   const { hapticImpact } = useTelegram();
   const { t } = useTranslation();
   const [rpcConnected, setRpcConnected] = useState(false);

@@ -351,6 +351,7 @@ export interface Translations {
     lpStakeDesc: string;
     pezRewardPlus: string;
     goBack: string;
+    stakedNote: string;
   };
 
   // Send Tab

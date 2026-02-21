@@ -346,6 +346,7 @@ const fa: Translations = {
     lpStakeDesc: 'استیک کردن LP token',
     pezRewardPlus: 'پاداش PEZ +',
     goBack: 'بازگشت',
+    stakedNote: 'استیک شده: {{amount}} HEZ',
   },
 
   // Send

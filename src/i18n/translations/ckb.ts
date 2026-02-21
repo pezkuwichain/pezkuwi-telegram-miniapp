@@ -347,6 +347,7 @@ const ckb: Translations = {
     lpStakeDesc: 'LP token stake بکە',
     pezRewardPlus: 'PEZ پاداشت +',
     goBack: 'گەڕانەوە',
+    stakedNote: 'ستەیک کراو: {{amount}} HEZ',
   },
 
   // Send

@@ -39,6 +39,8 @@ interface WalletContextType {
   isLoading: boolean;
   address: string | null;
   balance: string | null;
+  rcBalance: string | null;
+  stakedBalance: string | null;
   error: string | null;
 
   // Wallet management
@@ -68,6 +70,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [address, setAddress] = useState<string | null>(null);
   const [balance, setBalance] = useState<string | null>(null);
+  const [rcBalance, setRcBalance] = useState<string | null>(null);
+  const [stakedBalance, setStakedBalance] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [api, setApi] = useState<ApiPromise | null>(null);
   const [assetHubApi, setAssetHubApi] = useState<ApiPromise | null>(null);
@@ -165,6 +169,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
 
     if (!api || !address || !isConnected) {
       rcFreeRef.current = 0n;
+      setRcBalance(null);
       return;
     }
 
@@ -179,6 +184,7 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
             rcFreeRef.current = accountInfo.data.free.toBigInt
               ? accountInfo.data.free.toBigInt()
               : BigInt(accountInfo.data.free.toString());
+            setRcBalance((Number(rcFreeRef.current) / 1e12).toFixed(4));
             updateTotalBalance();
           }
         );
@@ -235,8 +241,10 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
                 ahStakedRef.current = ledger.active.toBigInt
                   ? ledger.active.toBigInt()
                   : BigInt(ledger.active.toString());
+                setStakedBalance((Number(ahStakedRef.current) / 1e12).toFixed(4));
               } else {
                 ahStakedRef.current = 0n;
+                setStakedBalance(null);
               }
               updateTotalBalance();
             }
@@ -343,6 +351,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     setKeypair(null);
     setIsConnected(false);
     setBalance(null);
+    setRcBalance(null);
+    setStakedBalance(null);
     rcFreeRef.current = 0n;
     ahFreeRef.current = 0n;
     ahStakedRef.current = 0n;
@@ -355,6 +365,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
     setKeypair(null);
     setIsConnected(false);
     setBalance(null);
+    setRcBalance(null);
+    setStakedBalance(null);
     rcFreeRef.current = 0n;
     ahFreeRef.current = 0n;
     ahStakedRef.current = 0n;
@@ -368,6 +380,8 @@ export function WalletProvider({ children }: { children: React.ReactNode }) {
         isLoading,
         address,
         balance,
+        rcBalance,
+        stakedBalance,
         error,
         hasWallet,
         generateNewWallet,

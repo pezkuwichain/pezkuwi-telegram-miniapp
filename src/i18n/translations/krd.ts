@@ -362,6 +362,7 @@ const krd: Translations = {
     lpStakeDesc: 'LP token stake bike',
     pezRewardPlus: 'PEZ Xelat +',
     goBack: 'Pa\u015fve',
+    stakedNote: 'Staked: {{amount}} HEZ',
   },
 
   // Send

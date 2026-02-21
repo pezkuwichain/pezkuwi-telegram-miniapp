@@ -50,7 +50,7 @@ interface Transaction {
 }
 
 export function WalletDashboard({ onDisconnect }: Props) {
-  const { address, balance, api, assetHubApi, disconnect, isLoading } = useWallet();
+  const { address, balance, stakedBalance, api, assetHubApi, disconnect, isLoading } = useWallet();
   const { hapticImpact, hapticNotification, showAlert } = useTelegram();
   const { t } = useTranslation();
 
@@ -618,6 +618,11 @@ export function WalletDashboard({ onDisconnect }: Props) {
             {isLoading ? '...' : (balance ?? '0')}
             <span className="text-lg text-gray-400 ml-2">HEZ</span>
           </div>
+          {stakedBalance && parseFloat(stakedBalance) > 0 && (
+            <p className="text-xs text-gray-400 mt-1">
+              {t('dashboard.stakedNote', { amount: parseFloat(stakedBalance).toLocaleString() })}
+            </p>
+          )}
         </div>
 
         {/* PEZ Balance Card */}
@@ -952,7 +957,7 @@ const SEND_TOKENS: TokenOption[] = [
 
 // Send Tab
 function SendTab({ onBack }: { onBack: () => void }) {
-  const { balance, api, assetHubApi, keypair } = useWallet();
+  const { rcBalance, api, assetHubApi, keypair } = useWallet();
   const { hapticNotification, hapticImpact } = useTelegram();
   const { t } = useTranslation();
 
@@ -1008,7 +1013,7 @@ function SendTab({ onBack }: { onBack: () => void }) {
   }, [assetHubApi, keypair]);
 
   const getCurrentBalance = () => {
-    if (selectedToken === 'HEZ') return balance ?? '0.0000';
+    if (selectedToken === 'HEZ') return rcBalance ?? '0.0000';
     if (selectedToken === 'PEZ') return pezBalance;
     if (selectedToken === 'USDT') return usdtBalance;
     if (selectedToken === 'DOT') return dotBalance;
@@ -1138,7 +1143,7 @@ function SendTab({ onBack }: { onBack: () => void }) {
           {SEND_TOKENS.map((token) => {
             const tokenBalance =
               token.symbol === 'HEZ'
-                ? (balance ?? '0.0000')
+                ? (rcBalance ?? '0.0000')
                 : token.symbol === 'PEZ'
                   ? pezBalance
                   : token.symbol === 'USDT'

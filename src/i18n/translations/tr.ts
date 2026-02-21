@@ -346,6 +346,7 @@ const tr: Translations = {
     lpStakeDesc: 'LP token stake et',
     pezRewardPlus: 'PEZ Ödül +',
     goBack: 'Geri',
+    stakedNote: 'Stake edilen: {{amount}} HEZ',
   },
 
   // Send

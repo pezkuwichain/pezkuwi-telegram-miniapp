@@ -345,6 +345,7 @@ const ar: Translations = {
     lpStakeDesc: 'رهن LP token',
     pezRewardPlus: 'مكافأة PEZ +',
     goBack: 'رجوع',
+    stakedNote: 'المُرهَن: {{amount}} HEZ',
   },
 
   // Send
