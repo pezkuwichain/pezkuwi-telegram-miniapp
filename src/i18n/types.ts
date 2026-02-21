@@ -149,6 +149,20 @@ export interface Translations {
     citizenCountTitle: string;
     citizenCountDesc: string;
     beCitizen: string;
+    pezRewardsTitle: string;
+    epoch: string;
+    claimPeriod: string;
+    epochClosed: string;
+    epochOpen: string;
+    scoreRecorded: string;
+    claimablePez: string;
+    claim: string;
+    claimAll: string;
+    claimPez: string;
+    claimingReward: string;
+    claimSuccess: string;
+    claimFailed: string;
+    noPezRewards: string;
   };
 
   // Wallet section

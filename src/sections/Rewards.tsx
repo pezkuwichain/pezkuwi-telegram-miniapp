@@ -37,11 +37,14 @@ import {
   getStakingScoreStatus,
   startScoreTracking,
   recordTrustScore,
+  getPezRewards,
+  claimPezReward,
   formatDuration,
   getScoreColor,
   getScoreRating,
   type UserScores,
   type StakingScoreStatus,
+  type PezRewardInfo,
 } from '@/lib/scores';
 import {
   getStakingRewards,
@@ -78,6 +81,8 @@ export function RewardsSection() {
   const [scoresLoading, setScoresLoading] = useState(false);
   const [citizenshipStatus, setCitizenshipStatus] = useState<CitizenshipStatus>('NotStarted');
   const [citizenCount, setCitizenCount] = useState<number | null>(null);
+  const [pezRewards, setPezRewards] = useState<PezRewardInfo | null>(null);
+  const [claimingEpoch, setClaimingEpoch] = useState<number | null>(null);
   const [showConfirmAnimation, setShowConfirmAnimation] = useState(false);
   const [showTrackingAnimation, setShowTrackingAnimation] = useState(false);
   const [trackingAnimationText, setTrackingAnimationText] = useState('');
@@ -122,19 +127,22 @@ export function RewardsSection() {
       setUserScores(null);
       setStakingStatus(null);
       setStakingRewards(null);
+      setPezRewards(null);
       return;
     }
 
     setScoresLoading(true);
     try {
-      const [scores, staking, rewards] = await Promise.all([
+      const [scores, staking, rewards, pezRewardsData] = await Promise.all([
         getAllScores(peopleApi, address),
         peopleApi ? getStakingScoreStatus(peopleApi, address) : Promise.resolve(null),
         getStakingRewards(address),
+        peopleApi ? getPezRewards(peopleApi, address) : Promise.resolve(null),
       ]);
       setUserScores(scores);
       setStakingStatus(staking);
       setStakingRewards(rewards);
+      setPezRewards(pezRewardsData);
     } catch (err) {
       console.error('Error fetching scores:', err);
     } finally {
@@ -223,6 +231,60 @@ export function RewardsSection() {
       showAlert(err instanceof Error ? err.message : t('rewards.trustScoreRecordFailed'));
     } finally {
       setShowTrackingAnimation(false);
+    }
+  };
+
+  const handleClaimReward = async (epochIndex: number) => {
+    if (!peopleApi || !keypair) return;
+    setClaimingEpoch(epochIndex);
+    setTrackingAnimationText(t('rewards.claimingReward'));
+    setShowTrackingAnimation(true);
+    hapticImpact('medium');
+    try {
+      const result = await claimPezReward(peopleApi, keypair, epochIndex);
+      if (result.success) {
+        hapticNotification('success');
+        showAlert(t('rewards.claimSuccess'));
+        fetchUserScores();
+      } else {
+        hapticNotification('error');
+        showAlert(result.error || t('rewards.claimFailed'));
+      }
+    } catch (err) {
+      hapticNotification('error');
+      showAlert(err instanceof Error ? err.message : t('rewards.claimFailed'));
+    } finally {
+      setShowTrackingAnimation(false);
+      setClaimingEpoch(null);
+    }
+  };
+
+  const handleClaimAll = async () => {
+    if (!peopleApi || !keypair || !pezRewards?.claimableRewards.length) return;
+    setTrackingAnimationText(t('rewards.claimingReward'));
+    setShowTrackingAnimation(true);
+    hapticImpact('medium');
+    try {
+      for (const reward of pezRewards.claimableRewards) {
+        setClaimingEpoch(reward.epoch);
+        const result = await claimPezReward(peopleApi, keypair, reward.epoch);
+        if (!result.success) {
+          hapticNotification('error');
+          showAlert(result.error || t('rewards.claimFailed'));
+          setShowTrackingAnimation(false);
+          setClaimingEpoch(null);
+          return;
+        }
+      }
+      hapticNotification('success');
+      showAlert(t('rewards.claimSuccess'));
+      fetchUserScores();
+    } catch (err) {
+      hapticNotification('error');
+      showAlert(err instanceof Error ? err.message : t('rewards.claimFailed'));
+    } finally {
+      setShowTrackingAnimation(false);
+      setClaimingEpoch(null);
     }
   };
 
@@ -876,6 +938,113 @@ export function RewardsSection() {
                     </p>
                   </div>
                 )}
+
+                {/* PEZ Epoch Rewards */}
+                <div className="bg-secondary/30 rounded-xl p-4 border border-border/50">
+                  <h3 className="font-medium text-foreground mb-3 flex items-center gap-2">
+                    <Gift className="w-4 h-4 text-purple-400" />
+                    {t('rewards.pezRewardsTitle')}
+                  </h3>
+
+                  {/* Epoch Info */}
+                  <div className="flex items-center gap-2 mb-3">
+                    <span className="text-xs text-muted-foreground">
+                      {t('rewards.epoch')}: {pezRewards?.currentEpoch ?? '...'}
+                    </span>
+                    <span
+                      className={cn(
+                        'px-2 py-0.5 rounded-full text-xs font-medium',
+                        pezRewards?.epochStatus === 'ClaimPeriod'
+                          ? 'bg-green-500/20 text-green-400'
+                          : pezRewards?.epochStatus === 'Closed'
+                            ? 'bg-red-500/20 text-red-400'
+                            : 'bg-blue-500/20 text-blue-400'
+                      )}
+                    >
+                      {pezRewards?.epochStatus === 'ClaimPeriod'
+                        ? t('rewards.claimPeriod')
+                        : pezRewards?.epochStatus === 'Closed'
+                          ? t('rewards.epochClosed')
+                          : t('rewards.epochOpen')}
+                    </span>
+                    {pezRewards?.hasRecordedThisEpoch && (
+                      <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-500/20 text-green-400">
+                        <Check className="w-3 h-3 inline mr-1" />
+                        {t('rewards.scoreRecorded')}
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Claimable PEZ Rewards */}
+                  <div className="bg-purple-500/10 rounded-lg p-3 mb-3 border border-purple-500/20">
+                    <p className="text-xs text-purple-300 mb-1">{t('rewards.claimablePez')}</p>
+                    <p className="text-2xl font-bold text-purple-400">
+                      {pezRewards && parseFloat(pezRewards.totalClaimable) > 0
+                        ? `${pezRewards.totalClaimable} PEZ`
+                        : '0 PEZ'}
+                    </p>
+                  </div>
+
+                  {/* Claimable Epochs List */}
+                  {pezRewards && pezRewards.claimableRewards.length > 0 ? (
+                    <div className="space-y-2 mb-3">
+                      {pezRewards.claimableRewards.map((reward) => (
+                        <div
+                          key={reward.epoch}
+                          className="flex items-center justify-between py-2 px-3 bg-purple-500/5 rounded-lg border border-purple-500/10"
+                        >
+                          <div>
+                            <p className="text-sm text-foreground">
+                              {t('rewards.epoch')} #{reward.epoch}
+                            </p>
+                            <p className="text-xs text-purple-400 font-medium">
+                              {reward.amount} PEZ
+                            </p>
+                          </div>
+                          <button
+                            onClick={() => handleClaimReward(reward.epoch)}
+                            disabled={!keypair || claimingEpoch !== null}
+                            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-purple-500/20 text-purple-300 hover:bg-purple-500/30 transition-all disabled:opacity-50"
+                          >
+                            {claimingEpoch === reward.epoch ? (
+                              <RefreshCw className="w-3 h-3 animate-spin" />
+                            ) : (
+                              t('rewards.claim')
+                            )}
+                          </button>
+                        </div>
+                      ))}
+
+                      {/* Claim All Button */}
+                      {pezRewards.claimableRewards.length > 1 && (
+                        <button
+                          onClick={handleClaimAll}
+                          disabled={!keypair || claimingEpoch !== null}
+                          className="w-full py-3 rounded-lg font-medium flex items-center justify-center gap-2 bg-gradient-to-r from-purple-500 to-pink-600 text-white hover:opacity-90 transition-all disabled:opacity-50"
+                        >
+                          <Gift className="w-5 h-5" />
+                          {t('rewards.claimAll')} ({pezRewards.totalClaimable} PEZ)
+                        </button>
+                      )}
+                    </div>
+                  ) : (
+                    <p className="text-sm text-muted-foreground text-center py-2">
+                      {t('rewards.noPezRewards')}
+                    </p>
+                  )}
+
+                  {/* Single Claim Button when only 1 reward */}
+                  {pezRewards && pezRewards.claimableRewards.length === 1 && (
+                    <button
+                      onClick={() => handleClaimReward(pezRewards.claimableRewards[0].epoch)}
+                      disabled={!keypair || claimingEpoch !== null}
+                      className="w-full py-3 rounded-lg font-medium flex items-center justify-center gap-2 bg-gradient-to-r from-purple-500 to-pink-600 text-white hover:opacity-90 transition-all disabled:opacity-50"
+                    >
+                      <Gift className="w-5 h-5" />
+                      {t('rewards.claimPez')} ({pezRewards.totalClaimable} PEZ)
+                    </button>
+                  )}
+                </div>
 
                 {/* Staking Rewards from SubQuery */}
                 <div className="bg-secondary/30 rounded-xl p-4 border border-border/50">

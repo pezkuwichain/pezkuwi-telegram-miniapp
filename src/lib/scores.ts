@@ -36,6 +36,18 @@ export interface StakingScoreStatus {
   durationBlocks: number;
 }
 
+export type EpochStatus = 'Open' | 'ClaimPeriod' | 'Closed';
+
+export interface PezRewardInfo {
+  currentEpoch: number;
+  epochStatus: EpochStatus;
+  hasRecordedThisEpoch: boolean;
+  userScoreCurrentEpoch: number;
+  claimableRewards: { epoch: number; amount: string }[];
+  totalClaimable: string;
+  hasPendingClaim: boolean;
+}
+
 // ========================================
 // TRUST SCORE (pezpallet-trust on People Chain)
 // ========================================
@@ -525,6 +537,194 @@ export async function recordTrustScore(
             if (status.isInBlock || status.isFinalized) {
               if (dispatchError) {
                 let errorMessage = 'recordTrustScore failed';
+                if (dispatchError.isModule) {
+                  const decoded = peopleApi.registry.findMetaError(
+                    dispatchError.asModule as Parameters<typeof peopleApi.registry.findMetaError>[0]
+                  );
+                  errorMessage = `${decoded.section}.${decoded.name}`;
+                }
+                resolve({ success: false, error: errorMessage });
+                return;
+              }
+              resolve({ success: true });
+            }
+          }
+        )
+        .catch((error: Error) => resolve({ success: false, error: error.message }));
+    });
+
+    return result;
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
+  }
+}
+
+// ========================================
+// PEZ REWARDS (pezRewards pallet on People Chain)
+// ========================================
+
+function formatBalancePlanck(planck: string): string {
+  const num = BigInt(planck);
+  const whole = num / BigInt(10 ** 12);
+  const frac = num % BigInt(10 ** 12);
+  const fracStr = frac.toString().padStart(12, '0').slice(0, 4);
+  return `${whole}.${fracStr}`;
+}
+
+/**
+ * Get PEZ rewards information for an account
+ * Queries pezRewards pallet on People Chain
+ */
+export async function getPezRewards(
+  peopleApi: ApiPromise,
+  address: string
+): Promise<PezRewardInfo | null> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (!(peopleApi?.query as any)?.pezRewards?.epochInfo) {
+      console.warn('PezRewards pallet not available on People Chain');
+      return null;
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const epochInfoResult = await (peopleApi.query as any).pezRewards.epochInfo();
+    if (!epochInfoResult) return null;
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const epochInfo = epochInfoResult.toJSON() as any;
+    const currentEpoch: number = epochInfo.currentEpoch ?? epochInfo.current_epoch ?? 0;
+
+    // Get current epoch status
+    let epochStatus: EpochStatus = 'Open';
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const statusResult = await (peopleApi.query as any).pezRewards.epochStatus(currentEpoch);
+      const statusStr = statusResult.toString();
+      if (statusStr === 'ClaimPeriod') epochStatus = 'ClaimPeriod';
+      else if (statusStr === 'Closed') epochStatus = 'Closed';
+      else epochStatus = 'Open';
+    } catch {
+      // Default to Open
+    }
+
+    // Check if user has recorded their score this epoch
+    let hasRecordedThisEpoch = false;
+    let userScoreCurrentEpoch = 0;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const userScoreResult = await (peopleApi.query as any).pezRewards.userEpochScores(
+        currentEpoch,
+        address
+      );
+      if (userScoreResult.isSome) {
+        hasRecordedThisEpoch = true;
+        const scoreCodec = userScoreResult.unwrap() as { toString: () => string };
+        userScoreCurrentEpoch = Number(scoreCodec.toString());
+      }
+    } catch {
+      // User hasn't recorded
+    }
+
+    // Check for claimable rewards from completed epochs
+    const claimableRewards: { epoch: number; amount: string }[] = [];
+    let totalClaimable = BigInt(0);
+
+    for (let i = Math.max(0, currentEpoch - 3); i < currentEpoch; i++) {
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const pastStatusResult = await (peopleApi.query as any).pezRewards.epochStatus(i);
+        const pastStatus = pastStatusResult.toString();
+        if (pastStatus !== 'ClaimPeriod') continue;
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const claimedResult = await (peopleApi.query as any).pezRewards.claimedRewards(i, address);
+        if (claimedResult.isSome) continue;
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const userScoreResult = await (peopleApi.query as any).pezRewards.userEpochScores(
+          i,
+          address
+        );
+        if (!userScoreResult.isSome) continue;
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const epochPoolResult = await (peopleApi.query as any).pezRewards.epochRewardPools(i);
+        if (!epochPoolResult.isSome) continue;
+
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const epochPool = (epochPoolResult.unwrap() as any).toJSON();
+        const userScore = BigInt(
+          (userScoreResult.unwrap() as { toString: () => string }).toString()
+        );
+        const rewardPerPoint = BigInt(
+          epochPool.rewardPerTrustPoint || epochPool.reward_per_trust_point || '0'
+        );
+
+        const rewardAmount = userScore * rewardPerPoint;
+        const rewardFormatted = formatBalancePlanck(rewardAmount.toString());
+
+        if (parseFloat(rewardFormatted) > 0) {
+          claimableRewards.push({ epoch: i, amount: rewardFormatted });
+          totalClaimable += rewardAmount;
+        }
+      } catch (err) {
+        console.warn(`Error checking epoch ${i} rewards:`, err);
+      }
+    }
+
+    return {
+      currentEpoch,
+      epochStatus,
+      hasRecordedThisEpoch,
+      userScoreCurrentEpoch,
+      claimableRewards,
+      totalClaimable: formatBalancePlanck(totalClaimable.toString()),
+      hasPendingClaim: claimableRewards.length > 0,
+    };
+  } catch (error) {
+    console.warn('PEZ rewards not available:', error);
+    return null;
+  }
+}
+
+/**
+ * Claim PEZ reward for a specific epoch
+ * Calls pezRewards.claimReward(epochIndex)
+ */
+export async function claimPezReward(
+  peopleApi: ApiPromise,
+  keypair: KeyringPair,
+  epochIndex: number
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const tx = peopleApi.tx as any;
+    if (!tx?.pezRewards?.claimReward) {
+      return { success: false, error: 'pezRewards pallet not available' };
+    }
+
+    const result = await new Promise<{ success: boolean; error?: string }>((resolve) => {
+      tx.pezRewards
+        .claimReward(epochIndex)
+        .signAndSend(
+          keypair,
+          { nonce: -1 },
+          ({
+            status,
+            dispatchError,
+          }: {
+            status: {
+              isInBlock: boolean;
+              isFinalized: boolean;
+            };
+            dispatchError?: { isModule: boolean; asModule: unknown; toString: () => string };
+          }) => {
+            if (status.isInBlock || status.isFinalized) {
+              if (dispatchError) {
+                let errorMessage = 'claimReward failed';
                 if (dispatchError.isModule) {
                   const decoded = peopleApi.registry.findMetaError(
                     dispatchError.asModule as Parameters<typeof peopleApi.registry.findMetaError>[0]
