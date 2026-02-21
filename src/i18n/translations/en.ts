@@ -161,6 +161,15 @@ const en: Translations = {
     claimSuccess: 'Reward claimed successfully!',
     claimFailed: 'Failed to claim reward',
     noPezRewards: 'No claimable PEZ rewards',
+    unclaimedRewards: 'Unclaimed Rewards',
+    claimStakingReward: 'Claim',
+    claimAllStaking: 'Claim All',
+    claimingStakingReward: 'Claiming staking rewards...',
+    stakingClaimSuccess: 'Staking rewards claimed!',
+    stakingClaimFailed: 'Failed to claim staking rewards',
+    noUnclaimedRewards: 'No unclaimed rewards',
+    rewardHistory: 'Reward History',
+    era: 'Era',
   },
 
   wallet: {

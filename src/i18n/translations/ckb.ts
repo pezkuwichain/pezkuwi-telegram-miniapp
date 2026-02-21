@@ -162,6 +162,15 @@ const ckb: Translations = {
     claimSuccess: 'خەڵات بە سەرکەوتوویی داوا کرا!',
     claimFailed: 'داواکردنی خەڵات سەرنەکەوت',
     noPezRewards: 'خەڵاتی PEZ ی داواکراو نییە',
+    unclaimedRewards: 'خەڵاتە داوانەکراوەکان',
+    claimStakingReward: 'داواکردن',
+    claimAllStaking: 'هەموو داوابکە',
+    claimingStakingReward: 'خەڵاتەکانی ستەیکینگ داوادەکرێن...',
+    stakingClaimSuccess: 'خەڵاتەکانی ستەیکینگ داواکران!',
+    stakingClaimFailed: 'داواکردنی خەڵاتەکانی ستەیکینگ سەرکەوتوو نەبوو',
+    noUnclaimedRewards: 'خەڵاتی داوانەکراو نییە',
+    rewardHistory: 'مێژووی خەڵاتەکان',
+    era: 'سەردەم',
   },
 
   wallet: {

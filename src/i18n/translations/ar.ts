@@ -161,6 +161,15 @@ const ar: Translations = {
     claimSuccess: 'تم المطالبة بالمكافأة بنجاح!',
     claimFailed: 'فشلت المطالبة بالمكافأة',
     noPezRewards: 'لا توجد مكافآت PEZ قابلة للمطالبة',
+    unclaimedRewards: 'المكافآت غير المطالب بها',
+    claimStakingReward: 'مطالبة',
+    claimAllStaking: 'مطالبة الكل',
+    claimingStakingReward: 'جارٍ المطالبة بمكافآت الستيكينغ...',
+    stakingClaimSuccess: 'تم المطالبة بمكافآت الستيكينغ!',
+    stakingClaimFailed: 'فشل المطالبة بمكافآت الستيكينغ',
+    noUnclaimedRewards: 'لا توجد مكافآت غير مطالب بها',
+    rewardHistory: 'سجل المكافآت',
+    era: 'حقبة',
   },
 
   wallet: {

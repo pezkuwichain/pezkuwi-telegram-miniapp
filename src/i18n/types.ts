@@ -163,6 +163,15 @@ export interface Translations {
     claimSuccess: string;
     claimFailed: string;
     noPezRewards: string;
+    unclaimedRewards: string;
+    claimStakingReward: string;
+    claimAllStaking: string;
+    claimingStakingReward: string;
+    stakingClaimSuccess: string;
+    stakingClaimFailed: string;
+    noUnclaimedRewards: string;
+    rewardHistory: string;
+    era: string;
   };
 
   // Wallet section

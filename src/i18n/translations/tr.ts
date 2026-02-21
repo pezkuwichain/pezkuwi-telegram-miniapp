@@ -161,6 +161,15 @@ const tr: Translations = {
     claimSuccess: 'Ödül başarıyla talep edildi!',
     claimFailed: 'Ödül talep edilemedi',
     noPezRewards: 'Talep edilebilir PEZ ödülü yok',
+    unclaimedRewards: 'Talep Edilmemiş Ödüller',
+    claimStakingReward: 'Talep Et',
+    claimAllStaking: 'Tümünü Talep Et',
+    claimingStakingReward: 'Staking ödülleri talep ediliyor...',
+    stakingClaimSuccess: 'Staking ödülleri talep edildi!',
+    stakingClaimFailed: 'Staking ödülleri talep edilemedi',
+    noUnclaimedRewards: 'Talep edilmemiş ödül yok',
+    rewardHistory: 'Ödül Geçmişi',
+    era: 'Era',
   },
 
   wallet: {

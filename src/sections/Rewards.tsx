@@ -53,6 +53,12 @@ import {
   type StakingRewardsResult,
 } from '@/lib/subquery';
 import {
+  getUnclaimedRewards,
+  payoutStakingReward,
+  payoutAllRewards,
+  type UnclaimedRewardsResult,
+} from '@/lib/staking-rewards';
+import {
   getCitizenshipStatus,
   getCitizenCount,
   confirmCitizenship,
@@ -68,7 +74,7 @@ export function RewardsSection() {
   const { hapticImpact, hapticNotification, shareUrl, showAlert } = useTelegram();
   const { user: authUser } = useAuth();
   const { stats, myReferrals, loading, refreshStats } = useReferral();
-  const { isConnected, address, peopleApi, keypair } = useWallet();
+  const { isConnected, address, peopleApi, assetHubApi, keypair } = useWallet();
   const { t } = useTranslation();
 
   const [copied, setCopied] = useState(false);
@@ -86,6 +92,9 @@ export function RewardsSection() {
   const [showConfirmAnimation, setShowConfirmAnimation] = useState(false);
   const [showTrackingAnimation, setShowTrackingAnimation] = useState(false);
   const [trackingAnimationText, setTrackingAnimationText] = useState('');
+  const [unclaimedRewards, setUnclaimedRewards] = useState<UnclaimedRewardsResult | null>(null);
+  const [claimingStaking, setClaimingStaking] = useState(false);
+  const [claimingStakingEra, setClaimingStakingEra] = useState<number | null>(null);
 
   // Check activity status
   const checkActivityStatus = useCallback(() => {
@@ -128,27 +137,30 @@ export function RewardsSection() {
       setStakingStatus(null);
       setStakingRewards(null);
       setPezRewards(null);
+      setUnclaimedRewards(null);
       return;
     }
 
     setScoresLoading(true);
     try {
-      const [scores, staking, rewards, pezRewardsData] = await Promise.all([
+      const [scores, staking, rewards, pezRewardsData, unclaimed] = await Promise.all([
         getAllScores(peopleApi, address),
         peopleApi ? getStakingScoreStatus(peopleApi, address) : Promise.resolve(null),
         getStakingRewards(address),
         peopleApi ? getPezRewards(peopleApi, address) : Promise.resolve(null),
+        assetHubApi ? getUnclaimedRewards(assetHubApi, address) : Promise.resolve(null),
       ]);
       setUserScores(scores);
       setStakingStatus(staking);
       setStakingRewards(rewards);
       setPezRewards(pezRewardsData);
+      setUnclaimedRewards(unclaimed);
     } catch (err) {
       console.error('Error fetching scores:', err);
     } finally {
       setScoresLoading(false);
     }
-  }, [peopleApi, address]);
+  }, [peopleApi, assetHubApi, address]);
 
   // Fetch scores when tab changes to scores or on initial load
   useEffect(() => {
@@ -285,6 +297,56 @@ export function RewardsSection() {
     } finally {
       setShowTrackingAnimation(false);
       setClaimingEpoch(null);
+    }
+  };
+
+  const handleClaimStakingReward = async (validator: string, era: number) => {
+    if (!assetHubApi || !keypair) return;
+    setClaimingStakingEra(era);
+    setTrackingAnimationText(t('rewards.claimingStakingReward'));
+    setShowTrackingAnimation(true);
+    hapticImpact('medium');
+    try {
+      const result = await payoutStakingReward(assetHubApi, keypair, validator, era);
+      if (result.success) {
+        hapticNotification('success');
+        showAlert(t('rewards.stakingClaimSuccess'));
+        fetchUserScores();
+      } else {
+        hapticNotification('error');
+        showAlert(result.error || t('rewards.stakingClaimFailed'));
+      }
+    } catch (err) {
+      hapticNotification('error');
+      showAlert(err instanceof Error ? err.message : t('rewards.stakingClaimFailed'));
+    } finally {
+      setShowTrackingAnimation(false);
+      setClaimingStakingEra(null);
+    }
+  };
+
+  const handleClaimAllStaking = async () => {
+    if (!assetHubApi || !keypair || !unclaimedRewards?.unclaimed.length) return;
+    setClaimingStaking(true);
+    setTrackingAnimationText(t('rewards.claimingStakingReward'));
+    setShowTrackingAnimation(true);
+    hapticImpact('medium');
+    try {
+      const result = await payoutAllRewards(assetHubApi, keypair, unclaimedRewards.unclaimed);
+      if (result.success) {
+        hapticNotification('success');
+        showAlert(t('rewards.stakingClaimSuccess'));
+        fetchUserScores();
+      } else {
+        hapticNotification('error');
+        showAlert(result.error || t('rewards.stakingClaimFailed'));
+      }
+    } catch (err) {
+      hapticNotification('error');
+      showAlert(err instanceof Error ? err.message : t('rewards.stakingClaimFailed'));
+    } finally {
+      setShowTrackingAnimation(false);
+      setClaimingStaking(false);
     }
   };
 
@@ -1046,61 +1108,135 @@ export function RewardsSection() {
                   )}
                 </div>
 
-                {/* Staking Rewards from SubQuery */}
+                {/* HEZ Staking Rewards */}
                 <div className="bg-secondary/30 rounded-xl p-4 border border-border/50">
                   <h3 className="font-medium text-foreground mb-3 flex items-center gap-2">
                     <Coins className="w-4 h-4 text-amber-400" />
                     {t('rewards.stakingRewards')}
                   </h3>
 
-                  {/* Total Accumulated */}
+                  {/* Unclaimed Rewards */}
                   <div className="bg-amber-500/10 rounded-lg p-3 mb-3 border border-amber-500/20">
-                    <p className="text-xs text-amber-300 mb-1">{t('rewards.totalRewards')}</p>
+                    <p className="text-xs text-amber-300 mb-1">{t('rewards.unclaimedRewards')}</p>
                     <p className="text-2xl font-bold text-amber-400">
-                      {stakingRewards && stakingRewards.totalAccumulatedHez > 0
-                        ? `${stakingRewards.totalAccumulatedHez.toFixed(4)} HEZ`
+                      {unclaimedRewards && unclaimedRewards.totalUnclaimedRaw > 0n
+                        ? `${unclaimedRewards.totalUnclaimedHez} HEZ`
                         : '0 HEZ'}
                     </p>
                   </div>
 
-                  {/* Recent Rewards List */}
-                  {stakingRewards && stakingRewards.rewards.length > 0 ? (
-                    <div className="space-y-2">
-                      <p className="text-xs text-muted-foreground mb-2">
-                        {t('rewards.recentRewards')}
-                      </p>
-                      {stakingRewards.rewards.map((reward) => (
+                  {/* Unclaimed Era List */}
+                  {unclaimedRewards && unclaimedRewards.unclaimed.length > 0 ? (
+                    <div className="space-y-2 mb-3">
+                      {unclaimedRewards.unclaimed.map((reward) => (
                         <div
-                          key={reward.id}
-                          className="flex items-center justify-between py-2 border-b border-border/30 last:border-0"
+                          key={`${reward.era}-${reward.validator}`}
+                          className="flex items-center justify-between py-2 px-3 bg-amber-500/5 rounded-lg border border-amber-500/10"
                         >
-                          <div className="flex items-center gap-2">
-                            <div
-                              className={cn(
-                                'w-2 h-2 rounded-full',
-                                reward.type === 'REWARD' ? 'bg-green-400' : 'bg-red-400'
-                              )}
-                            />
-                            <div>
-                              <p className="text-sm text-foreground">
-                                {reward.type === 'REWARD' ? '+' : '-'}
-                                {formatRewardAmount(reward.amount)} HEZ
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                Block #{reward.blockNumber}
-                              </p>
-                            </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm text-foreground">
+                              {t('rewards.era')} #{reward.era}
+                            </p>
+                            <p className="text-xs text-muted-foreground font-mono truncate">
+                              {reward.validator.slice(0, 8)}...{reward.validator.slice(-6)}
+                            </p>
+                            <p className="text-xs text-amber-400 font-medium">
+                              {reward.estimatedReward} HEZ
+                            </p>
                           </div>
-                          <span className="text-xs text-muted-foreground">
-                            {formatRewardDate(reward.timestamp)}
-                          </span>
+                          <button
+                            onClick={() => handleClaimStakingReward(reward.validator, reward.era)}
+                            disabled={!keypair || claimingStaking || claimingStakingEra !== null}
+                            className="px-3 py-1.5 rounded-lg text-xs font-medium bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 transition-all disabled:opacity-50 ml-2"
+                          >
+                            {claimingStakingEra === reward.era ? (
+                              <RefreshCw className="w-3 h-3 animate-spin" />
+                            ) : (
+                              t('rewards.claimStakingReward')
+                            )}
+                          </button>
                         </div>
                       ))}
+
+                      {/* Claim All Button */}
+                      {unclaimedRewards.unclaimed.length > 1 && (
+                        <button
+                          onClick={handleClaimAllStaking}
+                          disabled={!keypair || claimingStaking || claimingStakingEra !== null}
+                          className="w-full py-3 rounded-lg font-medium flex items-center justify-center gap-2 bg-gradient-to-r from-purple-500 to-pink-600 text-white hover:opacity-90 transition-all disabled:opacity-50"
+                        >
+                          <Coins className="w-5 h-5" />
+                          {t('rewards.claimAllStaking')} ({unclaimedRewards.totalUnclaimedHez} HEZ)
+                        </button>
+                      )}
+
+                      {/* Single Claim All when only 1 reward */}
+                      {unclaimedRewards.unclaimed.length === 1 && (
+                        <button
+                          onClick={() =>
+                            handleClaimStakingReward(
+                              unclaimedRewards.unclaimed[0].validator,
+                              unclaimedRewards.unclaimed[0].era
+                            )
+                          }
+                          disabled={!keypair || claimingStaking || claimingStakingEra !== null}
+                          className="w-full py-3 rounded-lg font-medium flex items-center justify-center gap-2 bg-gradient-to-r from-purple-500 to-pink-600 text-white hover:opacity-90 transition-all disabled:opacity-50"
+                        >
+                          <Coins className="w-5 h-5" />
+                          {t('rewards.claimStakingReward')} ({unclaimedRewards.totalUnclaimedHez}{' '}
+                          HEZ)
+                        </button>
+                      )}
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground text-center py-3">
-                      {t('rewards.noRewardsYet')}
+                    <p className="text-sm text-muted-foreground text-center py-2">
+                      {t('rewards.noUnclaimedRewards')}
                     </p>
+                  )}
+
+                  {/* Reward History (SubQuery) */}
+                  {stakingRewards && stakingRewards.rewards.length > 0 && (
+                    <div className="border-t border-border/30 pt-3 mt-3">
+                      <p className="text-xs text-muted-foreground mb-2 flex items-center gap-1">
+                        <TrendingUp className="w-3 h-3" />
+                        {t('rewards.rewardHistory')}
+                      </p>
+                      <div className="bg-amber-500/5 rounded-lg p-2 mb-2 border border-amber-500/10">
+                        <p className="text-xs text-amber-300">{t('rewards.totalRewards')}</p>
+                        <p className="text-lg font-bold text-amber-400">
+                          {stakingRewards.totalAccumulatedHez.toFixed(4)} HEZ
+                        </p>
+                      </div>
+                      <div className="space-y-1">
+                        {stakingRewards.rewards.map((reward) => (
+                          <div
+                            key={reward.id}
+                            className="flex items-center justify-between py-1.5 border-b border-border/20 last:border-0"
+                          >
+                            <div className="flex items-center gap-2">
+                              <div
+                                className={cn(
+                                  'w-2 h-2 rounded-full',
+                                  reward.type === 'REWARD' ? 'bg-green-400' : 'bg-red-400'
+                                )}
+                              />
+                              <div>
+                                <p className="text-sm text-foreground">
+                                  {reward.type === 'REWARD' ? '+' : '-'}
+                                  {formatRewardAmount(reward.amount)} HEZ
+                                </p>
+                                <p className="text-xs text-muted-foreground">
+                                  Block #{reward.blockNumber}
+                                </p>
+                              </div>
+                            </div>
+                            <span className="text-xs text-muted-foreground">
+                              {formatRewardDate(reward.timestamp)}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                   )}
                 </div>
 

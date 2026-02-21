@@ -166,6 +166,15 @@ const krd: Translations = {
     claimSuccess: 'Xelat bi serkeftin hat daxwazkirin!',
     claimFailed: 'Daxwazkirina xelatê biserneket',
     noPezRewards: 'Xelatên PEZ yên daxwazkir tune ne',
+    unclaimedRewards: 'Xelatên Nedaxwazkir',
+    claimStakingReward: 'Daxwaz bike',
+    claimAllStaking: 'Hemûyan Daxwaz Bike',
+    claimingStakingReward: 'Xelatên staking tên daxwazkirin...',
+    stakingClaimSuccess: 'Xelatên staking hatin daxwazkirin!',
+    stakingClaimFailed: 'Daxwazkirina xelatên staking bi ser neket',
+    noUnclaimedRewards: 'Xelatên nedaxwazkir tune ne',
+    rewardHistory: 'Dîroka Xelatan',
+    era: 'Era',
   },
 
   wallet: {

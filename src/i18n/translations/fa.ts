@@ -161,6 +161,15 @@ const fa: Translations = {
     claimSuccess: 'پاداش با موفقیت مطالبه شد!',
     claimFailed: 'مطالبه پاداش ناموفق بود',
     noPezRewards: 'پاداش PEZ قابل مطالبه‌ای وجود ندارد',
+    unclaimedRewards: 'پاداش‌های مطالبه نشده',
+    claimStakingReward: 'مطالبه',
+    claimAllStaking: 'مطالبه همه',
+    claimingStakingReward: 'در حال مطالبه پاداش‌های استیکینگ...',
+    stakingClaimSuccess: 'پاداش‌های استیکینگ مطالبه شد!',
+    stakingClaimFailed: 'مطالبه پاداش‌های استیکینگ ناموفق بود',
+    noUnclaimedRewards: 'پاداش مطالبه نشده‌ای وجود ندارد',
+    rewardHistory: 'تاریخچه پاداش‌ها',
+    era: 'دوره',
   },
 
   wallet: {
