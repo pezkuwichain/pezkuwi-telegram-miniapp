@@ -12,8 +12,8 @@ import type { Translations, LanguageCode } from '@/i18n/types';
 const translations: Record<LanguageCode, Translations> = { krd, en, tr, ckb, fa, ar };
 
 function detectLang(): LanguageCode {
-  const seg = window.location.pathname.split('/').filter(Boolean)[0];
-  if (seg && seg in translations) return seg as LanguageCode;
+  const stored = localStorage.getItem('app_language');
+  if (stored && stored in translations) return stored as LanguageCode;
   return 'krd';
 }
 

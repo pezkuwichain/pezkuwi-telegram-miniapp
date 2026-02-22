@@ -68,14 +68,15 @@ const TG_LANG_MAP: Record<string, LanguageCode> = {
 };
 
 /**
- * Detect language: URL path first, then Telegram user language, then default.
+ * Detect language: localStorage first, then Telegram user language, then default.
+ * CRITICAL: Never use URL path for language in Telegram MiniApps!
+ * Telegram WebView caches URL and strips #tgWebAppData hash on next open.
  */
 function detectLanguage(): LanguageCode {
-  // 1. Check URL path
-  const path = window.location.pathname;
-  const firstSegment = path.split('/').filter(Boolean)[0];
-  if (firstSegment && VALID_LANGS.includes(firstSegment as LanguageCode)) {
-    return firstSegment as LanguageCode;
+  // 1. Check localStorage (persisted user preference)
+  const stored = localStorage.getItem('app_language');
+  if (stored && VALID_LANGS.includes(stored as LanguageCode)) {
+    return stored as LanguageCode;
   }
 
   // 2. Check Telegram WebApp user language
@@ -134,34 +135,16 @@ export function LanguageProvider({ children }: LanguageProviderProps) {
     currentLanguage = lang;
   }, [lang]);
 
-  // Update document direction, lang attribute, and URL when language changes
+  // Update document direction, lang attribute, and persist to localStorage
   useEffect(() => {
     document.documentElement.lang = lang === 'krd' ? 'ku' : lang;
     document.documentElement.dir = isRTL ? 'rtl' : 'ltr';
-
-    // Ensure URL has language prefix (preserve query params and special paths)
-    const pathSegments = window.location.pathname.split('/').filter(Boolean);
-    const firstSegment = pathSegments[0];
-    // Don't rewrite URL for standalone pages like /citizens
-    const STANDALONE_PATHS = ['citizens', 'explorer'];
-    if (firstSegment && STANDALONE_PATHS.includes(firstSegment)) {
-      // Keep standalone path as-is
-    } else if (!firstSegment || !VALID_LANGS.includes(firstSegment as LanguageCode)) {
-      window.history.replaceState(null, '', `/${lang}${window.location.search}`);
-    }
+    localStorage.setItem('app_language', lang);
   }, [lang, isRTL]);
 
   const setLang = useCallback((newLang: LanguageCode) => {
     setLangState(newLang);
-    // Update URL without reload
-    const currentPath = window.location.pathname;
-    const segments = currentPath.split('/').filter(Boolean);
-    // Remove old lang prefix if present
-    if (segments.length > 0 && VALID_LANGS.includes(segments[0] as LanguageCode)) {
-      segments.shift();
-    }
-    const newPath = `/${newLang}${segments.length > 0 ? '/' + segments.join('/') : ''}`;
-    window.history.replaceState(null, '', `${newPath}${window.location.search}`);
+    localStorage.setItem('app_language', newLang);
   }, []);
 
   const t = useCallback(
