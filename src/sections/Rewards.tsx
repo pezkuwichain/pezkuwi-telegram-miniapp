@@ -360,8 +360,8 @@ export function RewardsSection() {
 
   // Telegram referral link (for sharing) - use authenticated user ID
   const referralLink = authUser?.telegram_id
-    ? `https://t.me/pezkuwichain_bot?start=ref_${authUser.telegram_id}`
-    : 'https://t.me/pezkuwichain_bot';
+    ? `https://t.me/pezkuwichainBot?start=ref_${authUser.telegram_id}`
+    : 'https://t.me/pezkuwichainBot';
 
   const handleCopy = async () => {
     try {
