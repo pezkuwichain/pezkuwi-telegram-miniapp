@@ -68,24 +68,30 @@ const TG_LANG_MAP: Record<string, LanguageCode> = {
 };
 
 /**
- * Detect language: localStorage first, then URL path (bot link), then Telegram user language, then default.
- * URL path is consumed once and persisted to localStorage, then cleaned from the URL
+ * Detect language priority:
+ *   1. URL path (bot sends /tr, /ar — always wins, user just clicked a language button)
+ *   2. localStorage (persisted preference from previous session)
+ *   3. Telegram WebApp user language (fallback)
+ *   4. Default (krd)
+ *
+ * URL path is consumed once, persisted to localStorage, then cleaned from the URL
  * to prevent Telegram WebView cache issues with #tgWebAppData hash.
  */
 function detectLanguage(): LanguageCode {
-  // 1. Check localStorage (persisted user preference)
-  const stored = localStorage.getItem('app_language');
-  if (stored && VALID_LANGS.includes(stored as LanguageCode)) {
-    return stored as LanguageCode;
-  }
-
-  // 2. Check URL path (bot sends /tr, /ar, /en etc.)
+  // 1. Check URL path FIRST (bot sends /tr, /ar, /en etc.)
+  //    This takes priority over localStorage because it represents the user's
+  //    active language choice from the bot keyboard.
   const firstSegment = window.location.pathname.split('/').filter(Boolean)[0];
   if (firstSegment && VALID_LANGS.includes(firstSegment as LanguageCode)) {
-    // Persist to localStorage and clean URL path to avoid WebView cache issues
     localStorage.setItem('app_language', firstSegment);
     window.history.replaceState(null, '', '/' + window.location.search + window.location.hash);
     return firstSegment as LanguageCode;
+  }
+
+  // 2. Check localStorage (persisted user preference from previous session)
+  const stored = localStorage.getItem('app_language');
+  if (stored && VALID_LANGS.includes(stored as LanguageCode)) {
+    return stored as LanguageCode;
   }
 
   // 3. Check Telegram WebApp user language
