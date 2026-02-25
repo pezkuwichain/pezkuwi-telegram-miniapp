@@ -14,6 +14,9 @@ const translations: Record<LanguageCode, Translations> = { krd, en, tr, ckb, fa,
 function detectLang(): LanguageCode {
   const stored = localStorage.getItem('app_language');
   if (stored && stored in translations) return stored as LanguageCode;
+  // Fallback: check URL path (bot link like /tr, /ar)
+  const seg = window.location.pathname.split('/').filter(Boolean)[0];
+  if (seg && seg in translations) return seg as LanguageCode;
   return 'krd';
 }
 

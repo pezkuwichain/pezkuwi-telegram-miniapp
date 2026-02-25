@@ -68,9 +68,9 @@ const TG_LANG_MAP: Record<string, LanguageCode> = {
 };
 
 /**
- * Detect language: localStorage first, then Telegram user language, then default.
- * CRITICAL: Never use URL path for language in Telegram MiniApps!
- * Telegram WebView caches URL and strips #tgWebAppData hash on next open.
+ * Detect language: localStorage first, then URL path (bot link), then Telegram user language, then default.
+ * URL path is consumed once and persisted to localStorage, then cleaned from the URL
+ * to prevent Telegram WebView cache issues with #tgWebAppData hash.
  */
 function detectLanguage(): LanguageCode {
   // 1. Check localStorage (persisted user preference)
@@ -79,7 +79,16 @@ function detectLanguage(): LanguageCode {
     return stored as LanguageCode;
   }
 
-  // 2. Check Telegram WebApp user language
+  // 2. Check URL path (bot sends /tr, /ar, /en etc.)
+  const firstSegment = window.location.pathname.split('/').filter(Boolean)[0];
+  if (firstSegment && VALID_LANGS.includes(firstSegment as LanguageCode)) {
+    // Persist to localStorage and clean URL path to avoid WebView cache issues
+    localStorage.setItem('app_language', firstSegment);
+    window.history.replaceState(null, '', '/' + window.location.search + window.location.hash);
+    return firstSegment as LanguageCode;
+  }
+
+  // 3. Check Telegram WebApp user language
   try {
     const tg = (
       window as unknown as {
@@ -89,7 +98,10 @@ function detectLanguage(): LanguageCode {
     const tgLang = tg?.WebApp?.initDataUnsafe?.user?.language_code;
     if (tgLang) {
       const mapped = TG_LANG_MAP[tgLang];
-      if (mapped) return mapped;
+      if (mapped) {
+        localStorage.setItem('app_language', mapped);
+        return mapped;
+      }
     }
   } catch {
     // Telegram WebApp not available
