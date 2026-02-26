@@ -12,6 +12,7 @@ import type { User } from '@/hooks/useSupabase';
 
 interface AuthContextType {
   user: User | null;
+  authUserId: string | null;
   sessionToken: string | null;
   isLoading: boolean;
   isAuthenticated: boolean;
@@ -49,6 +50,7 @@ function waitForInitData(maxAttempts = 25, intervalMs = 200): Promise<string | n
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
+  const [authUserId, setAuthUserId] = useState<string | null>(null);
   const [sessionToken, setSessionToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -70,6 +72,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       const result = await signInWithTelegram(initData);
       if (result?.user) {
         setUser(result.user);
+        setAuthUserId(result.auth_user_id || null);
         setAuthError(null);
       } else {
         setAuthError('No user returned from auth');
@@ -98,6 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     <AuthContext.Provider
       value={{
         user,
+        authUserId,
         sessionToken,
         isLoading,
         isAuthenticated: !!user,

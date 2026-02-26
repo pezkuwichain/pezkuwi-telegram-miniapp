@@ -36,7 +36,7 @@ const STATUS_CONFIG: Record<string, { color: string; icon: typeof Clock }> = {
 };
 
 export function TradeView({ tradeId, onBack }: TradeViewProps) {
-  const { sessionToken, user } = useAuth();
+  const { sessionToken, authUserId } = useAuth();
   const { t, isRTL } = useTranslation();
   const { hapticImpact, hapticNotification } = useTelegram();
 
@@ -47,9 +47,9 @@ export function TradeView({ tradeId, onBack }: TradeViewProps) {
   const [showDispute, setShowDispute] = useState(false);
   const [error, setError] = useState('');
 
-  const userId = user?.id;
-  const isBuyer = trade?.buyer_id === userId;
-  const isSeller = trade?.seller_id === userId;
+  // authUserId = auth.users UUID (matches trade.buyer_id / trade.seller_id)
+  const isBuyer = trade?.buyer_id === authUserId;
+  const isSeller = trade?.seller_id === authUserId;
 
   const fetchTrade = useCallback(async () => {
     if (!sessionToken || !tradeId) return;
