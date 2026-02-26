@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Wallet, Lock, RefreshCw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -19,7 +19,7 @@ export function BalanceCard({ onRefresh }: BalanceCardProps) {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
-  const fetchBalances = async () => {
+  const fetchBalances = useCallback(async () => {
     if (!sessionToken) return;
     try {
       const data = await getInternalBalance(sessionToken);
@@ -30,11 +30,11 @@ export function BalanceCard({ onRefresh }: BalanceCardProps) {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, [sessionToken]);
 
   useEffect(() => {
     fetchBalances();
-  }, [sessionToken]);
+  }, [fetchBalances]);
 
   const handleRefresh = () => {
     hapticImpact('light');
@@ -65,7 +65,9 @@ export function BalanceCard({ onRefresh }: BalanceCardProps) {
           disabled={refreshing}
           className="p-1.5 rounded-full hover:bg-muted/50 transition-colors"
         >
-          <RefreshCw className={cn('w-4 h-4 text-muted-foreground', refreshing && 'animate-spin')} />
+          <RefreshCw
+            className={cn('w-4 h-4 text-muted-foreground', refreshing && 'animate-spin')}
+          />
         </button>
       </div>
 

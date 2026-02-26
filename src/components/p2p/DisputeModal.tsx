@@ -81,7 +81,9 @@ export function DisputeModal({ isOpen, onClose, tradeId, onDisputeOpened }: Disp
 
           {/* Category */}
           <div>
-            <label className="text-sm text-muted-foreground mb-1 block">{t('p2p.disputeCategory')}</label>
+            <label className="text-sm text-muted-foreground mb-1 block">
+              {t('p2p.disputeCategory')}
+            </label>
             <select
               value={category}
               onChange={(e) => setCategory(e.target.value)}
@@ -89,14 +91,18 @@ export function DisputeModal({ isOpen, onClose, tradeId, onDisputeOpened }: Disp
             >
               <option value="">{t('p2p.selectCategory')}</option>
               {DISPUTE_CATEGORIES.map((cat) => (
-                <option key={cat} value={cat}>{t(`p2p.dispute.${cat}`)}</option>
+                <option key={cat} value={cat}>
+                  {t(`p2p.dispute.${cat}`)}
+                </option>
               ))}
             </select>
           </div>
 
           {/* Reason */}
           <div>
-            <label className="text-sm text-muted-foreground mb-1 block">{t('p2p.disputeReason')}</label>
+            <label className="text-sm text-muted-foreground mb-1 block">
+              {t('p2p.disputeReason')}
+            </label>
             <textarea
               value={reason}
               onChange={(e) => setReason(e.target.value)}

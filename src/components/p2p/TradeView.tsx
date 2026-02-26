@@ -1,5 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
-import { ArrowLeft, Clock, CheckCircle2, XCircle, AlertTriangle, MessageCircle } from 'lucide-react';
+import {
+  ArrowLeft,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  AlertTriangle,
+  MessageCircle,
+} from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from '@/i18n';
@@ -67,13 +74,23 @@ export function TradeView({ tradeId, onBack }: TradeViewProps) {
   const [timeRemaining, setTimeRemaining] = useState('');
   useEffect(() => {
     if (!trade) return;
-    const deadline = trade.status === 'pending' ? trade.payment_deadline :
-                     trade.status === 'payment_sent' ? trade.confirmation_deadline : null;
-    if (!deadline) { setTimeRemaining(''); return; }
+    const deadline =
+      trade.status === 'pending'
+        ? trade.payment_deadline
+        : trade.status === 'payment_sent'
+          ? trade.confirmation_deadline
+          : null;
+    if (!deadline) {
+      setTimeRemaining('');
+      return;
+    }
 
     const update = () => {
       const diff = new Date(deadline).getTime() - Date.now();
-      if (diff <= 0) { setTimeRemaining(t('p2p.expired')); return; }
+      if (diff <= 0) {
+        setTimeRemaining(t('p2p.expired'));
+        return;
+      }
       const mins = Math.floor(diff / 60000);
       const secs = Math.floor((diff % 60000) / 1000);
       setTimeRemaining(`${mins}:${secs.toString().padStart(2, '0')}`);
@@ -146,7 +163,9 @@ export function TradeView({ tradeId, onBack }: TradeViewProps) {
     return (
       <div className="text-center py-8">
         <p className="text-sm text-muted-foreground">{t('p2p.tradeNotFound')}</p>
-        <button onClick={onBack} className="text-cyan-400 text-sm mt-2">{t('common.back')}</button>
+        <button onClick={onBack} className="text-cyan-400 text-sm mt-2">
+          {t('common.back')}
+        </button>
       </div>
     );
   }
@@ -165,7 +184,12 @@ export function TradeView({ tradeId, onBack }: TradeViewProps) {
       </div>
 
       {/* Status Banner */}
-      <div className={cn('flex items-center gap-2 p-3 rounded-xl', `${statusConfig.color} bg-current/10`)}>
+      <div
+        className={cn(
+          'flex items-center gap-2 p-3 rounded-xl',
+          `${statusConfig.color} bg-current/10`
+        )}
+      >
         <StatusIcon className={cn('w-5 h-5', statusConfig.color)} />
         <span className={cn('text-sm font-medium', statusConfig.color)}>
           {t(`p2p.status.${trade.status}`)}
@@ -208,11 +232,7 @@ export function TradeView({ tradeId, onBack }: TradeViewProps) {
       {/* Timeline */}
       <div className="bg-card rounded-xl border border-border p-4 space-y-3">
         <h3 className="text-sm font-medium text-foreground">{t('p2p.timeline')}</h3>
-        <TimelineStep
-          done
-          label={t('p2p.tradeCreated')}
-          time={trade.created_at}
-        />
+        <TimelineStep done label={t('p2p.tradeCreated')} time={trade.created_at} />
         <TimelineStep
           done={!!trade.buyer_marked_paid_at}
           active={trade.status === 'pending'}
@@ -297,23 +317,29 @@ export function TradeView({ tradeId, onBack }: TradeViewProps) {
       </div>
 
       {/* Chat Modal */}
-      {showChat && (
-        <TradeChat tradeId={trade.id} onClose={() => setShowChat(false)} />
-      )}
+      {showChat && <TradeChat tradeId={trade.id} onClose={() => setShowChat(false)} />}
 
       {/* Dispute Modal */}
       <DisputeModal
         isOpen={showDispute}
         onClose={() => setShowDispute(false)}
         tradeId={trade.id}
-        onDisputeOpened={() => { setShowDispute(false); fetchTrade(); }}
+        onDisputeOpened={() => {
+          setShowDispute(false);
+          fetchTrade();
+        }}
       />
     </div>
   );
 }
 
 // Timeline step sub-component
-function TimelineStep({ done, active, label, time }: {
+function TimelineStep({
+  done,
+  active,
+  label,
+  time,
+}: {
   done?: boolean;
   active?: boolean;
   label: string;
@@ -324,18 +350,16 @@ function TimelineStep({ done, active, label, time }: {
       <div
         className={cn(
           'w-3 h-3 rounded-full border-2 flex-shrink-0',
-          done ? 'bg-green-400 border-green-400' :
-          active ? 'border-cyan-400 animate-pulse' :
-          'border-muted-foreground/30'
+          done
+            ? 'bg-green-400 border-green-400'
+            : active
+              ? 'border-cyan-400 animate-pulse'
+              : 'border-muted-foreground/30'
         )}
       />
       <div className="flex-1">
         <p className={cn('text-sm', done ? 'text-foreground' : 'text-muted-foreground')}>{label}</p>
-        {time && (
-          <p className="text-xs text-muted-foreground">
-            {new Date(time).toLocaleString()}
-          </p>
-        )}
+        {time && <p className="text-xs text-muted-foreground">{new Date(time).toLocaleString()}</p>}
       </div>
     </div>
   );

@@ -4,7 +4,12 @@ import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from '@/i18n';
 import { useTelegram } from '@/hooks/useTelegram';
-import { createP2POffer, getPaymentMethods, getInternalBalance, type PaymentMethod } from '@/lib/p2p-api';
+import {
+  createP2POffer,
+  getPaymentMethods,
+  getInternalBalance,
+  type PaymentMethod,
+} from '@/lib/p2p-api';
 
 interface CreateOfferModalProps {
   isOpen: boolean;
@@ -39,9 +44,7 @@ export function CreateOfferModal({ isOpen, onClose, onOfferCreated }: CreateOffe
 
   useEffect(() => {
     if (!isOpen || !sessionToken) return;
-    getPaymentMethods(sessionToken, fiatCurrency)
-      .then(setPaymentMethods)
-      .catch(console.error);
+    getPaymentMethods(sessionToken, fiatCurrency).then(setPaymentMethods).catch(console.error);
   }, [isOpen, sessionToken, fiatCurrency]);
 
   useEffect(() => {
@@ -148,19 +151,25 @@ export function CreateOfferModal({ isOpen, onClose, onOfferCreated }: CreateOffe
                 className="w-full bg-muted rounded-xl px-3 py-2.5 text-sm text-foreground border border-border"
               >
                 {TOKENS.map((tk) => (
-                  <option key={tk} value={tk}>{tk}</option>
+                  <option key={tk} value={tk}>
+                    {tk}
+                  </option>
                 ))}
               </select>
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">{t('p2p.fiatCurrency')}</label>
+              <label className="text-xs text-muted-foreground mb-1 block">
+                {t('p2p.fiatCurrency')}
+              </label>
               <select
                 value={fiatCurrency}
                 onChange={(e) => setFiatCurrency(e.target.value)}
                 className="w-full bg-muted rounded-xl px-3 py-2.5 text-sm text-foreground border border-border"
               >
                 {FIAT_CURRENCIES.map((c) => (
-                  <option key={c} value={c}>{c}</option>
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
                 ))}
               </select>
             </div>
@@ -188,7 +197,9 @@ export function CreateOfferModal({ isOpen, onClose, onOfferCreated }: CreateOffe
 
           {/* Fiat Amount */}
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">{t('p2p.fiatTotal')} ({fiatCurrency})</label>
+            <label className="text-xs text-muted-foreground mb-1 block">
+              {t('p2p.fiatTotal')} ({fiatCurrency})
+            </label>
             <input
               type="number"
               value={fiatAmount}
@@ -199,14 +210,18 @@ export function CreateOfferModal({ isOpen, onClose, onOfferCreated }: CreateOffe
             />
             {pricePerUnit > 0 && (
               <p className="text-xs text-cyan-400 mt-1">
-                {t('p2p.pricePerUnit')}: {pricePerUnit.toLocaleString(undefined, { maximumFractionDigits: 2 })} {fiatCurrency}/{token}
+                {t('p2p.pricePerUnit')}:{' '}
+                {pricePerUnit.toLocaleString(undefined, { maximumFractionDigits: 2 })}{' '}
+                {fiatCurrency}/{token}
               </p>
             )}
           </div>
 
           {/* Payment Method */}
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">{t('p2p.paymentMethod')}</label>
+            <label className="text-xs text-muted-foreground mb-1 block">
+              {t('p2p.paymentMethod')}
+            </label>
             <select
               value={paymentMethodId}
               onChange={(e) => setPaymentMethodId(e.target.value)}
@@ -214,14 +229,18 @@ export function CreateOfferModal({ isOpen, onClose, onOfferCreated }: CreateOffe
             >
               <option value="">{t('p2p.selectPaymentMethod')}</option>
               {paymentMethods.map((pm) => (
-                <option key={pm.id} value={pm.id}>{pm.method_name}</option>
+                <option key={pm.id} value={pm.id}>
+                  {pm.method_name}
+                </option>
               ))}
             </select>
           </div>
 
           {/* Payment Details */}
           <div>
-            <label className="text-xs text-muted-foreground mb-1 block">{t('p2p.paymentDetails')}</label>
+            <label className="text-xs text-muted-foreground mb-1 block">
+              {t('p2p.paymentDetails')}
+            </label>
             <textarea
               value={paymentDetails}
               onChange={(e) => setPaymentDetails(e.target.value)}
@@ -234,7 +253,9 @@ export function CreateOfferModal({ isOpen, onClose, onOfferCreated }: CreateOffe
           {/* Order Limits */}
           <div className="grid grid-cols-2 gap-2">
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">{t('p2p.minOrder')}</label>
+              <label className="text-xs text-muted-foreground mb-1 block">
+                {t('p2p.minOrder')}
+              </label>
               <input
                 type="number"
                 value={minOrder}
@@ -245,7 +266,9 @@ export function CreateOfferModal({ isOpen, onClose, onOfferCreated }: CreateOffe
               />
             </div>
             <div>
-              <label className="text-xs text-muted-foreground mb-1 block">{t('p2p.maxOrder')}</label>
+              <label className="text-xs text-muted-foreground mb-1 block">
+                {t('p2p.maxOrder')}
+              </label>
               <input
                 type="number"
                 value={maxOrder}
@@ -266,7 +289,9 @@ export function CreateOfferModal({ isOpen, onClose, onOfferCreated }: CreateOffe
               className="w-full bg-muted rounded-xl px-3 py-2.5 text-sm text-foreground border border-border"
             >
               {TIME_LIMITS.map((tl) => (
-                <option key={tl} value={tl}>{tl} {t('p2p.minutes')}</option>
+                <option key={tl} value={tl}>
+                  {tl} {t('p2p.minutes')}
+                </option>
               ))}
             </select>
           </div>

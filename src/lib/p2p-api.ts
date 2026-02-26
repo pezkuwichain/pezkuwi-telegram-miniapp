@@ -126,9 +126,7 @@ async function callEdgeFunction<T>(
 
 // ─── Balance ─────────────────────────────────────────────────
 
-export async function getInternalBalance(
-  sessionToken: string
-): Promise<InternalBalance[]> {
+export async function getInternalBalance(sessionToken: string): Promise<InternalBalance[]> {
   const result = await callEdgeFunction<{ success: boolean; balances: InternalBalance[] }>(
     'get-internal-balance',
     { sessionToken }
@@ -172,14 +170,18 @@ export async function getP2POffers(params: GetOffersParams): Promise<GetOffersRe
     'get-p2p-offers',
     params as unknown as Record<string, unknown>
   );
-  return { offers: result.offers || [], total: result.total || 0, page: result.page || 1, limit: result.limit || 20 };
+  return {
+    offers: result.offers || [],
+    total: result.total || 0,
+    page: result.page || 1,
+    limit: result.limit || 20,
+  };
 }
 
 export async function getMyOffers(sessionToken: string): Promise<P2POffer[]> {
-  const result = await callEdgeFunction<{ success: boolean; offers: P2POffer[] }>(
-    'get-my-offers',
-    { sessionToken }
-  );
+  const result = await callEdgeFunction<{ success: boolean; offers: P2POffer[] }>('get-my-offers', {
+    sessionToken,
+  });
   return result.offers || [];
 }
 
@@ -192,7 +194,9 @@ interface AcceptOfferParams {
   buyerWallet: string;
 }
 
-export async function acceptP2POffer(params: AcceptOfferParams): Promise<{ tradeId: string; trade: P2PTrade }> {
+export async function acceptP2POffer(
+  params: AcceptOfferParams
+): Promise<{ tradeId: string; trade: P2PTrade }> {
   return callEdgeFunction<{ success: boolean; tradeId: string; trade: P2PTrade }>(
     'accept-p2p-offer',
     params as unknown as Record<string, unknown>
@@ -215,7 +219,9 @@ interface CreateOfferParams {
   adType?: 'buy' | 'sell';
 }
 
-export async function createP2POffer(params: CreateOfferParams): Promise<{ offerId: string; offer: P2POffer }> {
+export async function createP2POffer(
+  params: CreateOfferParams
+): Promise<{ offerId: string; offer: P2POffer }> {
   const result = await callEdgeFunction<{ success: boolean; offer_id: string; offer: P2POffer }>(
     'create-offer-telegram',
     params as unknown as Record<string, unknown>
@@ -239,26 +245,37 @@ export async function getP2PTrades(
 // ─── Trade Actions ───────────────────────────────────────────
 
 export async function markTradePaid(sessionToken: string, tradeId: string): Promise<P2PTrade> {
-  const result = await callEdgeFunction<{ success: boolean; trade: P2PTrade }>(
-    'trade-action',
-    { sessionToken, tradeId, action: 'mark_paid' }
-  );
+  const result = await callEdgeFunction<{ success: boolean; trade: P2PTrade }>('trade-action', {
+    sessionToken,
+    tradeId,
+    action: 'mark_paid',
+  });
   return result.trade;
 }
 
-export async function confirmTradePayment(sessionToken: string, tradeId: string): Promise<P2PTrade> {
-  const result = await callEdgeFunction<{ success: boolean; trade: P2PTrade }>(
-    'trade-action',
-    { sessionToken, tradeId, action: 'confirm' }
-  );
+export async function confirmTradePayment(
+  sessionToken: string,
+  tradeId: string
+): Promise<P2PTrade> {
+  const result = await callEdgeFunction<{ success: boolean; trade: P2PTrade }>('trade-action', {
+    sessionToken,
+    tradeId,
+    action: 'confirm',
+  });
   return result.trade;
 }
 
-export async function cancelTrade(sessionToken: string, tradeId: string, reason?: string): Promise<P2PTrade> {
-  const result = await callEdgeFunction<{ success: boolean; trade: P2PTrade }>(
-    'trade-action',
-    { sessionToken, tradeId, action: 'cancel', payload: { reason } }
-  );
+export async function cancelTrade(
+  sessionToken: string,
+  tradeId: string,
+  reason?: string
+): Promise<P2PTrade> {
+  const result = await callEdgeFunction<{ success: boolean; trade: P2PTrade }>('trade-action', {
+    sessionToken,
+    tradeId,
+    action: 'cancel',
+    payload: { reason },
+  });
   return result.trade;
 }
 
@@ -268,10 +285,12 @@ export async function rateTrade(
   rating: number,
   review?: string
 ): Promise<void> {
-  await callEdgeFunction<{ success: boolean }>(
-    'trade-action',
-    { sessionToken, tradeId, action: 'rate', payload: { rating, review } }
-  );
+  await callEdgeFunction<{ success: boolean }>('trade-action', {
+    sessionToken,
+    tradeId,
+    action: 'rate',
+    payload: { rating, review },
+  });
 }
 
 // ─── Messages ────────────────────────────────────────────────
@@ -281,10 +300,12 @@ export async function sendTradeMessage(
   tradeId: string,
   message: string
 ): Promise<string> {
-  const result = await callEdgeFunction<{ success: boolean; messageId: string }>(
-    'p2p-messages',
-    { sessionToken, action: 'send', tradeId, message }
-  );
+  const result = await callEdgeFunction<{ success: boolean; messageId: string }>('p2p-messages', {
+    sessionToken,
+    action: 'send',
+    tradeId,
+    message,
+  });
   return result.messageId;
 }
 
@@ -307,10 +328,13 @@ export async function openDispute(
   reason: string,
   category: string
 ): Promise<P2PDispute> {
-  const result = await callEdgeFunction<{ success: boolean; dispute: P2PDispute }>(
-    'p2p-dispute',
-    { sessionToken, action: 'open', tradeId, reason, category }
-  );
+  const result = await callEdgeFunction<{ success: boolean; dispute: P2PDispute }>('p2p-dispute', {
+    sessionToken,
+    action: 'open',
+    tradeId,
+    reason,
+    category,
+  });
   return result.dispute;
 }
 
@@ -321,8 +345,12 @@ export async function addDisputeEvidence(
   evidenceType: string,
   description?: string
 ): Promise<void> {
-  await callEdgeFunction<{ success: boolean }>(
-    'p2p-dispute',
-    { sessionToken, action: 'add_evidence', tradeId, evidenceUrl, evidenceType, description }
-  );
+  await callEdgeFunction<{ success: boolean }>('p2p-dispute', {
+    sessionToken,
+    action: 'add_evidence',
+    tradeId,
+    evidenceUrl,
+    evidenceType,
+    description,
+  });
 }

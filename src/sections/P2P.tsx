@@ -40,23 +40,33 @@ export function P2PSection() {
 
   const fetchMyTrades = useCallback(async () => {
     if (!sessionToken) return;
+    setMyDataLoading(true);
     try {
       const trades = await getP2PTrades(sessionToken, 'all');
       setMyTrades(trades);
     } catch (err) {
       console.error('Failed to fetch my trades:', err);
+    } finally {
+      setMyDataLoading(false);
     }
   }, [sessionToken]);
 
+  const fetchMyOffersFull = useCallback(async () => {
+    setMyDataLoading(true);
+    try {
+      await fetchMyOffers();
+    } finally {
+      setMyDataLoading(false);
+    }
+  }, [fetchMyOffers]);
+
   useEffect(() => {
     if (activeTab === 'myAds') {
-      setMyDataLoading(true);
-      fetchMyOffers().finally(() => setMyDataLoading(false));
+      fetchMyOffersFull();
     } else if (activeTab === 'myTrades') {
-      setMyDataLoading(true);
-      fetchMyTrades().finally(() => setMyDataLoading(false));
+      fetchMyTrades();
     }
-  }, [activeTab, fetchMyOffers, fetchMyTrades]);
+  }, [activeTab, fetchMyOffersFull, fetchMyTrades]);
 
   const handleTabChange = (tab: Tab) => {
     hapticImpact('light');
@@ -81,10 +91,7 @@ export function P2PSection() {
   if (activeTradeId) {
     return (
       <div className="h-full overflow-y-auto p-4 safe-area-top">
-        <TradeView
-          tradeId={activeTradeId}
-          onBack={() => setActiveTradeId(null)}
-        />
+        <TradeView tradeId={activeTradeId} onBack={() => setActiveTradeId(null)} />
       </div>
     );
   }
@@ -98,13 +105,21 @@ export function P2PSection() {
 
   const statusColor = (s: string) => {
     switch (s) {
-      case 'open': return 'text-green-400';
-      case 'pending': return 'text-amber-400';
-      case 'payment_sent': return 'text-blue-400';
-      case 'completed': return 'text-green-400';
-      case 'cancelled': case 'refunded': return 'text-red-400';
-      case 'disputed': return 'text-orange-400';
-      default: return 'text-muted-foreground';
+      case 'open':
+        return 'text-green-400';
+      case 'pending':
+        return 'text-amber-400';
+      case 'payment_sent':
+        return 'text-blue-400';
+      case 'completed':
+        return 'text-green-400';
+      case 'cancelled':
+      case 'refunded':
+        return 'text-red-400';
+      case 'disputed':
+        return 'text-orange-400';
+      default:
+        return 'text-muted-foreground';
     }
   };
 
@@ -118,7 +133,10 @@ export function P2PSection() {
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold text-foreground">{t('p2p.title')}</h1>
           <button
-            onClick={() => { hapticImpact('medium'); setShowCreateOffer(true); }}
+            onClick={() => {
+              hapticImpact('medium');
+              setShowCreateOffer(true);
+            }}
             className="flex items-center gap-1 px-3 py-1.5 bg-cyan-500 hover:bg-cyan-600 text-white text-sm font-medium rounded-lg transition-colors"
           >
             <Plus className="w-4 h-4" />
@@ -137,9 +155,7 @@ export function P2PSection() {
               onClick={() => handleTabChange(tab.id)}
               className={cn(
                 'flex-1 py-2 text-xs font-medium rounded-lg transition-colors',
-                activeTab === tab.id
-                  ? 'bg-card text-foreground shadow-sm'
-                  : 'text-muted-foreground'
+                activeTab === tab.id ? 'bg-card text-foreground shadow-sm' : 'text-muted-foreground'
               )}
             >
               {tab.label}
@@ -159,8 +175,8 @@ export function P2PSection() {
         )}
 
         {/* My Ads */}
-        {activeTab === 'myAds' && (
-          myDataLoading ? (
+        {activeTab === 'myAds' &&
+          (myDataLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="w-6 h-6 text-primary animate-spin" />
             </div>
@@ -177,13 +193,20 @@ export function P2PSection() {
           ) : (
             <div className="space-y-2">
               {myOffers.map((offer) => (
-                <div key={offer.id} className="bg-card rounded-xl border border-border p-3 space-y-1">
+                <div
+                  key={offer.id}
+                  className="bg-card rounded-xl border border-border p-3 space-y-1"
+                >
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
-                      <span className={cn(
-                        'text-xs font-medium px-2 py-0.5 rounded-full',
-                        offer.ad_type === 'sell' ? 'bg-red-500/10 text-red-400' : 'bg-green-500/10 text-green-400'
-                      )}>
+                      <span
+                        className={cn(
+                          'text-xs font-medium px-2 py-0.5 rounded-full',
+                          offer.ad_type === 'sell'
+                            ? 'bg-red-500/10 text-red-400'
+                            : 'bg-green-500/10 text-green-400'
+                        )}
+                      >
                         {offer.ad_type === 'sell' ? t('p2p.sell') : t('p2p.buy')}
                       </span>
                       <span className="text-sm font-bold text-foreground">{offer.token}</span>
@@ -193,18 +216,21 @@ export function P2PSection() {
                     </span>
                   </div>
                   <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>{offer.remaining_amount}/{offer.amount_crypto} {offer.token}</span>
-                    <span>{offer.price_per_unit?.toLocaleString()} {offer.fiat_currency}</span>
+                    <span>
+                      {offer.remaining_amount}/{offer.amount_crypto} {offer.token}
+                    </span>
+                    <span>
+                      {offer.price_per_unit?.toLocaleString()} {offer.fiat_currency}
+                    </span>
                   </div>
                 </div>
               ))}
             </div>
-          )
-        )}
+          ))}
 
         {/* My Trades */}
-        {activeTab === 'myTrades' && (
-          myDataLoading ? (
+        {activeTab === 'myTrades' &&
+          (myDataLoading ? (
             <div className="flex items-center justify-center py-8">
               <Loader2 className="w-6 h-6 text-primary animate-spin" />
             </div>
@@ -218,7 +244,10 @@ export function P2PSection() {
               {myTrades.map((trade) => (
                 <button
                   key={trade.id}
-                  onClick={() => { hapticImpact('light'); setActiveTradeId(trade.id); }}
+                  onClick={() => {
+                    hapticImpact('light');
+                    setActiveTradeId(trade.id);
+                  }}
                   className="w-full text-left bg-card rounded-xl border border-border p-3 space-y-1 hover:border-cyan-500/50 transition-colors"
                 >
                   <div className="flex items-center justify-between">
@@ -230,14 +259,15 @@ export function P2PSection() {
                     </span>
                   </div>
                   <div className="flex justify-between text-xs text-muted-foreground">
-                    <span>{trade.fiat_amount?.toLocaleString()} {trade.fiat_currency || ''}</span>
+                    <span>
+                      {trade.fiat_amount?.toLocaleString()} {trade.fiat_currency || ''}
+                    </span>
                     <span>{new Date(trade.created_at).toLocaleDateString()}</span>
                   </div>
                 </button>
               ))}
             </div>
-          )
-        )}
+          ))}
       </div>
 
       {/* Trade Accept Modal */}

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { X, Send } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -20,11 +20,12 @@ export function TradeChat({ tradeId, onClose }: TradeChatProps) {
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  // eslint-disable-next-line no-undef
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const userId = user?.id;
 
-  const fetchMessages = async () => {
+  const fetchMessages = useCallback(async () => {
     if (!sessionToken) return;
     try {
       const msgs = await getTradeMessages(sessionToken, tradeId);
@@ -34,13 +35,13 @@ export function TradeChat({ tradeId, onClose }: TradeChatProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [sessionToken, tradeId]);
 
   useEffect(() => {
     fetchMessages();
     const interval = setInterval(fetchMessages, 5000);
     return () => clearInterval(interval);
-  }, [sessionToken, tradeId]);
+  }, [fetchMessages]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -71,10 +72,13 @@ export function TradeChat({ tradeId, onClose }: TradeChatProps) {
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-background">
       {/* Header */}
-      <div className={cn(
-        'flex items-center justify-between p-4 border-b border-border safe-area-top',
-        isRTL && 'direction-rtl'
-      )} dir={isRTL ? 'rtl' : 'ltr'}>
+      <div
+        className={cn(
+          'flex items-center justify-between p-4 border-b border-border safe-area-top',
+          isRTL && 'direction-rtl'
+        )}
+        dir={isRTL ? 'rtl' : 'ltr'}
+      >
         <h2 className="text-lg font-semibold text-foreground">{t('p2p.chat')}</h2>
         <button onClick={onClose} className="p-2 rounded-full hover:bg-muted transition-colors">
           <X className="w-5 h-5 text-muted-foreground" />
@@ -100,8 +104,7 @@ export function TradeChat({ tradeId, onClose }: TradeChatProps) {
                 key={msg.id}
                 className={cn(
                   'flex',
-                  isSystem ? 'justify-center' :
-                  isOwn ? 'justify-end' : 'justify-start'
+                  isSystem ? 'justify-center' : isOwn ? 'justify-end' : 'justify-start'
                 )}
               >
                 {isSystem ? (
@@ -118,11 +121,16 @@ export function TradeChat({ tradeId, onClose }: TradeChatProps) {
                     )}
                   >
                     <p className="text-sm break-words">{msg.message}</p>
-                    <p className={cn(
-                      'text-[10px] mt-1',
-                      isOwn ? 'text-white/60' : 'text-muted-foreground'
-                    )}>
-                      {new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    <p
+                      className={cn(
+                        'text-[10px] mt-1',
+                        isOwn ? 'text-white/60' : 'text-muted-foreground'
+                      )}
+                    >
+                      {new Date(msg.created_at).toLocaleTimeString([], {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
                     </p>
                   </div>
                 )}
@@ -134,10 +142,13 @@ export function TradeChat({ tradeId, onClose }: TradeChatProps) {
       </div>
 
       {/* Input */}
-      <div className={cn(
-        'flex items-center gap-2 p-4 border-t border-border safe-area-bottom',
-        isRTL && 'direction-rtl'
-      )} dir={isRTL ? 'rtl' : 'ltr'}>
+      <div
+        className={cn(
+          'flex items-center gap-2 p-4 border-t border-border safe-area-bottom',
+          isRTL && 'direction-rtl'
+        )}
+        dir={isRTL ? 'rtl' : 'ltr'}
+      >
         <input
           type="text"
           value={newMessage}

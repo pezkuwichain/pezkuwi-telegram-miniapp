@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Star, Clock, ChevronDown, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -29,31 +29,34 @@ export function OfferList({ adType, onAcceptOffer }: OfferListProps) {
 
   const limit = 20;
 
-  const fetchOffers = async (p = 1) => {
-    if (!sessionToken) return;
-    setLoading(true);
-    try {
-      const result = await getP2POffers({
-        sessionToken,
-        adType,
-        token: selectedToken || undefined,
-        fiatCurrency: selectedCurrency || undefined,
-        page: p,
-        limit,
-      });
-      setOffers(result.offers);
-      setTotal(result.total);
-      setPage(p);
-    } catch (err) {
-      console.error('Failed to fetch offers:', err);
-    } finally {
-      setLoading(false);
-    }
-  };
+  const fetchOffers = useCallback(
+    async (p = 1) => {
+      if (!sessionToken) return;
+      setLoading(true);
+      try {
+        const result = await getP2POffers({
+          sessionToken,
+          adType,
+          token: selectedToken || undefined,
+          fiatCurrency: selectedCurrency || undefined,
+          page: p,
+          limit,
+        });
+        setOffers(result.offers);
+        setTotal(result.total);
+        setPage(p);
+      } catch (err) {
+        console.error('Failed to fetch offers:', err);
+      } finally {
+        setLoading(false);
+      }
+    },
+    [sessionToken, adType, selectedToken, selectedCurrency]
+  );
 
   useEffect(() => {
     fetchOffers(1);
-  }, [sessionToken, adType, selectedCurrency, selectedToken]);
+  }, [fetchOffers]);
 
   const handleAccept = (offer: P2POffer) => {
     hapticImpact('medium');
@@ -82,7 +85,9 @@ export function OfferList({ adType, onAcceptOffer }: OfferListProps) {
           >
             <option value="">{t('p2p.allTokens')}</option>
             {TOKENS.map((tk) => (
-              <option key={tk} value={tk}>{tk}</option>
+              <option key={tk} value={tk}>
+                {tk}
+              </option>
             ))}
           </select>
           <select
@@ -92,7 +97,9 @@ export function OfferList({ adType, onAcceptOffer }: OfferListProps) {
           >
             <option value="">{t('p2p.allCurrencies')}</option>
             {FIAT_CURRENCIES.map((c) => (
-              <option key={c} value={c}>{c}</option>
+              <option key={c} value={c}>
+                {c}
+              </option>
             ))}
           </select>
         </div>
@@ -110,10 +117,7 @@ export function OfferList({ adType, onAcceptOffer }: OfferListProps) {
       ) : (
         <div className="space-y-2">
           {offers.map((offer) => (
-            <div
-              key={offer.id}
-              className="bg-card rounded-xl border border-border p-3 space-y-2"
-            >
+            <div key={offer.id} className="bg-card rounded-xl border border-border p-3 space-y-2">
               {/* Top: Token + Price */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -121,7 +125,8 @@ export function OfferList({ adType, onAcceptOffer }: OfferListProps) {
                   <span className="text-xs text-muted-foreground">/ {offer.fiat_currency}</span>
                 </div>
                 <span className="text-sm font-bold text-cyan-400">
-                  {offer.price_per_unit?.toLocaleString(undefined, { maximumFractionDigits: 2 })} {offer.fiat_currency}
+                  {offer.price_per_unit?.toLocaleString(undefined, { maximumFractionDigits: 2 })}{' '}
+                  {offer.fiat_currency}
                 </span>
               </div>
 
@@ -179,7 +184,9 @@ export function OfferList({ adType, onAcceptOffer }: OfferListProps) {
               >
                 {t('p2p.prev')}
               </button>
-              <span className="text-xs text-muted-foreground">{page} / {totalPages}</span>
+              <span className="text-xs text-muted-foreground">
+                {page} / {totalPages}
+              </span>
               <button
                 onClick={() => fetchOffers(page + 1)}
                 disabled={page >= totalPages}

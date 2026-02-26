@@ -27,9 +27,7 @@ export function TradeModal({ isOpen, onClose, offer, onTradeCreated }: TradeModa
   if (!isOpen || !offer) return null;
 
   const numAmount = parseFloat(amount) || 0;
-  const fiatTotal = numAmount > 0 && offer.price_per_unit
-    ? numAmount * offer.price_per_unit
-    : 0;
+  const fiatTotal = numAmount > 0 && offer.price_per_unit ? numAmount * offer.price_per_unit : 0;
 
   const isValid =
     numAmount > 0 &&
@@ -108,7 +106,9 @@ export function TradeModal({ isOpen, onClose, offer, onTradeCreated }: TradeModa
 
           {/* Amount Input */}
           <div>
-            <label className="text-sm text-muted-foreground mb-1 block">{t('p2p.amount')} ({offer.token})</label>
+            <label className="text-sm text-muted-foreground mb-1 block">
+              {t('p2p.amount')} ({offer.token})
+            </label>
             <input
               type="number"
               value={amount}
@@ -133,7 +133,8 @@ export function TradeModal({ isOpen, onClose, offer, onTradeCreated }: TradeModa
               <div className="flex justify-between">
                 <span className="text-sm text-muted-foreground">{t('p2p.fiatTotal')}</span>
                 <span className="text-lg font-bold text-cyan-400">
-                  {fiatTotal.toLocaleString(undefined, { maximumFractionDigits: 2 })} {offer.fiat_currency}
+                  {fiatTotal.toLocaleString(undefined, { maximumFractionDigits: 2 })}{' '}
+                  {offer.fiat_currency}
                 </span>
               </div>
             </div>
