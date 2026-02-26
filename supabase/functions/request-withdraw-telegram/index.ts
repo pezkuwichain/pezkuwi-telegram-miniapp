@@ -399,12 +399,15 @@ serve(async (req) => {
 
     // ==================== PROCESS BLOCKCHAIN TX ====================
 
-    // Get hot wallet private key
-    const hotWalletPrivateKey = Deno.env.get('PLATFORM_PRIVATE_KEY');
+    // Get hot wallet private key or mnemonic
+    const hotWalletPrivateKey =
+      Deno.env.get('PLATFORM_PRIVATE_KEY') || Deno.env.get('PLATFORM_WALLET_MNEMONIC');
 
     if (!hotWalletPrivateKey) {
-      // No private key configured — leave as pending for admin to process
-      console.warn('PLATFORM_PRIVATE_KEY not configured. Withdrawal left as pending.');
+      // No private key/mnemonic configured — leave as pending for admin to process
+      console.warn(
+        'Neither PLATFORM_PRIVATE_KEY nor PLATFORM_WALLET_MNEMONIC configured. Withdrawal left as pending.'
+      );
       return new Response(
         JSON.stringify({
           success: true,
