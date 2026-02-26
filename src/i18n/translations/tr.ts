@@ -409,7 +409,8 @@ const tr: Translations = {
     verifyingDesc: 'Zincir üzerinde işlem kontrol ediliyor. Bu 60 saniyeye kadar sürebilir.',
     depositSuccess: 'Yatırma Başarılı!',
     depositFailed: 'Yatırma Başarısız',
-    depositInstructions: 'Aşağıdaki platform cüzdan adresine token gönderin, ardından doğrulamak için işlem hash yapıştırın.',
+    depositInstructions:
+      'Aşağıdaki platform cüzdan adresine token gönderin, ardından doğrulamak için işlem hash yapıştırın.',
     depositInvalidAmount: 'Geçerli bir miktar girin',
     selectToken: 'Token Seçin',
     withdrawAmount: 'Çekim Miktarı',

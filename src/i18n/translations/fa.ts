@@ -409,14 +409,16 @@ const fa: Translations = {
     verifyingDesc: 'تراکنش روی زنجیره بررسی می‌شود. این ممکن است تا ۶۰ ثانیه طول بکشد.',
     depositSuccess: 'واریز موفق!',
     depositFailed: 'واریز ناموفق',
-    depositInstructions: 'توکن‌ها را به آدرس کیف پول پلتفرم زیر ارسال کنید، سپس هش تراکنش را برای تایید جایگذاری کنید.',
+    depositInstructions:
+      'توکن‌ها را به آدرس کیف پول پلتفرم زیر ارسال کنید، سپس هش تراکنش را برای تایید جایگذاری کنید.',
     depositInvalidAmount: 'لطفا مقدار معتبری وارد کنید',
     selectToken: 'انتخاب توکن',
     withdrawAmount: 'مقدار برداشت',
     networkFee: 'کارمزد شبکه',
     netAmount: 'دریافتی شما',
     withdrawSuccess: 'درخواست برداشت ثبت شد!',
-    withdrawProcessing: 'برداشت شما در حال پردازش است. توکن‌ها به زودی به کیف پول شما ارسال می‌شوند.',
+    withdrawProcessing:
+      'برداشت شما در حال پردازش است. توکن‌ها به زودی به کیف پول شما ارسال می‌شوند.',
     withdrawing: 'در حال پردازش...',
     minWithdraw: 'حداقل برداشت',
     maxAvailable: 'حداکثر',

@@ -409,14 +409,16 @@ const en: Translations = {
     verifyingDesc: 'Checking on-chain transaction. This may take up to 60 seconds.',
     depositSuccess: 'Deposit Successful!',
     depositFailed: 'Deposit Failed',
-    depositInstructions: 'Send tokens to the platform wallet address below, then paste the transaction hash to verify.',
+    depositInstructions:
+      'Send tokens to the platform wallet address below, then paste the transaction hash to verify.',
     depositInvalidAmount: 'Please enter a valid amount',
     selectToken: 'Select Token',
     withdrawAmount: 'Withdrawal Amount',
     networkFee: 'Network Fee',
     netAmount: 'You Receive',
     withdrawSuccess: 'Withdrawal Requested!',
-    withdrawProcessing: 'Your withdrawal is being processed. Tokens will be sent to your wallet shortly.',
+    withdrawProcessing:
+      'Your withdrawal is being processed. Tokens will be sent to your wallet shortly.',
     withdrawing: 'Processing...',
     minWithdraw: 'Min Withdrawal',
     maxAvailable: 'Max',

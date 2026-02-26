@@ -418,17 +418,20 @@ const krd: Translations = {
     optional: 'ne mecbûrî',
     verifyDeposit: 'Depoyê Verast Bike',
     verifying: 'Tê verast kirin...',
-    verifyingDesc: 'Danûstandin li ser zincîrê tê kontrol kirin. Ev dikare heya 60 çirkeyan bigire.',
+    verifyingDesc:
+      'Danûstandin li ser zincîrê tê kontrol kirin. Ev dikare heya 60 çirkeyan bigire.',
     depositSuccess: 'Depo Serkeftî!',
     depositFailed: 'Depo Serneket',
-    depositInstructions: 'Token bişîne navnîşana cûzdanê ya platformê ya jêrîn, paşê hash ya danûstandinê bişkoje ji bo verastkirin.',
+    depositInstructions:
+      'Token bişîne navnîşana cûzdanê ya platformê ya jêrîn, paşê hash ya danûstandinê bişkoje ji bo verastkirin.',
     depositInvalidAmount: 'Ji kerema xwe mîqdarek derbasdar binivîsin',
     selectToken: 'Token Hilbijêrin',
     withdrawAmount: 'Mîqdara Derxistinê',
     networkFee: 'Heqê Torê',
     netAmount: 'Hûn Digirin',
     withdrawSuccess: 'Daxwaza Derxistinê Hat Afirandin!',
-    withdrawProcessing: 'Derxistina we tê pêvajokirin. Token dê di demeke kurt de bên şandin bo cûzdanê we.',
+    withdrawProcessing:
+      'Derxistina we tê pêvajokirin. Token dê di demeke kurt de bên şandin bo cûzdanê we.',
     withdrawing: 'Tê pêvajokirin...',
     minWithdraw: 'Kêmtirîn Derxistin',
     maxAvailable: 'Herî zêde',
