@@ -56,6 +56,8 @@ export function OfferList({ adType, onAcceptOffer }: OfferListProps) {
 
   useEffect(() => {
     fetchOffers(1);
+    const interval = setInterval(() => fetchOffers(1), 15000);
+    return () => clearInterval(interval);
   }, [fetchOffers]);
 
   const handleAccept = (offer: P2POffer) => {

@@ -12,7 +12,7 @@ interface TradeChatProps {
 }
 
 export function TradeChat({ tradeId, onClose }: TradeChatProps) {
-  const { sessionToken, user } = useAuth();
+  const { sessionToken, authUserId } = useAuth();
   const { t, isRTL } = useTranslation();
   const { hapticImpact } = useTelegram();
 
@@ -22,8 +22,6 @@ export function TradeChat({ tradeId, onClose }: TradeChatProps) {
   const [sending, setSending] = useState(false);
   // eslint-disable-next-line no-undef
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
-  const userId = user?.id;
 
   const fetchMessages = useCallback(async () => {
     if (!sessionToken) return;
@@ -97,7 +95,7 @@ export function TradeChat({ tradeId, onClose }: TradeChatProps) {
           </div>
         ) : (
           messages.map((msg) => {
-            const isOwn = msg.sender_id === userId;
+            const isOwn = msg.sender_id === authUserId;
             const isSystem = msg.message_type === 'system';
             return (
               <div

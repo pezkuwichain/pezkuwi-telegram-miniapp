@@ -99,8 +99,12 @@ export function P2PSection() {
   useEffect(() => {
     if (activeTab === 'myAds') {
       fetchMyOffersFull();
+      const interval = setInterval(fetchMyOffersFull, 15000);
+      return () => clearInterval(interval);
     } else if (activeTab === 'myTrades') {
       fetchMyTrades();
+      const interval = setInterval(fetchMyTrades, 15000);
+      return () => clearInterval(interval);
     }
   }, [activeTab, fetchMyOffersFull, fetchMyTrades]);
 
