@@ -308,7 +308,7 @@ export interface Translations {
     trc20FeeWarning: string;
   };
 
-  // P2P Modal
+  // P2P Section
   p2p: {
     title: string;
     subtitle: string;
@@ -316,6 +316,98 @@ export interface Translations {
     steps: string[];
     note: string;
     button: string;
+    // Tabs
+    buy: string;
+    sell: string;
+    myAds: string;
+    myTrades: string;
+    // Balance
+    internalBalance: string;
+    available: string;
+    locked: string;
+    totalBalance: string;
+    noBalance: string;
+    // Offers
+    createOffer: string;
+    acceptOffer: string;
+    confirmAccept: string;
+    noOffers: string;
+    filters: string;
+    allTokens: string;
+    allCurrencies: string;
+    prev: string;
+    next: string;
+    min: string;
+    max: string;
+    trades: string;
+    // Offer form
+    token: string;
+    fiatCurrency: string;
+    pricePerUnit: string;
+    amount: string;
+    fiatTotal: string;
+    paymentMethod: string;
+    selectPaymentMethod: string;
+    paymentDetails: string;
+    paymentDetailsPlaceholder: string;
+    minOrder: string;
+    maxOrder: string;
+    timeLimit: string;
+    minutes: string;
+    insufficientBalance: string;
+    timeLimitWarning: string;
+    // Trade
+    tradeDetails: string;
+    tradeNotFound: string;
+    role: string;
+    buyer: string;
+    seller: string;
+    cryptoAmount: string;
+    fiatAmount: string;
+    timeline: string;
+    tradeCreated: string;
+    paymentSent: string;
+    paymentConfirmed: string;
+    tradeCompleted: string;
+    timeRemaining: string;
+    expired: string;
+    // Trade actions
+    markPaid: string;
+    confirmReceived: string;
+    cancelTrade: string;
+    // Status
+    status: {
+      open: string;
+      paused: string;
+      locked: string;
+      completed: string;
+      cancelled: string;
+      pending: string;
+      payment_sent: string;
+      disputed: string;
+      refunded: string;
+    };
+    // Chat
+    chat: string;
+    noMessages: string;
+    messagePlaceholder: string;
+    // Dispute
+    openDispute: string;
+    disputeWarning: string;
+    disputeCategory: string;
+    selectCategory: string;
+    disputeReason: string;
+    disputeReasonPlaceholder: string;
+    minChars: string;
+    submitDispute: string;
+    dispute: {
+      payment_not_received: string;
+      wrong_amount: string;
+      fake_payment_proof: string;
+      other: string;
+    };
+    // No data
+    noTrades: string;
   };
 
   // Update Notification

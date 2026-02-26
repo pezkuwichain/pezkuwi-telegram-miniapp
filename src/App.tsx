@@ -1,10 +1,7 @@
-import { useState, lazy, Suspense, useCallback } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { Megaphone, MessageCircle, Gift, Wallet, Loader2, ArrowLeftRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { UpdateNotification } from '@/components/UpdateNotification';
-import { P2PModal } from '@/components/P2PModal';
-import { useAuth } from '@/contexts/AuthContext';
-import { useWallet } from '@/contexts/WalletContext';
 import { useTranslation } from '@/i18n';
 
 // Lazy load sections for code splitting
@@ -19,6 +16,9 @@ const RewardsSection = lazy(() =>
 );
 const WalletSection = lazy(() =>
   import('@/sections/Wallet').then((m) => ({ default: m.WalletSection }))
+);
+const P2PSection = lazy(() =>
+  import('@/sections/P2P').then((m) => ({ default: m.P2PSection }))
 );
 const CitizenPage = lazy(() =>
   import('@/pages/CitizenPage').then((m) => ({ default: m.CitizenPage }))
@@ -36,26 +36,21 @@ function SectionLoader() {
   );
 }
 
-type Section = 'announcements' | 'forum' | 'rewards' | 'wallet';
-type NavId = Section | 'p2p';
+type Section = 'announcements' | 'forum' | 'rewards' | 'p2p' | 'wallet';
 
 interface NavItem {
-  id: NavId;
+  id: Section;
   icon: typeof Megaphone;
   labelKey: string;
-  isExternal?: boolean;
 }
 
 const NAV_ITEMS: NavItem[] = [
   { id: 'announcements', icon: Megaphone, labelKey: 'nav.announcements' },
   { id: 'forum', icon: MessageCircle, labelKey: 'nav.forum' },
   { id: 'rewards', icon: Gift, labelKey: 'nav.rewards' },
-  { id: 'p2p', icon: ArrowLeftRight, labelKey: 'nav.p2p', isExternal: true },
+  { id: 'p2p', icon: ArrowLeftRight, labelKey: 'nav.p2p' },
   { id: 'wallet', icon: Wallet, labelKey: 'nav.wallet' },
 ];
-
-// P2P Web App URL - Mobile-optimized P2P
-const P2P_WEB_URL = 'https://telegram.pezkuwichain.io/p2p';
 
 // Check for standalone pages via URL query params or path (evaluated once at module level)
 const PAGE_PARAM = new URLSearchParams(window.location.search).get('page');
@@ -84,42 +79,11 @@ export default function App() {
 
 function MainApp() {
   const [activeSection, setActiveSection] = useState<Section>('announcements');
-  const [showP2PModal, setShowP2PModal] = useState(false);
-  const { sessionToken } = useAuth();
-  const { address } = useWallet();
   const { t } = useTranslation();
-
-  // Open P2P in popup with auth params
-  const openP2P = useCallback(() => {
-    window.Telegram?.WebApp.HapticFeedback.impactOccurred('medium');
-
-    // Build auth URL with session token
-    const params = new URLSearchParams();
-    if (sessionToken) {
-      params.set('session_token', sessionToken);
-    }
-    if (address) {
-      params.set('wallet', address);
-    }
-    params.set('from', 'miniapp');
-
-    const url = `${P2P_WEB_URL}?${params.toString()}`;
-
-    // Open in new window/tab
-    window.open(url, '_blank');
-  }, [sessionToken, address]);
 
   const handleNavClick = (item: NavItem) => {
     window.Telegram?.WebApp.HapticFeedback.selectionChanged();
-
-    if (item.isExternal) {
-      // P2P opens modal first
-      if (item.id === 'p2p') {
-        setShowP2PModal(true);
-      }
-    } else {
-      setActiveSection(item.id as Section);
-    }
+    setActiveSection(item.id);
   };
 
   return (
@@ -131,6 +95,7 @@ function MainApp() {
             {activeSection === 'announcements' && <AnnouncementsSection />}
             {activeSection === 'forum' && <ForumSection />}
             {activeSection === 'rewards' && <RewardsSection />}
+            {activeSection === 'p2p' && <P2PSection />}
             {activeSection === 'wallet' && <WalletSection />}
           </Suspense>
         </div>
@@ -139,15 +104,12 @@ function MainApp() {
       {/* Update Notification */}
       <UpdateNotification />
 
-      {/* P2P Modal */}
-      <P2PModal isOpen={showP2PModal} onClose={() => setShowP2PModal(false)} onOpenP2P={openP2P} />
-
       {/* Bottom Navigation */}
       <nav className="flex-shrink-0 bg-secondary/50 backdrop-blur-lg border-t border-border safe-area-bottom">
         <div className="flex justify-around items-center h-16">
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon;
-            const isActive = !item.isExternal && activeSection === item.id;
+            const isActive = activeSection === item.id;
 
             return (
               <button
@@ -156,7 +118,7 @@ function MainApp() {
                 className={cn(
                   'flex flex-col items-center justify-center w-full h-full gap-1 transition-colors',
                   isActive ? 'text-primary' : 'text-muted-foreground hover:text-foreground',
-                  item.isExternal && 'text-cyan-400 hover:text-cyan-300'
+                  item.id === 'p2p' && !isActive && 'text-cyan-400 hover:text-cyan-300'
                 )}
               >
                 <Icon className={cn('w-5 h-5', isActive && 'scale-110')} />
