@@ -1,13 +1,12 @@
-import { useState, useCallback } from 'react';
+import { useState } from 'react';
 import {
   X,
-  Copy,
-  Check,
   ArrowDownToLine,
   ArrowUpFromLine,
   Loader2,
   AlertCircle,
   CheckCircle2,
+  Wallet,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
@@ -36,7 +35,7 @@ interface DepositWithdrawModalProps {
   onSuccess?: () => void;
 }
 
-type DepositStep = 'form' | 'verifying' | 'success' | 'error';
+type DepositStep = 'form' | 'sending' | 'verifying' | 'success' | 'error';
 
 export function DepositWithdrawModal({
   isOpen,
@@ -46,7 +45,7 @@ export function DepositWithdrawModal({
   onSuccess,
 }: DepositWithdrawModalProps) {
   const { sessionToken } = useAuth();
-  const { address } = useWallet();
+  const { address, isConnected, keypair, assetHubApi } = useWallet();
   const { t, isRTL } = useTranslation();
   const { hapticImpact, hapticNotification } = useTelegram();
 
@@ -55,14 +54,11 @@ export function DepositWithdrawModal({
   // Deposit state
   const [depositToken, setDepositToken] = useState<'HEZ' | 'PEZ'>('HEZ');
   const [depositAmount, setDepositAmount] = useState('');
-  const [txHash, setTxHash] = useState('');
-  const [blockNumber, setBlockNumber] = useState('');
   const [depositStep, setDepositStep] = useState<DepositStep>('form');
   const [depositError, setDepositError] = useState('');
   const [depositResult, setDepositResult] = useState<{ amount: number; token: string } | null>(
     null
   );
-  const [copied, setCopied] = useState(false);
 
   // Withdraw state
   const [withdrawToken, setWithdrawToken] = useState<'HEZ' | 'PEZ'>('HEZ');
@@ -72,28 +68,10 @@ export function DepositWithdrawModal({
   const [withdrawError, setWithdrawError] = useState('');
   const [withdrawSuccess, setWithdrawSuccess] = useState(false);
 
-  const handleCopyAddress = useCallback(async () => {
-    try {
-      await navigator.clipboard.writeText(PLATFORM_WALLET);
-      setCopied(true);
-      hapticNotification('success');
-      setTimeout(() => setCopied(false), 2000);
-    } catch {
-      // Fallback for environments where clipboard API is not available
-      const textArea = document.createElement('textarea');
-      textArea.value = PLATFORM_WALLET;
-      document.body.appendChild(textArea);
-      textArea.select();
-      document.execCommand('copy');
-      document.body.removeChild(textArea);
-      setCopied(true);
-      hapticNotification('success');
-      setTimeout(() => setCopied(false), 2000);
-    }
-  }, [hapticNotification]);
+  const canDeposit = isConnected && !!keypair && !!assetHubApi;
 
-  const handleVerifyDeposit = async () => {
-    if (!sessionToken || !txHash || !depositAmount) return;
+  const handleDeposit = async () => {
+    if (!sessionToken || !depositAmount || !assetHubApi || !keypair) return;
 
     const amount = parseFloat(depositAmount);
     if (isNaN(amount) || amount <= 0) {
@@ -102,17 +80,54 @@ export function DepositWithdrawModal({
     }
 
     hapticImpact('medium');
-    setDepositStep('verifying');
+    setDepositStep('sending');
     setDepositError('');
 
     try {
-      const result = await verifyDeposit(
-        sessionToken,
-        txHash.trim(),
-        depositToken,
-        amount,
-        blockNumber ? parseInt(blockNumber) : undefined
-      );
+      const amountPlanck = BigInt(Math.floor(amount * 1e12));
+
+      // Create transaction on Asset Hub
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let tx: any;
+      if (depositToken === 'HEZ') {
+        // Native token transfer on Asset Hub
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        tx = (assetHubApi.tx.balances as any).transferKeepAlive(
+          PLATFORM_WALLET,
+          amountPlanck.toString()
+        );
+      } else {
+        // PEZ = asset ID 1 on Asset Hub
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        tx = (assetHubApi.tx.assets as any).transfer(1, PLATFORM_WALLET, amountPlanck.toString());
+      }
+
+      // Send TX and wait for finalization
+      const txHash = await new Promise<string>((resolve, reject) => {
+        tx.signAndSend(
+          keypair,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          (result: any) => {
+            if (result.dispatchError) {
+              if (result.dispatchError.isModule) {
+                const decoded = assetHubApi!.registry.findMetaError(result.dispatchError.asModule);
+                reject(new Error(`${decoded.section}.${decoded.name}`));
+              } else {
+                reject(new Error(result.dispatchError.toString()));
+              }
+              return;
+            }
+            if (result.status.isFinalized) {
+              resolve(result.txHash.toHex());
+            }
+          }
+        ).catch(reject);
+      });
+
+      // TX finalized, now verify deposit on backend
+      setDepositStep('verifying');
+
+      const result = await verifyDeposit(sessionToken, txHash, depositToken, amount);
 
       setDepositResult({ amount: result.amount, token: result.token });
       setDepositStep('success');
@@ -168,8 +183,6 @@ export function DepositWithdrawModal({
     setDepositStep('form');
     setDepositError('');
     setDepositResult(null);
-    setTxHash('');
-    setBlockNumber('');
     setDepositAmount('');
   };
 
@@ -247,33 +260,21 @@ export function DepositWithdrawModal({
           {/* ── Deposit Tab ── */}
           {activeTab === 'deposit' && (
             <>
-              {depositStep === 'form' && (
+              {!canDeposit ? (
+                <div className="flex flex-col items-center justify-center py-12 space-y-3">
+                  <Wallet className="w-12 h-12 text-muted-foreground/50" />
+                  <p className="text-sm font-medium text-foreground">
+                    {t('p2p.walletNotConnected')}
+                  </p>
+                  <p className="text-xs text-muted-foreground text-center">
+                    {t('p2p.connectWalletFirst')}
+                  </p>
+                </div>
+              ) : depositStep === 'form' ? (
                 <>
                   {/* Instructions */}
                   <div className="bg-cyan-500/10 border border-cyan-500/20 rounded-xl p-3">
                     <p className="text-xs text-cyan-300">{t('p2p.depositInstructions')}</p>
-                  </div>
-
-                  {/* Platform wallet address */}
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">
-                      {t('p2p.platformWallet')}
-                    </label>
-                    <div className="flex items-center gap-2 bg-muted rounded-lg p-2.5">
-                      <code className="flex-1 text-xs text-foreground break-all font-mono">
-                        {PLATFORM_WALLET}
-                      </code>
-                      <button
-                        onClick={handleCopyAddress}
-                        className="shrink-0 p-1.5 rounded-md hover:bg-card/50 transition-colors"
-                      >
-                        {copied ? (
-                          <Check className="w-4 h-4 text-green-400" />
-                        ) : (
-                          <Copy className="w-4 h-4 text-muted-foreground" />
-                        )}
-                      </button>
-                    </div>
                   </div>
 
                   {/* Token select */}
@@ -314,47 +315,24 @@ export function DepositWithdrawModal({
                     />
                   </div>
 
-                  {/* TX Hash */}
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">
-                      {t('p2p.txHash')}
-                    </label>
-                    <input
-                      type="text"
-                      value={txHash}
-                      onChange={(e) => setTxHash(e.target.value)}
-                      placeholder={t('p2p.txHashPlaceholder')}
-                      className="w-full bg-muted rounded-lg px-3 py-2.5 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-cyan-500 font-mono"
-                    />
-                  </div>
-
-                  {/* Block Number (optional) */}
-                  <div>
-                    <label className="text-xs text-muted-foreground mb-1 block">
-                      {t('p2p.blockNumber')} ({t('p2p.optional')})
-                    </label>
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      value={blockNumber}
-                      onChange={(e) => setBlockNumber(e.target.value)}
-                      placeholder="e.g. 1234567"
-                      className="w-full bg-muted rounded-lg px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-cyan-500"
-                    />
-                  </div>
-
-                  {/* Verify button */}
+                  {/* Deposit button */}
                   <button
-                    onClick={handleVerifyDeposit}
-                    disabled={!txHash || !depositAmount || !sessionToken}
+                    onClick={handleDeposit}
+                    disabled={!depositAmount || !sessionToken}
                     className="w-full py-3 bg-cyan-500 hover:bg-cyan-600 disabled:bg-muted disabled:text-muted-foreground text-white font-medium rounded-xl transition-colors"
                   >
-                    {t('p2p.verifyDeposit')}
+                    {t('p2p.deposit')}
                   </button>
                 </>
-              )}
-
-              {depositStep === 'verifying' && (
+              ) : depositStep === 'sending' ? (
+                <div className="flex flex-col items-center justify-center py-12 space-y-3">
+                  <Loader2 className="w-10 h-10 text-cyan-400 animate-spin" />
+                  <p className="text-sm text-foreground">{t('p2p.depositSending')}</p>
+                  <p className="text-xs text-muted-foreground text-center">
+                    {t('p2p.depositSendingDesc')}
+                  </p>
+                </div>
+              ) : depositStep === 'verifying' ? (
                 <div className="flex flex-col items-center justify-center py-12 space-y-3">
                   <Loader2 className="w-10 h-10 text-cyan-400 animate-spin" />
                   <p className="text-sm text-foreground">{t('p2p.verifying')}</p>
@@ -362,9 +340,7 @@ export function DepositWithdrawModal({
                     {t('p2p.verifyingDesc')}
                   </p>
                 </div>
-              )}
-
-              {depositStep === 'success' && depositResult && (
+              ) : depositStep === 'success' && depositResult ? (
                 <div className="flex flex-col items-center justify-center py-12 space-y-3">
                   <CheckCircle2 className="w-12 h-12 text-green-400" />
                   <p className="text-lg font-bold text-foreground">{t('p2p.depositSuccess')}</p>
@@ -378,9 +354,7 @@ export function DepositWithdrawModal({
                     {t('common.close')}
                   </button>
                 </div>
-              )}
-
-              {depositStep === 'error' && (
+              ) : (
                 <div className="flex flex-col items-center justify-center py-12 space-y-3">
                   <AlertCircle className="w-12 h-12 text-red-400" />
                   <p className="text-lg font-bold text-foreground">{t('p2p.depositFailed')}</p>

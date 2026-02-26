@@ -410,8 +410,13 @@ const fa: Translations = {
     depositSuccess: 'واریز موفق!',
     depositFailed: 'واریز ناموفق',
     depositInstructions:
-      'توکن‌ها را به آدرس کیف پول پلتفرم زیر ارسال کنید، سپس هش تراکنش را برای تایید جایگذاری کنید.',
+      'یک توکن انتخاب کنید و مقدار را وارد کنید تا به موجودی P2P شما اضافه شود. تراکنش به صورت خودکار از کیف پول شما ارسال خواهد شد.',
     depositInvalidAmount: 'لطفا مقدار معتبری وارد کنید',
+    depositSending: 'در حال ارسال تراکنش...',
+    depositSendingDesc:
+      'واریز شما در حال امضا و ارسال به Asset Hub است. این عملیات ممکن است تا ۳۰ ثانیه طول بکشد.',
+    walletNotConnected: 'کیف پول متصل نیست',
+    connectWalletFirst: 'لطفا برای واریز، قفل کیف پول خود را باز کنید.',
     selectToken: 'انتخاب توکن',
     withdrawAmount: 'مقدار برداشت',
     networkFee: 'کارمزد شبکه',

@@ -410,8 +410,13 @@ const en: Translations = {
     depositSuccess: 'Deposit Successful!',
     depositFailed: 'Deposit Failed',
     depositInstructions:
-      'Send tokens to the platform wallet address below, then paste the transaction hash to verify.',
+      'Select a token and enter the amount to deposit to your P2P balance. The transaction will be sent from your wallet automatically.',
     depositInvalidAmount: 'Please enter a valid amount',
+    depositSending: 'Sending transaction...',
+    depositSendingDesc:
+      'Signing and sending your deposit to Asset Hub. This may take up to 30 seconds.',
+    walletNotConnected: 'Wallet not connected',
+    connectWalletFirst: 'Please unlock your wallet to make deposits.',
     selectToken: 'Select Token',
     withdrawAmount: 'Withdrawal Amount',
     networkFee: 'Network Fee',

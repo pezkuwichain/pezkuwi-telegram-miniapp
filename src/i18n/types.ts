@@ -421,6 +421,10 @@ export interface Translations {
     depositFailed: string;
     depositInstructions: string;
     depositInvalidAmount: string;
+    depositSending: string;
+    depositSendingDesc: string;
+    walletNotConnected: string;
+    connectWalletFirst: string;
     selectToken: string;
     withdrawAmount: string;
     networkFee: string;

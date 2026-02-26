@@ -410,8 +410,13 @@ const tr: Translations = {
     depositSuccess: 'Yatırma Başarılı!',
     depositFailed: 'Yatırma Başarısız',
     depositInstructions:
-      'Aşağıdaki platform cüzdan adresine token gönderin, ardından doğrulamak için işlem hash yapıştırın.',
+      'P2P bakiyenize yatırmak için bir token seçin ve miktarı girin. İşlem cüzdanınızdan otomatik olarak gönderilecektir.',
     depositInvalidAmount: 'Geçerli bir miktar girin',
+    depositSending: 'İşlem gönderiliyor...',
+    depositSendingDesc:
+      "Yatırma işleminiz Asset Hub'a imzalanıp gönderiliyor. Bu işlem 30 saniyeye kadar sürebilir.",
+    walletNotConnected: 'Cüzdan bağlı değil',
+    connectWalletFirst: 'Yatırma yapmak için cüzdanınızın kilidini açın.',
     selectToken: 'Token Seçin',
     withdrawAmount: 'Çekim Miktarı',
     networkFee: 'Ağ Ücreti',

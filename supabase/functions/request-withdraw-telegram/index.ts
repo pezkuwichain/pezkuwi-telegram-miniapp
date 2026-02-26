@@ -148,7 +148,7 @@ serve(async (req) => {
     const telegramEmail = `telegram_${telegramId}@pezkuwichain.io`;
     const {
       data: { users: existingUsers },
-    } = await serviceClient.auth.admin.listUsers();
+    } = await serviceClient.auth.admin.listUsers({ perPage: 1000 });
     const authUser = existingUsers?.find((u) => u.email === telegramEmail);
 
     if (!authUser) {

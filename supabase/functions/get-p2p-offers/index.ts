@@ -138,7 +138,7 @@ serve(async (req) => {
     const telegramEmail = `telegram_${telegramId}@pezkuwichain.io`;
     const {
       data: { users: authUsers },
-    } = await supabase.auth.admin.listUsers();
+    } = await supabase.auth.admin.listUsers({ perPage: 1000 });
     const authUser = authUsers?.find((u) => u.email === telegramEmail);
 
     if (!authUser) {

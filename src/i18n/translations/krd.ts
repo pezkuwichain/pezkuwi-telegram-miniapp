@@ -423,8 +423,13 @@ const krd: Translations = {
     depositSuccess: 'Depo Serkeftî!',
     depositFailed: 'Depo Serneket',
     depositInstructions:
-      'Token bişîne navnîşana cûzdanê ya platformê ya jêrîn, paşê hash ya danûstandinê bişkoje ji bo verastkirin.',
+      'Ji bo ku hûn li balanseya P2P-ê ya xwe depo bikin, tokenek hilbijêrin û mîqdarê binivîsin. Danûstandin dê ji cûzdanê we bixweber were şandin.',
     depositInvalidAmount: 'Ji kerema xwe mîqdarek derbasdar binivîsin',
+    depositSending: 'Danûstandin tê şandin...',
+    depositSendingDesc:
+      'Depoya we li Asset Hub tê îmzekirin û şandin. Ev dibe ku heta 30 saniyeyan bigire.',
+    walletNotConnected: 'Cûzdan ve negirêdayî ye',
+    connectWalletFirst: 'Ji bo depokirinê, ji kerema xwe kilîda cûzdanê vekin.',
     selectToken: 'Token Hilbijêrin',
     withdrawAmount: 'Mîqdara Derxistinê',
     networkFee: 'Heqê Torê',

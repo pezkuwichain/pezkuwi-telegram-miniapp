@@ -355,7 +355,7 @@ serve(async (req) => {
     // Try to get existing auth user
     const {
       data: { users: existingUsers },
-    } = await serviceClient.auth.admin.listUsers();
+    } = await serviceClient.auth.admin.listUsers({ perPage: 1000 });
     let authUser = existingUsers?.find((u) => u.email === telegramEmail);
 
     if (!authUser) {
