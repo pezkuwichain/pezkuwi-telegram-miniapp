@@ -195,7 +195,9 @@ export function P2PSection() {
               onClick={() => handleTabChange(tab.id)}
               className={cn(
                 'flex-1 py-2 text-xs font-medium rounded-lg transition-colors',
-                activeTab === tab.id ? 'bg-cyan-500/20 text-cyan-400 shadow-sm' : 'text-muted-foreground'
+                activeTab === tab.id
+                  ? 'bg-cyan-500/20 text-cyan-400 shadow-sm'
+                  : 'text-muted-foreground'
               )}
             >
               {tab.label}
