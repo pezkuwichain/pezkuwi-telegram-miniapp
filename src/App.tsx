@@ -17,9 +17,7 @@ const RewardsSection = lazy(() =>
 const WalletSection = lazy(() =>
   import('@/sections/Wallet').then((m) => ({ default: m.WalletSection }))
 );
-const P2PSection = lazy(() =>
-  import('@/sections/P2P').then((m) => ({ default: m.P2PSection }))
-);
+const P2PSection = lazy(() => import('@/sections/P2P').then((m) => ({ default: m.P2PSection })));
 const CitizenPage = lazy(() =>
   import('@/pages/CitizenPage').then((m) => ({ default: m.CitizenPage }))
 );

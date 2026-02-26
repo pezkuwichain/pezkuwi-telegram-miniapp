@@ -306,12 +306,12 @@ const tr: Translations = {
   p2p: {
     title: 'P2P Borsa',
     subtitle: 'Eşler arası kripto alım-satım',
-    firstTime: 'P2P\'yi ilk kez mi kullanıyorsun?',
+    firstTime: "P2P'yi ilk kez mi kullanıyorsun?",
     steps: [
       'Aşağıdaki butona tıklayarak web uygulamasını açın',
       'Hesap oluşturun veya giriş yapın',
       'Kurulum sürecini tamamlayın',
-      'Kurulumdan sonra P2P\'ye doğrudan erişebilirsiniz',
+      "Kurulumdan sonra P2P'ye doğrudan erişebilirsiniz",
     ],
     note: 'Web uygulaması yeni bir pencerede açılacaktır.',
     button: 'P2P Platformunu Aç',
