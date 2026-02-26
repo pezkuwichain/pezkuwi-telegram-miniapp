@@ -102,12 +102,15 @@ export function DepositWithdrawModal({
         tx = (assetHubApi.tx.assets as any).transfer(1, PLATFORM_WALLET, amountPlanck.toString());
       }
 
-      // Send TX and wait for finalization
-      const txHash = await new Promise<string>((resolve, reject) => {
+      // Send TX and wait for finalization, capture block number for fast verification
+      const { txHash, blockNumber } = await new Promise<{
+        txHash: string;
+        blockNumber: number;
+      }>((resolve, reject) => {
         tx.signAndSend(
           keypair,
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          (result: any) => {
+          async (result: any) => {
             if (result.dispatchError) {
               if (result.dispatchError.isModule) {
                 const decoded = assetHubApi!.registry.findMetaError(result.dispatchError.asModule);
@@ -118,7 +121,17 @@ export function DepositWithdrawModal({
               return;
             }
             if (result.status.isFinalized) {
-              resolve(result.txHash.toHex());
+              try {
+                // Get block number from finalized block hash for fast verification
+                const header = await assetHubApi!.rpc.chain.getHeader(result.status.asFinalized);
+                resolve({
+                  txHash: result.txHash.toHex(),
+                  blockNumber: header.number.toNumber(),
+                });
+              } catch {
+                // Fallback: resolve without block number
+                resolve({ txHash: result.txHash.toHex(), blockNumber: 0 });
+              }
             }
           }
         ).catch(reject);
@@ -127,7 +140,13 @@ export function DepositWithdrawModal({
       // TX finalized, now verify deposit on backend
       setDepositStep('verifying');
 
-      const result = await verifyDeposit(sessionToken, txHash, depositToken, amount);
+      const result = await verifyDeposit(
+        sessionToken,
+        txHash,
+        depositToken,
+        amount,
+        blockNumber || undefined
+      );
 
       setDepositResult({ amount: result.amount, token: result.token });
       setDepositStep('success');

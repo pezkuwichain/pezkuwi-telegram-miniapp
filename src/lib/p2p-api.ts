@@ -106,12 +106,19 @@ async function callEdgeFunction<T>(
 
   if (error) {
     let msg = error.message || 'Unknown error';
-    if (error.context?.body) {
+    // Try to extract the actual error from response body
+    const body =
+      error.context?.body ??
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (error as any)?.body ??
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      (error as any)?.responseBody;
+    if (body) {
       try {
-        const parsed = JSON.parse(error.context.body);
+        const parsed = typeof body === 'string' ? JSON.parse(body) : body;
         if (parsed.error) msg = parsed.error;
       } catch {
-        if (typeof error.context.body === 'string') msg = error.context.body;
+        if (typeof body === 'string' && body.length < 500) msg = body;
       }
     }
     throw new Error(msg);
