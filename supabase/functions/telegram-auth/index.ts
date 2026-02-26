@@ -156,9 +156,19 @@ serve(async (req) => {
         });
       }
 
+      // Look up auth.users UUID for P2P trade matching
+      const sessionTelegramEmail = `telegram_${tgId}@pezkuwichain.io`;
+      const {
+        data: { users: sessionAuthUsers },
+      } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+      const sessionAuthUser = sessionAuthUsers?.find(
+        (u: { email?: string }) => u.email === sessionTelegramEmail
+      );
+
       return new Response(
         JSON.stringify({
           user: userData,
+          auth_user_id: sessionAuthUser?.id || null,
           session_token: generateSessionToken(tgId, matchedToken),
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -235,11 +245,38 @@ serve(async (req) => {
       userId = newUser.id;
     }
 
+    // Ensure auth.users entry exists (needed for P2P foreign keys)
+    const telegramEmail = `telegram_${telegramUser.id}@pezkuwichain.io`;
+    const {
+      data: { users: existingAuthUsers },
+    } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+    const authUser = existingAuthUsers?.find((u: { email?: string }) => u.email === telegramEmail);
+
+    if (!authUser) {
+      await supabase.auth.admin.createUser({
+        email: telegramEmail,
+        email_confirm: true,
+        user_metadata: {
+          telegram_id: telegramUser.id,
+          username: telegramUser.username,
+          first_name: telegramUser.first_name,
+        },
+      });
+    }
+
     const { data: userData } = await supabase.from('users').select('*').eq('id', userId).single();
+
+    // Get the auth.users UUID (just created or already exists)
+    const initAuthEmail = `telegram_${telegramUser.id}@pezkuwichain.io`;
+    const {
+      data: { users: initAuthUsers },
+    } = await supabase.auth.admin.listUsers({ perPage: 1000 });
+    const initAuthUser = initAuthUsers?.find((u: { email?: string }) => u.email === initAuthEmail);
 
     return new Response(
       JSON.stringify({
         user: userData,
+        auth_user_id: initAuthUser?.id || null,
         telegram_user: telegramUser,
         session_token: generateSessionToken(telegramUser.id, matchedBotToken),
       }),
