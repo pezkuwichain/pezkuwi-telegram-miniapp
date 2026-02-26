@@ -1,15 +1,22 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { Plus, History, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from '@/i18n';
 import { useTelegram } from '@/hooks/useTelegram';
-import { getP2PTrades, getMyOffers, type P2POffer, type P2PTrade } from '@/lib/p2p-api';
+import {
+  getP2PTrades,
+  getMyOffers,
+  type P2POffer,
+  type P2PTrade,
+  type InternalBalance,
+} from '@/lib/p2p-api';
 import { BalanceCard } from '@/components/p2p/BalanceCard';
 import { OfferList } from '@/components/p2p/OfferList';
 import { TradeModal } from '@/components/p2p/TradeModal';
 import { CreateOfferModal } from '@/components/p2p/CreateOfferModal';
 import { TradeView } from '@/components/p2p/TradeView';
+import { DepositWithdrawModal } from '@/components/p2p/DepositWithdrawModal';
 
 type Tab = 'buy' | 'sell' | 'myAds' | 'myTrades';
 
@@ -22,6 +29,35 @@ export function P2PSection() {
   const [selectedOffer, setSelectedOffer] = useState<P2POffer | null>(null);
   const [showCreateOffer, setShowCreateOffer] = useState(false);
   const [activeTradeId, setActiveTradeId] = useState<string | null>(null);
+
+  // Deposit/Withdraw modal state
+  const [showDepositWithdraw, setShowDepositWithdraw] = useState(false);
+  const [depositWithdrawTab, setDepositWithdrawTab] = useState<'deposit' | 'withdraw'>('deposit');
+  const availableBalancesRef = useRef<Record<string, number>>({});
+  const balanceCardRefreshRef = useRef<(() => void) | null>(null);
+
+  const handleBalancesLoaded = useCallback((balances: InternalBalance[]) => {
+    const map: Record<string, number> = {};
+    for (const b of balances) {
+      map[b.token] = b.available_balance;
+    }
+    availableBalancesRef.current = map;
+  }, []);
+
+  const handleOpenDeposit = () => {
+    setDepositWithdrawTab('deposit');
+    setShowDepositWithdraw(true);
+  };
+
+  const handleOpenWithdraw = () => {
+    setDepositWithdrawTab('withdraw');
+    setShowDepositWithdraw(true);
+  };
+
+  const handleDepositWithdrawSuccess = () => {
+    // Trigger balance card refresh
+    balanceCardRefreshRef.current?.();
+  };
 
   // My ads / trades state
   const [myOffers, setMyOffers] = useState<P2POffer[]>([]);
@@ -145,7 +181,11 @@ export function P2PSection() {
         </div>
 
         {/* Balance Card */}
-        <BalanceCard />
+        <BalanceCard
+          onDeposit={handleOpenDeposit}
+          onWithdraw={handleOpenWithdraw}
+          onBalancesLoaded={handleBalancesLoaded}
+        />
 
         {/* Tabs */}
         <div className="flex rounded-xl bg-muted p-1">
@@ -283,6 +323,15 @@ export function P2PSection() {
         isOpen={showCreateOffer}
         onClose={() => setShowCreateOffer(false)}
         onOfferCreated={handleOfferCreated}
+      />
+
+      {/* Deposit / Withdraw Modal */}
+      <DepositWithdrawModal
+        isOpen={showDepositWithdraw}
+        onClose={() => setShowDepositWithdraw(false)}
+        initialTab={depositWithdrawTab}
+        availableBalances={availableBalancesRef.current}
+        onSuccess={handleDepositWithdrawSuccess}
       />
     </div>
   );

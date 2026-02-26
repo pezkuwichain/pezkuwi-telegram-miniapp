@@ -406,6 +406,31 @@ export interface Translations {
       fake_payment_proof: string;
       other: string;
     };
+    // Deposit / Withdraw
+    deposit: string;
+    withdraw: string;
+    platformWallet: string;
+    txHash: string;
+    txHashPlaceholder: string;
+    blockNumber: string;
+    optional: string;
+    verifyDeposit: string;
+    verifying: string;
+    verifyingDesc: string;
+    depositSuccess: string;
+    depositFailed: string;
+    depositInstructions: string;
+    depositInvalidAmount: string;
+    selectToken: string;
+    withdrawAmount: string;
+    networkFee: string;
+    netAmount: string;
+    withdrawSuccess: string;
+    withdrawProcessing: string;
+    withdrawing: string;
+    minWithdraw: string;
+    maxAvailable: string;
+    walletAddress: string;
     // No data
     noTrades: string;
   };

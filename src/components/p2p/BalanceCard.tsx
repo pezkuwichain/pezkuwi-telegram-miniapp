@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Wallet, Lock, RefreshCw } from 'lucide-react';
+import { Wallet, Lock, RefreshCw, ArrowDownToLine, ArrowUpFromLine } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/contexts/AuthContext';
 import { useTranslation } from '@/i18n';
@@ -8,9 +8,17 @@ import { getInternalBalance, type InternalBalance } from '@/lib/p2p-api';
 
 interface BalanceCardProps {
   onRefresh?: () => void;
+  onDeposit?: () => void;
+  onWithdraw?: () => void;
+  onBalancesLoaded?: (balances: InternalBalance[]) => void;
 }
 
-export function BalanceCard({ onRefresh }: BalanceCardProps) {
+export function BalanceCard({
+  onRefresh,
+  onDeposit,
+  onWithdraw,
+  onBalancesLoaded,
+}: BalanceCardProps) {
   const { sessionToken } = useAuth();
   const { t, isRTL } = useTranslation();
   const { hapticImpact } = useTelegram();
@@ -24,13 +32,14 @@ export function BalanceCard({ onRefresh }: BalanceCardProps) {
     try {
       const data = await getInternalBalance(sessionToken);
       setBalances(data);
+      onBalancesLoaded?.(data);
     } catch (err) {
       console.error('Failed to fetch balances:', err);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [sessionToken]);
+  }, [sessionToken, onBalancesLoaded]);
 
   useEffect(() => {
     fetchBalances();
@@ -103,6 +112,30 @@ export function BalanceCard({ onRefresh }: BalanceCardProps) {
           ))}
         </div>
       )}
+
+      {/* Deposit / Withdraw buttons */}
+      <div className="flex gap-2 mt-3">
+        <button
+          onClick={() => {
+            hapticImpact('light');
+            onDeposit?.();
+          }}
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-green-500/10 hover:bg-green-500/20 border border-green-500/30 text-green-400 text-xs font-medium rounded-lg transition-colors"
+        >
+          <ArrowDownToLine className="w-3.5 h-3.5" />
+          {t('p2p.deposit')}
+        </button>
+        <button
+          onClick={() => {
+            hapticImpact('light');
+            onWithdraw?.();
+          }}
+          className="flex-1 flex items-center justify-center gap-1.5 py-2 bg-orange-500/10 hover:bg-orange-500/20 border border-orange-500/30 text-orange-400 text-xs font-medium rounded-lg transition-colors"
+        >
+          <ArrowUpFromLine className="w-3.5 h-3.5" />
+          {t('p2p.withdraw')}
+        </button>
+      </div>
     </div>
   );
 }

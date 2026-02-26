@@ -134,6 +134,56 @@ export async function getInternalBalance(sessionToken: string): Promise<Internal
   return result.balances || [];
 }
 
+// ─── Deposit / Withdraw ─────────────────────────────────────
+
+export interface VerifyDepositResult {
+  success: boolean;
+  amount: number;
+  token: string;
+  newBalance: number;
+  txHash: string;
+}
+
+export interface RequestWithdrawResult {
+  success: boolean;
+  requestId: string;
+  amount: number;
+  fee: number;
+  netAmount: number;
+  token: string;
+  status: string;
+}
+
+export async function verifyDeposit(
+  sessionToken: string,
+  txHash: string,
+  token: 'HEZ' | 'PEZ',
+  expectedAmount: number,
+  blockNumber?: number
+): Promise<VerifyDepositResult> {
+  return callEdgeFunction<VerifyDepositResult>('verify-deposit-telegram', {
+    sessionToken,
+    txHash,
+    token,
+    expectedAmount,
+    blockNumber,
+  });
+}
+
+export async function requestWithdraw(
+  sessionToken: string,
+  token: 'HEZ' | 'PEZ',
+  amount: number,
+  walletAddress: string
+): Promise<RequestWithdrawResult> {
+  return callEdgeFunction<RequestWithdrawResult>('request-withdraw-telegram', {
+    sessionToken,
+    token,
+    amount,
+    walletAddress,
+  });
+}
+
 // ─── Payment Methods ─────────────────────────────────────────
 
 export async function getPaymentMethods(
