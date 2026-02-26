@@ -163,12 +163,12 @@ export function OfferList({ adType, onAcceptOffer }: OfferListProps) {
                   onClick={() => handleAccept(offer)}
                   className={cn(
                     'px-3 py-1.5 text-xs font-medium rounded-lg transition-colors',
-                    adType === 'buy'
+                    adType === 'sell'
                       ? 'bg-green-500 hover:bg-green-600 text-white'
                       : 'bg-red-500 hover:bg-red-600 text-white'
                   )}
                 >
-                  {adType === 'buy' ? t('p2p.buy') : t('p2p.sell')}
+                  {adType === 'sell' ? t('p2p.buy') : t('p2p.sell')}
                 </button>
               </div>
             </div>

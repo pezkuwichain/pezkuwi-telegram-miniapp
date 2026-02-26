@@ -114,9 +114,13 @@ serve(async (req) => {
 
     const { sessionToken, token, amount, walletAddress } = body;
 
-    // Get bot token for session verification
-    const botToken = Deno.env.get('TELEGRAM_BOT_TOKEN');
-    if (!botToken) {
+    // Get bot tokens for session verification (dual bot support)
+    const botTokens: string[] = [];
+    const _mainToken = Deno.env.get('TELEGRAM_BOT_TOKEN');
+    const _krdToken = Deno.env.get('TELEGRAM_BOT_TOKEN_KRD');
+    if (_mainToken) botTokens.push(_mainToken);
+    if (_krdToken) botTokens.push(_krdToken);
+    if (botTokens.length === 0) {
       return new Response(
         JSON.stringify({ success: false, error: 'Server configuration error' }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -131,7 +135,11 @@ serve(async (req) => {
       );
     }
 
-    const telegramId = verifySessionToken(sessionToken, botToken);
+    let telegramId: number | null = null;
+    for (const bt of botTokens) {
+      telegramId = verifySessionToken(sessionToken, bt);
+      if (telegramId) break;
+    }
     if (!telegramId) {
       return new Response(
         JSON.stringify({ success: false, error: 'Invalid or expired session token' }),

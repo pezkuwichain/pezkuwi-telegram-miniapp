@@ -74,16 +74,24 @@ serve(async (req) => {
 
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
-    const botToken = Deno.env.get('TELEGRAM_BOT_TOKEN');
+    const botTokens: string[] = [];
+    const _mainToken = Deno.env.get('TELEGRAM_BOT_TOKEN');
+    const _krdToken = Deno.env.get('TELEGRAM_BOT_TOKEN_KRD');
+    if (_mainToken) botTokens.push(_mainToken);
+    if (_krdToken) botTokens.push(_krdToken);
 
-    if (!botToken) {
+    if (botTokens.length === 0) {
       return new Response(JSON.stringify({ error: 'Server configuration error' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const telegramUser = validateInitData(initData, botToken);
+    let telegramUser: TelegramUser | null = null;
+    for (const bt of botTokens) {
+      telegramUser = validateInitData(initData, bt);
+      if (telegramUser) break;
+    }
     if (!telegramUser) {
       return new Response(JSON.stringify({ error: 'Invalid Telegram data' }), {
         status: 401,

@@ -93,8 +93,12 @@ serve(async (req) => {
     const { sessionToken } = body;
 
     // Get bot token for session verification
-    const botToken = Deno.env.get('TELEGRAM_BOT_TOKEN');
-    if (!botToken) {
+    const botTokens: string[] = [];
+    const _mainToken = Deno.env.get('TELEGRAM_BOT_TOKEN');
+    const _krdToken = Deno.env.get('TELEGRAM_BOT_TOKEN_KRD');
+    if (_mainToken) botTokens.push(_mainToken);
+    if (_krdToken) botTokens.push(_krdToken);
+    if (botTokens.length === 0) {
       return new Response(JSON.stringify({ error: 'Server configuration error' }), {
         status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -109,7 +113,11 @@ serve(async (req) => {
       });
     }
 
-    const telegramId = verifySessionToken(sessionToken, botToken);
+    let telegramId: number | null = null;
+    for (const bt of botTokens) {
+      telegramId = verifySessionToken(sessionToken, bt);
+      if (telegramId) break;
+    }
     if (!telegramId) {
       return new Response(JSON.stringify({ error: 'Invalid or expired session' }), {
         status: 401,
@@ -127,7 +135,7 @@ serve(async (req) => {
     const {
       data: { users: authUsers },
     } = await supabase.auth.admin.listUsers({ perPage: 1000 });
-    const authUser = authUsers?.find((u) => u.email === telegramEmail);
+    const authUser = authUsers?.find((u: { email?: string }) => u.email === telegramEmail);
 
     if (!authUser) {
       return new Response(JSON.stringify({ error: 'User not found. Please authenticate first.' }), {

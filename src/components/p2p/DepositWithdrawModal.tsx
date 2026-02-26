@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   X,
   ArrowDownToLine,
@@ -50,6 +50,13 @@ export function DepositWithdrawModal({
   const { hapticImpact, hapticNotification } = useTelegram();
 
   const [activeTab, setActiveTab] = useState<'deposit' | 'withdraw'>(initialTab);
+
+  // Sync tab when modal opens with a different initialTab
+  useEffect(() => {
+    if (isOpen) {
+      setActiveTab(initialTab);
+    }
+  }, [isOpen, initialTab]);
 
   // Deposit state
   const [depositToken, setDepositToken] = useState<'HEZ' | 'PEZ'>('HEZ');
@@ -231,7 +238,7 @@ export function DepositWithdrawModal({
       {/* Modal */}
       <div
         className={cn(
-          'relative w-full max-w-md max-h-[90vh] bg-card rounded-t-2xl sm:rounded-2xl border border-border overflow-y-auto',
+          'relative w-full max-w-md max-h-[90vh] bg-card rounded-t-2xl sm:rounded-2xl border border-border overflow-y-auto shadow-2xl',
           isRTL && 'direction-rtl'
         )}
         dir={isRTL ? 'rtl' : 'ltr'}
