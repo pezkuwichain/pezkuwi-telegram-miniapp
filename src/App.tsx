@@ -52,7 +52,12 @@ const NAV_ITEMS: NavItem[] = [
 
 // Check for standalone pages via URL query params or path (evaluated once at module level)
 const PAGE_PARAM = new URLSearchParams(window.location.search).get('page');
-const IS_CITIZEN_PAGE = PAGE_PARAM === 'citizen' || window.location.pathname === '/citizens';
+const TELEGRAM_START_PARAM = window.Telegram?.WebApp?.initDataUnsafe?.start_param;
+// SS58 address for prefix 42 starts with "5" and is 48 chars of base58
+const IS_CITIZENSHIP_REFERRAL =
+  !!TELEGRAM_START_PARAM && /^5[1-9A-HJ-NP-Za-km-z]{46,47}$/.test(TELEGRAM_START_PARAM);
+const IS_CITIZEN_PAGE =
+  PAGE_PARAM === 'citizen' || window.location.pathname === '/citizens' || IS_CITIZENSHIP_REFERRAL;
 const IS_EXPLORER_PAGE = window.location.pathname.replace(/\/$/, '') === '/explorer';
 
 export default function App() {

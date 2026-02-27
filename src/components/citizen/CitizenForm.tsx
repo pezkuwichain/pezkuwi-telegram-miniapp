@@ -12,6 +12,7 @@ import type { CitizenshipData, Region, MaritalStatus, ChildInfo } from '@/lib/ci
 
 interface Props {
   onSubmit: (data: CitizenshipData) => void;
+  initialReferrer?: string;
 }
 
 const REGIONS: { value: Region; labelKey: string }[] = [
@@ -23,7 +24,7 @@ const REGIONS: { value: Region; labelKey: string }[] = [
   { value: 'diaspora', labelKey: 'citizen.regionDiaspora' },
 ];
 
-export function CitizenForm({ onSubmit }: Props) {
+export function CitizenForm({ onSubmit, initialReferrer }: Props) {
   const { t } = useTranslation();
   const { hapticImpact, hapticNotification } = useTelegram();
 
@@ -38,7 +39,7 @@ export function CitizenForm({ onSubmit }: Props) {
   const [region, setRegion] = useState<Region | ''>('');
   const [email, setEmail] = useState('');
   const [profession, setProfession] = useState('');
-  const [referrerAddress, setReferrerAddress] = useState('');
+  const [referrerAddress, setReferrerAddress] = useState(initialReferrer || '');
   const [seedPhrase, setSeedPhrase] = useState('');
   const [consent, setConsent] = useState(false);
   const [error, setError] = useState('');
@@ -377,16 +378,25 @@ export function CitizenForm({ onSubmit }: Props) {
       </div>
 
       {/* Referrer Address */}
-      <div>
-        <label className={labelClass}>{t('citizen.referrerAddress')}</label>
-        <input
-          type="text"
-          value={referrerAddress}
-          onChange={(e) => setReferrerAddress(e.target.value)}
-          className={inputClass}
-          placeholder={t('citizen.referrerPlaceholder')}
-        />
-      </div>
+      {initialReferrer ? (
+        <div className="p-3 bg-green-500/10 border border-green-500/30 rounded-xl">
+          <label className="text-xs text-green-400 mb-1 block">
+            {t('citizen.referrerAddress')}
+          </label>
+          <p className="text-sm font-mono text-green-300 break-all">{initialReferrer}</p>
+        </div>
+      ) : (
+        <div>
+          <label className={labelClass}>{t('citizen.referrerAddress')}</label>
+          <input
+            type="text"
+            value={referrerAddress}
+            onChange={(e) => setReferrerAddress(e.target.value)}
+            className={inputClass}
+            placeholder={t('citizen.referrerPlaceholder')}
+          />
+        </div>
+      )}
 
       {/* Consent */}
       <label className="flex items-start gap-3 p-3 bg-muted/50 rounded-xl cursor-pointer">

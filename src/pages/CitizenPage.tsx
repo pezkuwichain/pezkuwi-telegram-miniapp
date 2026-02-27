@@ -10,6 +10,7 @@ import { Globe, Loader2 } from 'lucide-react';
 import { useTranslation, LANGUAGE_NAMES, VALID_LANGS } from '@/i18n';
 import type { LanguageCode } from '@/i18n';
 import type { CitizenshipData } from '@/lib/citizenship';
+import { useTelegram } from '@/hooks/useTelegram';
 
 // Lazy load sub-components
 const CitizenForm = lazy(() =>
@@ -34,6 +35,7 @@ function SectionLoader() {
 
 export function CitizenPage() {
   const { t, lang, setLang } = useTranslation();
+  const { startParam } = useTelegram();
   const [showLangMenu, setShowLangMenu] = useState(false);
   const [citizenshipData, setCitizenshipData] = useState<CitizenshipData | null>(null);
   const [identityHash, setIdentityHash] = useState<string>('');
@@ -118,7 +120,9 @@ export function CitizenPage() {
       {/* Content */}
       <main className="flex-1 overflow-y-auto">
         <Suspense fallback={<SectionLoader />}>
-          {step === 'form' && <CitizenForm onSubmit={handleFormSubmit} />}
+          {step === 'form' && (
+            <CitizenForm onSubmit={handleFormSubmit} initialReferrer={startParam} />
+          )}
 
           {step === 'processing' && citizenshipData && (
             <CitizenProcessing
