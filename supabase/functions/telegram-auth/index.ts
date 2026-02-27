@@ -113,8 +113,10 @@ serve(async (req) => {
     const botTokens: string[] = [];
     const mainToken = Deno.env.get('TELEGRAM_BOT_TOKEN');
     const krdToken = Deno.env.get('TELEGRAM_BOT_TOKEN_KRD');
+    const dksToken = Deno.env.get('TELEGRAM_BOT_TOKEN_DKS');
     if (mainToken) botTokens.push(mainToken);
     if (krdToken) botTokens.push(krdToken);
+    if (dksToken) botTokens.push(dksToken);
 
     if (botTokens.length === 0) {
       return new Response(JSON.stringify({ error: 'Server configuration error' }), {

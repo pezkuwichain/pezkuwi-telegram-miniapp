@@ -34,7 +34,7 @@ const SOCIAL_LINKS: SocialLink[] = [
   },
   {
     name: 'Telegram',
-    url: 'https://t.me/pezkuwichain',
+    url: 'https://t.me/dijitalkurdistan',
     icon: '📢',
     color: 'from-blue-400 to-blue-600',
     descriptionKey: 'social.telegram',
