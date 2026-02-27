@@ -300,14 +300,14 @@ export function RewardsSection() {
     }
   };
 
-  const handleClaimStakingReward = async (validator: string, era: number) => {
+  const handleClaimStakingReward = async (validator: string, era: number, page?: number) => {
     if (!assetHubApi || !keypair) return;
     setClaimingStakingEra(era);
     setTrackingAnimationText(t('rewards.claimingStakingReward'));
     setShowTrackingAnimation(true);
     hapticImpact('medium');
     try {
-      const result = await payoutStakingReward(assetHubApi, keypair, validator, era);
+      const result = await payoutStakingReward(assetHubApi, keypair, validator, era, page);
       if (result.success) {
         hapticNotification('success');
         showAlert(t('rewards.stakingClaimSuccess'));
@@ -1145,7 +1145,9 @@ export function RewardsSection() {
                             </p>
                           </div>
                           <button
-                            onClick={() => handleClaimStakingReward(reward.validator, reward.era)}
+                            onClick={() =>
+                              handleClaimStakingReward(reward.validator, reward.era, reward.page)
+                            }
                             disabled={!keypair || claimingStaking || claimingStakingEra !== null}
                             className="px-3 py-1.5 rounded-lg text-xs font-medium bg-amber-500/20 text-amber-300 hover:bg-amber-500/30 transition-all disabled:opacity-50 ml-2"
                           >
@@ -1176,7 +1178,8 @@ export function RewardsSection() {
                           onClick={() =>
                             handleClaimStakingReward(
                               unclaimedRewards.unclaimed[0].validator,
-                              unclaimedRewards.unclaimed[0].era
+                              unclaimedRewards.unclaimed[0].era,
+                              unclaimedRewards.unclaimed[0].page
                             )
                           }
                           disabled={!keypair || claimingStaking || claimingStakingEra !== null}
