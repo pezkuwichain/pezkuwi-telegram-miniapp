@@ -104,7 +104,8 @@ const krd: Translations = {
     iAmActive: 'Ez Akt\u00eev im!',
     activatedAlert: 'Tu niha akt\u00eev \u00ee! 24 saet pa\u015f\u00ea d\u00eesa bikirt\u00eene.',
     shareText:
-      'Pezkuwichain - Dewleta D\u00eej\u00eetal a Kurd! Bi l\u00eenka min ve tev li me bibe:',
+      'Heval\u00ea min \u00ea h\u00eaja, Kurdistan\u00ea D\u00eej\u00eetal hat ava kirin, tu j\u00ee c\u00eeh\u00ea xwe bigire!',
+    referralInstruction: 'V\u00ea navnî\u015fan\u00ea li beşa referral\u00ea bileq\u00eene:',
     copyAlert: 'Kop\u00ee b\u00fb',
     referralCount: '{count} referral (KYC pejirand\u00ee)',
     noReferrals: 'H\u00eaj referral\u00ean te tune ne',

@@ -27,7 +27,7 @@ import {
 } from 'lucide-react';
 import { cn, formatAddress } from '@/lib/utils';
 import { useTelegram } from '@/hooks/useTelegram';
-import { useAuth } from '@/contexts/AuthContext';
+
 import { useReferral } from '@/contexts/ReferralContext';
 import { useWallet } from '@/contexts/WalletContext';
 import { SocialLinks } from '@/components/SocialLinks';
@@ -72,7 +72,7 @@ const ACTIVITY_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 export function RewardsSection() {
   const { hapticImpact, hapticNotification, shareUrl, showAlert } = useTelegram();
-  const { user: authUser } = useAuth();
+
   const { stats, myReferrals, loading, refreshStats } = useReferral();
   const { isConnected, address, peopleApi, assetHubApi, keypair } = useWallet();
   const { t } = useTranslation();
@@ -358,14 +358,19 @@ export function RewardsSection() {
     showAlert(t('rewards.activatedAlert'));
   };
 
-  // Telegram referral link (for sharing) - use authenticated user ID
-  const referralLink = authUser?.telegram_id
-    ? `https://t.me/pezkuwichainBot?start=ref_${authUser.telegram_id}`
+  // Citizenship referral link - wallet address in start param for auto-fill
+  const referralLink = address
+    ? `https://t.me/pezkuwichainBot?start=${address}`
     : 'https://t.me/pezkuwichainBot';
+
+  // Full share message: invitation text + link + wallet address for manual paste
+  const shareMessage = address
+    ? `${t('rewards.shareText')}\n${referralLink}\n\n${t('rewards.referralInstruction')}\n${address}`
+    : `${t('rewards.shareText')}\n${referralLink}`;
 
   const handleCopy = async () => {
     try {
-      await window.navigator.clipboard.writeText(referralLink);
+      await window.navigator.clipboard.writeText(shareMessage);
       setCopied(true);
       hapticNotification('success');
       setTimeout(() => setCopied(false), 2000);
@@ -376,7 +381,12 @@ export function RewardsSection() {
 
   const handleShare = () => {
     hapticImpact('medium');
-    shareUrl(referralLink, t('rewards.shareText'));
+    shareUrl(
+      referralLink,
+      address
+        ? `${t('rewards.shareText')}\n\n${t('rewards.referralInstruction')}\n${address}`
+        : t('rewards.shareText')
+    );
   };
 
   const handleRefresh = () => {

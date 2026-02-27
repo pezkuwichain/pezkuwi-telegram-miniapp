@@ -103,6 +103,7 @@ export interface Translations {
     iAmActive: string;
     activatedAlert: string;
     shareText: string;
+    referralInstruction: string;
     copyAlert: string;
     referralCount: string;
     noReferrals: string;
