@@ -46,6 +46,11 @@ export interface CitizenshipResult {
   identityHash?: string;
 }
 
+export interface PendingApproval {
+  applicantAddress: string;
+  identityHash: string;
+}
+
 // ── Identity Hash (Keccak-256) ──────────────────────────────────────
 
 export function calculateIdentityHash(name: string, email: string, documentCids: string[]): string {
@@ -137,6 +142,114 @@ export async function getCitizenshipStatus(
   } catch (error) {
     console.error('[Citizenship] Error fetching status:', error);
     return 'NotStarted';
+  }
+}
+
+// ── Pending Approvals ───────────────────────────────────────────────
+
+/**
+ * Get pending referral applications that need approval from the given referrer.
+ * Queries identityKyc.applications entries and filters by referrer + PendingReferral status.
+ */
+export async function getPendingApprovals(
+  api: ApiPromise,
+  referrerAddress: string
+): Promise<PendingApproval[]> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if (!(api?.query as any)?.identityKyc?.applications) {
+      return [];
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const entries = await (api.query as any).identityKyc.applications.entries();
+    const pending: PendingApproval[] = [];
+
+    for (const [key, value] of entries) {
+      const applicantAddress = key.args[0].toString();
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const appData = value.toJSON() as any;
+
+      // Check if this application's referrer matches
+      if (!appData?.referrer || appData.referrer !== referrerAddress) {
+        continue;
+      }
+
+      // Check if status is PendingReferral
+      const status = await getCitizenshipStatus(api, applicantAddress);
+      if (status === 'PendingReferral') {
+        pending.push({
+          applicantAddress,
+          identityHash: appData.identityHash || '',
+        });
+      }
+    }
+
+    return pending;
+  } catch (error) {
+    console.error('[Citizenship] Error fetching pending approvals:', error);
+    return [];
+  }
+}
+
+// ── Approve Referral ────────────────────────────────────────────────
+
+export async function approveReferral(
+  api: ApiPromise,
+  keypair: KeyringPair,
+  applicantAddress: string
+): Promise<CitizenshipResult> {
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const tx = api.tx as any;
+    if (!tx?.identityKyc?.approveReferral) {
+      return { success: false, error: 'Identity KYC pallet not available' };
+    }
+
+    const result = await new Promise<CitizenshipResult>((resolve) => {
+      tx.identityKyc
+        .approveReferral(applicantAddress)
+        .signAndSend(
+          keypair,
+          { nonce: -1 },
+          ({
+            status,
+            dispatchError,
+          }: {
+            status: {
+              isInBlock: boolean;
+              isFinalized: boolean;
+              asInBlock?: { toString: () => string };
+              asFinalized?: { toString: () => string };
+            };
+            dispatchError?: { isModule: boolean; asModule: unknown; toString: () => string };
+          }) => {
+            if (status.isInBlock || status.isFinalized) {
+              if (dispatchError) {
+                let errorMessage = 'Referral approval failed';
+                if (dispatchError.isModule) {
+                  const decoded = api.registry.findMetaError(
+                    dispatchError.asModule as Parameters<typeof api.registry.findMetaError>[0]
+                  );
+                  errorMessage = `${decoded.section}.${decoded.name}`;
+                }
+                resolve({ success: false, error: errorMessage });
+                return;
+              }
+              const blockHash = status.asFinalized?.toString() || status.asInBlock?.toString();
+              resolve({ success: true, blockHash });
+            }
+          }
+        )
+        .catch((error: Error) => resolve({ success: false, error: error.message }));
+    });
+
+    return result;
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Unknown error',
+    };
   }
 }
 

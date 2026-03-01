@@ -172,6 +172,12 @@ const ckb: Translations = {
     noUnclaimedRewards: 'خەڵاتی داوانەکراو نییە',
     rewardHistory: 'مێژووی خەڵاتەکان',
     era: 'سەردەم',
+    pendingApprovals: 'پەسەندکردنە چاوەڕوانەکان',
+    approveReferral: 'پەسەندکردن',
+    approvingReferral: 'پەسەند دەکرێت...',
+    referralApprovalSuccess: 'بانگهێشتکردن پەسەندکرا!',
+    referralApprovalFailed: 'پەسەندکردن سەرنەکەوت',
+    pendingReferralStatus: 'چاوەڕوانی پەسەندکردنی تۆیە',
   },
 
   wallet: {
@@ -829,6 +835,8 @@ const ckb: Translations = {
     alreadyPending: 'داواکارییەکی چاوەڕوانت هەیە',
     alreadyApproved: 'هاوڵاتیبوونت پێشتر پەسەند کراوە!',
     insufficientBalance: 'باڵانسی پێویست نییە (١ HEZ ئەمانەت پێویستە)',
+    applyingCitizenship: 'داواکاری هاوڵاتیبوون دەنێردرێت...',
+    applicationSuccess: 'داواکاری نێردرا!',
     selectLanguage: 'زمان هەڵبژێرە',
   },
 };

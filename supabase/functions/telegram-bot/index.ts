@@ -59,6 +59,9 @@ Cûzdanê xwe biafirînin, zimanê xwe hilbijêrin û welatiyê Pezkuwî bibin.
 
 <i>Start your digital journey with Pezkuwi.
 Create your wallet, choose your language and become a citizen.</i>
+
+🤖 Dijital Kurdistan AI agentıyla sohbet etmek ve daha detaylı bilgi almak için → @DKSkurdistanBot
+<i>Chat with Digital Kurdistan AI agent for more info → @DKSkurdistanBot</i>
 `;
 
 // ── DKS bot (@DKSKurdistanBot) welcome ──────────────────────────────

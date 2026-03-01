@@ -176,6 +176,12 @@ const krd: Translations = {
     noUnclaimedRewards: 'Xelatên nedaxwazkir tune ne',
     rewardHistory: 'Dîroka Xelatan',
     era: 'Era',
+    pendingApprovals: 'Pejirandina li bendê',
+    approveReferral: 'Pejirîne',
+    approvingReferral: 'Tê pejirandin...',
+    referralApprovalSuccess: 'Referans hat pejirandin!',
+    referralApprovalFailed: 'Pejirandin biserneket',
+    pendingReferralStatus: 'Li benda pejirandina we',
   },
 
   wallet: {
@@ -856,6 +862,8 @@ const krd: Translations = {
     alreadyPending: 'Serlêdanek te ya li bendê heye',
     alreadyApproved: 'Welatîbûna te berê hatiye pejirandin!',
     insufficientBalance: 'Balansa têr nîne (1 HEZ depozîto pêwîst e)',
+    applyingCitizenship: 'Daxwaza welatîbûnê tê şandin...',
+    applicationSuccess: 'Daxwaz hat şandin!',
     selectLanguage: 'Ziman hilbijêre',
   },
 };

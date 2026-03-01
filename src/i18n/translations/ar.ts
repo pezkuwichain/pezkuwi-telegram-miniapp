@@ -171,6 +171,12 @@ const ar: Translations = {
     noUnclaimedRewards: 'لا توجد مكافآت غير مطالب بها',
     rewardHistory: 'سجل المكافآت',
     era: 'حقبة',
+    pendingApprovals: 'الموافقات المعلّقة',
+    approveReferral: 'موافقة',
+    approvingReferral: 'جاري الموافقة...',
+    referralApprovalSuccess: 'تمت الموافقة على الإحالة!',
+    referralApprovalFailed: 'فشلت الموافقة',
+    pendingReferralStatus: 'بانتظار موافقتك',
   },
 
   wallet: {
@@ -826,6 +832,8 @@ const ar: Translations = {
     alreadyPending: 'لديك طلب قيد الانتظار',
     alreadyApproved: 'مواطنتك معتمدة بالفعل!',
     insufficientBalance: 'رصيد غير كافٍ (١ HEZ وديعة مطلوبة)',
+    applyingCitizenship: 'جاري تقديم طلب المواطنة...',
+    applicationSuccess: 'تم تقديم الطلب!',
     selectLanguage: 'اختر اللغة',
   },
 };
