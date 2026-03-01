@@ -167,11 +167,17 @@ export async function getPendingApprovals(
 
     for (const [key, value] of entries) {
       const applicantAddress = key.args[0].toString();
+
+      // Use codec .toString() for SS58, fallback to toJSON() for hex comparison
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const appValue = value as any;
+      const referrerSS58 = appValue?.referrer?.toString?.() || '';
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const appData = value.toJSON() as any;
+      const identityHash = appData?.identityHash || appValue?.identityHash?.toHex?.() || '';
 
-      // Check if this application's referrer matches
-      if (!appData?.referrer || appData.referrer !== referrerAddress) {
+      // Compare referrer in SS58 format (codec toString returns SS58)
+      if (!referrerSS58 || referrerSS58 !== referrerAddress) {
         continue;
       }
 
@@ -180,7 +186,7 @@ export async function getPendingApprovals(
       if (status === 'PendingReferral') {
         pending.push({
           applicantAddress,
-          identityHash: appData.identityHash || '',
+          identityHash: typeof identityHash === 'string' ? identityHash : '',
         });
       }
     }
