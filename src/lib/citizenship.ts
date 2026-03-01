@@ -165,19 +165,27 @@ export async function getPendingApprovals(
     const entries = await (api.query as any).identityKyc.applications.entries();
     const pending: PendingApproval[] = [];
 
+    // Convert referrer SS58 address to raw hex account ID for comparison
+    // Application value is SCALE-encoded: identity_hash (32 bytes) + referrer (32 bytes)
+    const referrerAccountId = api
+      .createType('AccountId32', referrerAddress)
+      .toHex()
+      .replace('0x', '')
+      .toLowerCase();
+
     for (const [key, value] of entries) {
       const applicantAddress = key.args[0].toString();
 
-      // Use codec .toString() for SS58, fallback to toJSON() for hex comparison
+      // Extract referrer from raw hex (last 32 bytes = 64 hex chars)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const appValue = value as any;
-      const referrerSS58 = appValue?.referrer?.toString?.() || '';
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const appData = value.toJSON() as any;
-      const identityHash = appData?.identityHash || appValue?.identityHash?.toHex?.() || '';
+      const rawHex = (value as any).toHex().replace('0x', '');
+      if (rawHex.length < 128) continue; // need at least 64 bytes
 
-      // Compare referrer in SS58 format (codec toString returns SS58)
-      if (!referrerSS58 || referrerSS58 !== referrerAddress) {
+      const identityHashHex = '0x' + rawHex.slice(0, 64);
+      const referrerHex = rawHex.slice(64, 128).toLowerCase();
+
+      // Compare raw account IDs
+      if (referrerHex !== referrerAccountId) {
         continue;
       }
 
@@ -186,7 +194,7 @@ export async function getPendingApprovals(
       if (status === 'PendingReferral') {
         pending.push({
           applicantAddress,
-          identityHash: typeof identityHash === 'string' ? identityHash : '',
+          identityHash: identityHashHex,
         });
       }
     }
