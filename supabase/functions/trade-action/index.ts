@@ -142,10 +142,13 @@ serve(async (req) => {
 
     const validActions = ['mark_paid', 'confirm', 'cancel', 'rate'];
     if (!validActions.includes(action)) {
-      return new Response(JSON.stringify({ error: `Invalid action. Must be one of: ${validActions.join(', ')}` }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return new Response(
+        JSON.stringify({ error: `Invalid action. Must be one of: ${validActions.join(', ')}` }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     // Create Supabase admin client (bypasses RLS)
@@ -153,21 +156,22 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get auth user ID for this telegram user
-    const telegramEmail = `telegram_${telegramId}@pezkuwichain.io`;
-    const {
-      data: { users: authUsers },
-    } = await supabase.auth.admin.listUsers({ perPage: 1000 });
-    const authUser = authUsers?.find((u: { email?: string }) => u.email === telegramEmail);
+    // Resolve P2P user ID: prefer p2p_user_id (citizen/visa UUID, same as pwap/web)
+    // fallback to tg_users.id (legacy Supabase Auth UUID)
+    const { data: tgUser, error: tgUserError } = await supabase
+      .from('tg_users')
+      .select('id, p2p_user_id')
+      .eq('telegram_id', telegramId)
+      .single();
 
-    if (!authUser) {
+    if (tgUserError || !tgUser) {
       return new Response(JSON.stringify({ error: 'User not found. Please authenticate first.' }), {
         status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const userId = authUser.id;
+    const userId = tgUser.p2p_user_id ?? tgUser.id;
 
     // Fetch the trade
     const { data: trade, error: tradeError } = await supabase
@@ -205,10 +209,15 @@ serve(async (req) => {
 
       // Trade must be in pending status
       if (trade.status !== 'pending') {
-        return new Response(JSON.stringify({ error: `Cannot mark paid: trade status is '${trade.status}', expected 'pending'` }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return new Response(
+          JSON.stringify({
+            error: `Cannot mark paid: trade status is '${trade.status}', expected 'pending'`,
+          }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
       }
 
       const now = new Date().toISOString();
@@ -256,18 +265,26 @@ serve(async (req) => {
     else if (action === 'confirm') {
       // Only seller can confirm
       if (trade.seller_id !== userId) {
-        return new Response(JSON.stringify({ error: 'Only the seller can confirm and release crypto' }), {
-          status: 403,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return new Response(
+          JSON.stringify({ error: 'Only the seller can confirm and release crypto' }),
+          {
+            status: 403,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
       }
 
       // Trade must be in payment_sent status
       if (trade.status !== 'payment_sent') {
-        return new Response(JSON.stringify({ error: `Cannot confirm: trade status is '${trade.status}', expected 'payment_sent'` }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return new Response(
+          JSON.stringify({
+            error: `Cannot confirm: trade status is '${trade.status}', expected 'payment_sent'`,
+          }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
       }
 
       // Get offer details to know the token
@@ -308,7 +325,8 @@ serve(async (req) => {
         );
       }
 
-      const releaseResponse = typeof releaseResult === 'string' ? JSON.parse(releaseResult) : releaseResult;
+      const releaseResponse =
+        typeof releaseResult === 'string' ? JSON.parse(releaseResult) : releaseResult;
 
       if (releaseResponse && !releaseResponse.success) {
         return new Response(
@@ -337,7 +355,9 @@ serve(async (req) => {
       if (updateError) {
         console.error('Confirm trade update error:', updateError);
         return new Response(
-          JSON.stringify({ error: 'Escrow released but failed to update trade status: ' + updateError.message }),
+          JSON.stringify({
+            error: 'Escrow released but failed to update trade status: ' + updateError.message,
+          }),
           {
             status: 500,
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -365,10 +385,13 @@ serve(async (req) => {
     else if (action === 'cancel') {
       // Trade must be in pending or payment_sent status to cancel
       if (!['pending', 'payment_sent'].includes(trade.status)) {
-        return new Response(JSON.stringify({ error: `Cannot cancel: trade status is '${trade.status}'` }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return new Response(
+          JSON.stringify({ error: `Cannot cancel: trade status is '${trade.status}'` }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
       }
 
       const cancelReason = payload?.reason || 'Cancelled by user';
@@ -441,13 +464,10 @@ serve(async (req) => {
         const result = typeof rpcResult === 'string' ? JSON.parse(rpcResult) : rpcResult;
 
         if (result && !result.success) {
-          return new Response(
-            JSON.stringify({ error: result.error || 'Failed to cancel trade' }),
-            {
-              status: 400,
-              headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            }
-          );
+          return new Response(JSON.stringify({ error: result.error || 'Failed to cancel trade' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
         }
 
         // Fetch updated trade
