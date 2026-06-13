@@ -76,6 +76,7 @@ interface TokenConfig {
   logo: string;
   isDefault: boolean;
   priority: number; // Lower = higher in list
+  standard?: 'PEZ-20'; // fungible Asset Hub asset → PEZ-20 token standard
 }
 
 const DEFAULT_TOKENS: TokenConfig[] = [
@@ -98,6 +99,7 @@ const DEFAULT_TOKENS: TokenConfig[] = [
     logo: '/tokens/PEZ.png',
     isDefault: true,
     priority: 1,
+    standard: 'PEZ-20',
   },
   {
     assetId: ASSET_IDS.WUSDT,
@@ -108,6 +110,7 @@ const DEFAULT_TOKENS: TokenConfig[] = [
     logo: '/tokens/USDT.png',
     isDefault: true,
     priority: 2,
+    standard: 'PEZ-20',
   },
   {
     assetId: ASSET_IDS.DOT,
@@ -838,6 +841,18 @@ export function TokensCard({ onSendToken }: Props) {
                         <div>
                           <div className="flex items-center gap-2">
                             <span className="font-semibold">{token.displaySymbol}</span>
+                            {token.standard === 'PEZ-20' && (
+                              <a
+                                href="https://docs.pezkuwichain.io/token-standards"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={(e) => e.stopPropagation()}
+                                title="PEZ-20 token standard on Pezkuwi Asset Hub"
+                                className="text-[10px] bg-blue-500/20 text-blue-300 px-1.5 py-0.5 rounded no-underline"
+                              >
+                                PEZ-20
+                              </a>
+                            )}
                             {token.assetId <= -100 && (
                               <span className="text-[10px] bg-purple-500/20 text-purple-400 px-1.5 py-0.5 rounded">
                                 LP
