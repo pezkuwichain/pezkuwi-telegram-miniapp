@@ -224,12 +224,13 @@ export function TokensCard({ onSendToken }: Props) {
     let ahBalUnsub: (() => void) | null = null;
     let peopleBalUnsub: (() => void) | null = null;
 
+    type AccountInfo = { data: { free: { toString(): string } } };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const liveBalance = async (api: any, setBalance: (v: string) => void, label: string) => {
       if (!api) return null;
       try {
         // callback form = live subscription, fires on every change
-        return (await api.query.system.account(address, (info: any) => {
+        return (await api.query.system.account(address, (info: AccountInfo) => {
           const balanceNum = Number(info.data.free.toString()) / 1e12;
           setBalance(balanceNum.toFixed(4));
         })) as () => void;
@@ -240,18 +241,26 @@ export function TokensCard({ onSendToken }: Props) {
     };
 
     const unsubAhConn = subscribeToAssetHubConnection(async (connected) => {
-      if (ahBalUnsub) { ahBalUnsub(); ahBalUnsub = null; }
+      if (ahBalUnsub) {
+        ahBalUnsub();
+        ahBalUnsub = null;
+      }
       if (connected) {
         const u = await liveBalance(getAssetHubAPI(), setAssetHubHezBalance, 'Asset Hub');
-        if (cancelled) u?.(); else ahBalUnsub = u;
+        if (cancelled) u?.();
+        else ahBalUnsub = u;
       }
     });
 
     const unsubPeopleConn = subscribeToPeopleConnection(async (connected) => {
-      if (peopleBalUnsub) { peopleBalUnsub(); peopleBalUnsub = null; }
+      if (peopleBalUnsub) {
+        peopleBalUnsub();
+        peopleBalUnsub = null;
+      }
       if (connected) {
         const u = await liveBalance(getPeopleAPI(), setPeopleHezBalance, 'People Chain');
-        if (cancelled) u?.(); else peopleBalUnsub = u;
+        if (cancelled) u?.();
+        else peopleBalUnsub = u;
       }
     });
 
