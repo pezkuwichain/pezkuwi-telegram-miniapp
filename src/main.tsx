@@ -9,13 +9,16 @@ import { LanguageProvider } from './i18n';
 import App from './App';
 import './index.css';
 
-// Suppress console logs in production
+// Suppress non-critical console output in production. This is the one place
+// that legitimately overrides console.log/debug/info — warn/error are kept for
+// critical issues. The no-console rule is disabled only for these assignments.
 if (import.meta.env.PROD) {
   const noop = () => {};
-  console.log = noop;
-  console.debug = noop;
-  console.info = noop;
-  // Keep console.warn and console.error for critical issues
+  const suppressed: Array<'log' | 'debug' | 'info'> = ['log', 'debug', 'info'];
+  for (const method of suppressed) {
+    // eslint-disable-next-line no-console
+    console[method] = noop;
+  }
 }
 
 // Initialize Telegram WebApp
