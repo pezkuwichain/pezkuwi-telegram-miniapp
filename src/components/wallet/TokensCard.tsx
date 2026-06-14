@@ -21,6 +21,7 @@ import {
   TrendingDown,
   Fuel,
 } from 'lucide-react';
+import type { ApiPromise } from '@pezkuwi/api';
 import { useWallet } from '@/contexts/WalletContext';
 import { useTelegram } from '@/hooks/useTelegram';
 import { useTranslation } from '@/i18n';
@@ -225,15 +226,19 @@ export function TokensCard({ onSendToken }: Props) {
     let peopleBalUnsub: (() => void) | null = null;
 
     type AccountInfo = { data: { free: { toString(): string } } };
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const liveBalance = async (api: any, setBalance: (v: string) => void, label: string) => {
+    const liveBalance = async (
+      api: ApiPromise | null,
+      setBalance: (v: string) => void,
+      label: string
+    ) => {
       if (!api) return null;
       try {
         // callback form = live subscription, fires on every change
-        return (await api.query.system.account(address, (info: AccountInfo) => {
+        const unsub = await api.query.system.account(address, (info: AccountInfo) => {
           const balanceNum = Number(info.data.free.toString()) / 1e12;
           setBalance(balanceNum.toFixed(4));
-        })) as () => void;
+        });
+        return unsub as unknown as () => void;
       } catch (err) {
         console.error(`Error subscribing to ${label} HEZ balance:`, err);
         return null;
