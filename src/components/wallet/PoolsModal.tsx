@@ -50,6 +50,26 @@ const formatAssetLocation = (id: number) => {
   return { parents: 0, interior: { X2: [{ PalletInstance: 50 }, { GeneralIndex: id }] } };
 };
 
+// Minimal shapes for the dynamic @pezkuwi/api results we read here. These
+// pallets/runtime-calls are not in the base typings, so we describe just the
+// fields actually used and cast via `as unknown as`.
+type AccountInfoResult = { data: { free: { toString(): string } } };
+type AssetAccountResult = {
+  isSome: boolean;
+  unwrap(): { balance: { toString(): string } };
+};
+type QuoteResult = { isNone: boolean; unwrap(): { toString(): string } };
+type AssetConversionCall = {
+  assetConversionApi: {
+    quotePriceExactTokensForTokens: (
+      asset0: ReturnType<typeof formatAssetLocation>,
+      asset1: ReturnType<typeof formatAssetLocation>,
+      amount: string,
+      includeFee: boolean
+    ) => Promise<QuoteResult>;
+  };
+};
+
 export function PoolsModal({ isOpen, onClose }: PoolsModalProps) {
   const { assetHubApi, keypair } = useWallet();
   const { hapticImpact, hapticNotification } = useTelegram();
@@ -104,17 +124,17 @@ export function PoolsModal({ isOpen, onClose }: PoolsModalProps) {
         // Fetch HEZ balance from Asset Hub (native token)
 
         const hezAccount = (await withTimeout(
-          (assetHubApi.query.system as any).account(keypair.address),
+          assetHubApi.query.system.account(keypair.address),
           10000
-        )) as any;
+        )) as unknown as AccountInfoResult;
         if (isCancelled) return;
         const hezFree = hezAccount.data.free.toString();
         setBalances((prev) => ({ ...prev, HEZ: (parseInt(hezFree) / 1e12).toFixed(4) }));
 
         const pezResult = (await withTimeout(
-          (assetHubApi.query.assets as any).account(1, keypair.address),
+          assetHubApi.query.assets.account(1, keypair.address),
           10000
-        )) as any;
+        )) as unknown as AssetAccountResult;
         if (isCancelled) return;
         if (pezResult.isSome) {
           setBalances((prev) => ({
@@ -126,9 +146,9 @@ export function PoolsModal({ isOpen, onClose }: PoolsModalProps) {
         }
 
         const usdtResult = (await withTimeout(
-          (assetHubApi.query.assets as any).account(1000, keypair.address),
+          assetHubApi.query.assets.account(1000, keypair.address),
           10000
-        )) as any;
+        )) as unknown as AssetAccountResult;
         if (isCancelled) return;
         if (usdtResult.isSome) {
           setBalances((prev) => ({
@@ -175,7 +195,9 @@ export function PoolsModal({ isOpen, onClose }: PoolsModalProps) {
                 const oneUnit = BigInt(Math.pow(10, token0.decimals));
 
                 const quote = await withTimeout(
-                  (assetHubApi.call as any).assetConversionApi.quotePriceExactTokensForTokens(
+                  (
+                    assetHubApi.call as unknown as AssetConversionCall
+                  ).assetConversionApi.quotePriceExactTokensForTokens(
                     formatAssetLocation(asset0),
                     formatAssetLocation(asset1),
                     oneUnit.toString(),
@@ -184,11 +206,8 @@ export function PoolsModal({ isOpen, onClose }: PoolsModalProps) {
                   10000
                 );
 
-                // eslint-disable-next-line @typescript-eslint/no-explicit-any
-                if (quote && !(quote as any).isNone) {
-                  price =
-                    Number(BigInt((quote as any).unwrap().toString())) /
-                    Math.pow(10, token1.decimals);
+                if (quote && !quote.isNone) {
+                  price = Number(BigInt(quote.unwrap().toString())) / Math.pow(10, token1.decimals);
 
                   // Estimate reserves from LP supply
                   const lpAsset = await withTimeout(
@@ -283,6 +302,10 @@ export function PoolsModal({ isOpen, onClose }: PoolsModalProps) {
     return () => {
       isCancelled = true;
     };
+    // `t` is intentionally omitted: it is only used for error messages and its
+    // identity changes only on language switch — including it would re-run the
+    // blockchain fetch (extra RPC calls) on every language change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, assetHubApi, keypair]);
 
   // Auto-calculate amount1 based on pool price
@@ -326,28 +349,36 @@ export function PoolsModal({ isOpen, onClose }: PoolsModalProps) {
         keypair.address
       );
 
+      // Minimal shape of the signAndSend result fields we read. `asModule`
+      // is typed from the registry call so it stays type-safe.
+      type TxResult = {
+        status: { isFinalized: boolean };
+        dispatchError?: {
+          isModule: boolean;
+          asModule: Parameters<typeof assetHubApi.registry.findMetaError>[0];
+          toString(): string;
+        };
+      };
+
       // Wait for transaction to be finalized
       await new Promise<void>((resolve, reject) => {
-        tx.signAndSend(
-          keypair,
-          ({ status, dispatchError }: { status: any; dispatchError: any }) => {
-            if (status.isFinalized) {
-              if (dispatchError) {
-                let errorMsg = t('pools.addFailed');
-                if (dispatchError.isModule) {
-                  const decoded = assetHubApi.registry.findMetaError(dispatchError.asModule);
-                  errorMsg = `${decoded.section}.${decoded.name}: ${decoded.docs.join(' ')}`;
-                } else if (dispatchError.toString) {
-                  errorMsg = dispatchError.toString();
-                }
-                console.error('Add liquidity error:', errorMsg);
-                reject(new Error(errorMsg));
-              } else {
-                resolve();
+        tx.signAndSend(keypair, ({ status, dispatchError }: TxResult) => {
+          if (status.isFinalized) {
+            if (dispatchError) {
+              let errorMsg = t('pools.addFailed');
+              if (dispatchError.isModule) {
+                const decoded = assetHubApi.registry.findMetaError(dispatchError.asModule);
+                errorMsg = `${decoded.section}.${decoded.name}: ${decoded.docs.join(' ')}`;
+              } else if (dispatchError.toString) {
+                errorMsg = dispatchError.toString();
               }
+              console.error('Add liquidity error:', errorMsg);
+              reject(new Error(errorMsg));
+            } else {
+              resolve();
             }
           }
-        ).catch(reject);
+        }).catch(reject);
       });
 
       setSuccessMessage(
@@ -420,28 +451,36 @@ export function PoolsModal({ isOpen, onClose }: PoolsModalProps) {
         keypair.address
       );
 
+      // Minimal shape of the signAndSend result fields we read. `asModule`
+      // is typed from the registry call so it stays type-safe.
+      type TxResult = {
+        status: { isFinalized: boolean };
+        dispatchError?: {
+          isModule: boolean;
+          asModule: Parameters<typeof assetHubApi.registry.findMetaError>[0];
+          toString(): string;
+        };
+      };
+
       // Wait for transaction to be finalized
       await new Promise<void>((resolve, reject) => {
-        tx.signAndSend(
-          keypair,
-          ({ status, dispatchError }: { status: any; dispatchError: any }) => {
-            if (status.isFinalized) {
-              if (dispatchError) {
-                let errorMsg = t('pools.removeFailed');
-                if (dispatchError.isModule) {
-                  const decoded = assetHubApi.registry.findMetaError(dispatchError.asModule);
-                  errorMsg = `${decoded.section}.${decoded.name}: ${decoded.docs.join(' ')}`;
-                } else if (dispatchError.toString) {
-                  errorMsg = dispatchError.toString();
-                }
-                console.error('Remove liquidity error:', errorMsg);
-                reject(new Error(errorMsg));
-              } else {
-                resolve();
+        tx.signAndSend(keypair, ({ status, dispatchError }: TxResult) => {
+          if (status.isFinalized) {
+            if (dispatchError) {
+              let errorMsg = t('pools.removeFailed');
+              if (dispatchError.isModule) {
+                const decoded = assetHubApi.registry.findMetaError(dispatchError.asModule);
+                errorMsg = `${decoded.section}.${decoded.name}: ${decoded.docs.join(' ')}`;
+              } else if (dispatchError.toString) {
+                errorMsg = dispatchError.toString();
               }
+              console.error('Remove liquidity error:', errorMsg);
+              reject(new Error(errorMsg));
+            } else {
+              resolve();
             }
           }
-        ).catch(reject);
+        }).catch(reject);
       });
 
       setSuccessMessage(t('pools.removedLiquidity', { amount: lpAmountToRemove }));

@@ -179,6 +179,10 @@ export function LPStakingModal({ isOpen, onClose }: LPStakingModalProps) {
     };
 
     fetchPools();
+    // `t` is intentionally omitted: it is only used for error messages and its
+    // identity changes only on language switch — including it would re-run the
+    // blockchain fetch (extra RPC calls) on every language change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assetHubApi, isOpen, address, selectedPool]);
 
   const formatAmount = (amount: string, decimals: number = 12): string => {

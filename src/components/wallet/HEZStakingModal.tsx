@@ -133,6 +133,10 @@ export function HEZStakingModal({ isOpen, onClose }: HEZStakingModalProps) {
     } finally {
       setIsLoading(false);
     }
+    // `t` is intentionally omitted: it is only used for error messages and its
+    // identity changes only on language switch — including it would re-run the
+    // blockchain fetch (extra RPC calls) on every language change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [assetHubApi, address]);
 
   useEffect(() => {

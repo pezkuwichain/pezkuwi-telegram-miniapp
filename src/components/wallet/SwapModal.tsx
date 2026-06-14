@@ -74,10 +74,25 @@ export function SwapModal({ isOpen, onClose }: SwapModalProps) {
         const hezFree = hezAccount.data.free.toString();
         const hezBalance = (parseInt(hezFree) / 1e12).toFixed(4);
 
-        // Helper to extract balance from asset query result
-        const getAssetBalance = (result: any, decimals: number, fractionDigits: number): string => {
+        // Helper to extract balance from an asset storage query result. The
+        // shape is the subset of the @pezkuwi/api Option/Codec result we read.
+        type AssetQueryResult = {
+          isEmpty: boolean;
+          isSome?: boolean;
+          unwrap?: () => { toJSON(): unknown };
+          toJSON(): unknown;
+        };
+        const getAssetBalance = (
+          result: AssetQueryResult | null,
+          decimals: number,
+          fractionDigits: number
+        ): string => {
           if (!result || result.isEmpty) return '0'.padEnd(fractionDigits + 2, '0');
-          const data = result.isSome ? result.unwrap().toJSON() : result.toJSON();
+          const data = (
+            result.isSome && result.unwrap ? result.unwrap().toJSON() : result.toJSON()
+          ) as {
+            balance?: { toString(): string };
+          } | null;
           if (data && data.balance) {
             return (parseInt(data.balance.toString()) / Math.pow(10, decimals)).toFixed(
               fractionDigits
@@ -155,8 +170,21 @@ export function SwapModal({ isOpen, onClose }: SwapModalProps) {
         const decimals2 = getDecimals(asset2);
         const oneUnit = BigInt(Math.pow(10, decimals1));
 
+        // assetConversionApi is a runtime API not present in the base
+        // @pezkuwi/api typings; describe just the call we use.
+        type QuoteResult = { isNone: boolean; unwrap(): { toString(): string } };
+        type AssetConversionCall = {
+          assetConversionApi: {
+            quotePriceExactTokensForTokens: (
+              asset1: ReturnType<typeof formatAssetLocation>,
+              asset2: ReturnType<typeof formatAssetLocation>,
+              amount: string,
+              includeFee: boolean
+            ) => Promise<QuoteResult>;
+          };
+        };
         const quote = await (
-          assetHubApi.call as any
+          assetHubApi.call as unknown as AssetConversionCall
         ).assetConversionApi.quotePriceExactTokensForTokens(
           formatAssetLocation(asset1),
           formatAssetLocation(asset2),
@@ -257,28 +285,38 @@ export function SwapModal({ isOpen, onClose }: SwapModalProps) {
         true
       );
 
+      // Minimal shape of the signAndSend result fields we read (the full
+      // @pezkuwi/api ISubmittableResult is unavailable because `tx` above is
+      // produced from an untyped runtime extrinsic).
+      type SwapDispatchError = {
+        isModule: boolean;
+        asModule: Parameters<typeof assetHubApi.registry.findMetaError>[0];
+        toString(): string;
+      };
+      type SwapTxResult = {
+        status: { isFinalized: boolean };
+        dispatchError?: SwapDispatchError;
+      };
+
       // Wait for transaction to be finalized
       await new Promise<void>((resolve, reject) => {
-        tx.signAndSend(
-          keypair,
-          ({ status, dispatchError }: { status: any; dispatchError: any }) => {
-            if (status.isFinalized) {
-              if (dispatchError) {
-                let errorMsg = t('swap.swapFailed');
-                if (dispatchError.isModule) {
-                  const decoded = assetHubApi.registry.findMetaError(dispatchError.asModule);
-                  errorMsg = `${decoded.section}.${decoded.name}: ${decoded.docs.join(' ')}`;
-                } else if (dispatchError.toString) {
-                  errorMsg = dispatchError.toString();
-                }
-                console.error('Swap error:', errorMsg);
-                reject(new Error(errorMsg));
-              } else {
-                resolve();
+        tx.signAndSend(keypair, ({ status, dispatchError }: SwapTxResult) => {
+          if (status.isFinalized) {
+            if (dispatchError) {
+              let errorMsg = t('swap.swapFailed');
+              if (dispatchError.isModule) {
+                const decoded = assetHubApi.registry.findMetaError(dispatchError.asModule);
+                errorMsg = `${decoded.section}.${decoded.name}: ${decoded.docs.join(' ')}`;
+              } else if (dispatchError.toString) {
+                errorMsg = dispatchError.toString();
               }
+              console.error('Swap error:', errorMsg);
+              reject(new Error(errorMsg));
+            } else {
+              resolve();
             }
           }
-        ).catch(reject);
+        }).catch(reject);
       });
 
       setSuccess(true);

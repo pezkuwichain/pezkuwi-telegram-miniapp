@@ -73,7 +73,9 @@ export async function getPendingReferral(api: ApiPromise, address: string): Prom
   try {
     // Check if referral pallet exists
     if (!isReferralPalletAvailable(api)) {
-      console.log('Referral pallet not available on this chain');
+      if (import.meta.env.DEV) {
+        console.warn('Referral pallet not available on this chain');
+      }
       return null;
     }
 

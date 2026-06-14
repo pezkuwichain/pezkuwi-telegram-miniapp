@@ -79,6 +79,9 @@ export function DepositWithdrawModal({
 
   const handleDeposit = async () => {
     if (!sessionToken || !depositAmount || !assetHubApi || !keypair) return;
+    // Capture the guaranteed-non-null API so the narrowing survives inside the
+    // async signAndSend callback below (TS loses it across the closure boundary).
+    const api = assetHubApi;
 
     const amount = parseFloat(depositAmount);
     if (isNaN(amount) || amount <= 0) {
@@ -120,7 +123,7 @@ export function DepositWithdrawModal({
           async (result: any) => {
             if (result.dispatchError) {
               if (result.dispatchError.isModule) {
-                const decoded = assetHubApi!.registry.findMetaError(result.dispatchError.asModule);
+                const decoded = api.registry.findMetaError(result.dispatchError.asModule);
                 reject(new Error(`${decoded.section}.${decoded.name}`));
               } else {
                 reject(new Error(result.dispatchError.toString()));
@@ -130,7 +133,7 @@ export function DepositWithdrawModal({
             if (result.status.isFinalized) {
               try {
                 // Get block number from finalized block hash for fast verification
-                const header = await assetHubApi!.rpc.chain.getHeader(result.status.asFinalized);
+                const header = await api.rpc.chain.getHeader(result.status.asFinalized);
                 resolve({
                   txHash: result.txHash.toHex(),
                   blockNumber: header.number.toNumber(),
