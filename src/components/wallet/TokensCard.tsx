@@ -21,11 +21,14 @@ import {
   TrendingDown,
   Fuel,
 } from 'lucide-react';
+import type { ApiPromise } from '@pezkuwi/api';
 import { useWallet } from '@/contexts/WalletContext';
 import { useTelegram } from '@/hooks/useTelegram';
 import { useTranslation } from '@/i18n';
 import {
   subscribeToConnection,
+  subscribeToAssetHubConnection,
+  subscribeToPeopleConnection,
   getLastError,
   getAssetHubAPI,
   getPeopleAPI,
@@ -212,51 +215,68 @@ export function TokensCard({ onSendToken }: Props) {
     return () => unsubscribe();
   }, []);
 
-  // Fetch multi-chain HEZ balances (Asset Hub & People Chain)
+  // Live multi-chain HEZ balances (Asset Hub & People Chain).
+  // Uses real-time storage subscriptions and (re)subscribes the moment each
+  // chain connects — so balances populate as soon as the chain is ready and
+  // update instantly on any change (no 30s polling lag, no stuck "--").
   useEffect(() => {
     if (!address) return;
+    let cancelled = false;
+    let ahBalUnsub: (() => void) | null = null;
+    let peopleBalUnsub: (() => void) | null = null;
 
-    const fetchMultiChainBalances = async () => {
-      // Asset Hub HEZ balance
-      const assetHubApi = getAssetHubAPI();
-      if (assetHubApi) {
-        try {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const accountInfo = (await (assetHubApi.query.system as any).account(address)) as {
-            data: { free: { toString(): string } };
-          };
-          const free = accountInfo.data.free.toString();
-          const balanceNum = Number(free) / 1e12;
-          setAssetHubHezBalance(balanceNum.toFixed(4));
-        } catch (err) {
-          console.error('Error fetching Asset Hub HEZ balance:', err);
-          setAssetHubHezBalance('0.0000');
-        }
-      }
-
-      // People Chain HEZ balance
-      const peopleApi = getPeopleAPI();
-      if (peopleApi) {
-        try {
-          // eslint-disable-next-line @typescript-eslint/no-explicit-any
-          const accountInfo = (await (peopleApi.query.system as any).account(address)) as {
-            data: { free: { toString(): string } };
-          };
-          const free = accountInfo.data.free.toString();
-          const balanceNum = Number(free) / 1e12;
-          setPeopleHezBalance(balanceNum.toFixed(4));
-        } catch (err) {
-          console.error('Error fetching People Chain HEZ balance:', err);
-          setPeopleHezBalance('0.0000');
-        }
+    type AccountInfo = { data: { free: { toString(): string } } };
+    const liveBalance = async (
+      api: ApiPromise | null,
+      setBalance: (v: string) => void,
+      label: string
+    ) => {
+      if (!api) return null;
+      try {
+        // callback form = live subscription, fires on every change
+        const unsub = await api.query.system.account(address, (info: AccountInfo) => {
+          const balanceNum = Number(info.data.free.toString()) / 1e12;
+          setBalance(balanceNum.toFixed(4));
+        });
+        return unsub as unknown as () => void;
+      } catch (err) {
+        console.error(`Error subscribing to ${label} HEZ balance:`, err);
+        return null;
       }
     };
 
-    fetchMultiChainBalances();
-    // Refresh every 30 seconds
-    const interval = setInterval(fetchMultiChainBalances, 30000);
-    return () => clearInterval(interval);
-  }, [address, rpcConnected]);
+    const unsubAhConn = subscribeToAssetHubConnection(async (connected) => {
+      if (ahBalUnsub) {
+        ahBalUnsub();
+        ahBalUnsub = null;
+      }
+      if (connected) {
+        const u = await liveBalance(getAssetHubAPI(), setAssetHubHezBalance, 'Asset Hub');
+        if (cancelled) u?.();
+        else ahBalUnsub = u;
+      }
+    });
+
+    const unsubPeopleConn = subscribeToPeopleConnection(async (connected) => {
+      if (peopleBalUnsub) {
+        peopleBalUnsub();
+        peopleBalUnsub = null;
+      }
+      if (connected) {
+        const u = await liveBalance(getPeopleAPI(), setPeopleHezBalance, 'People Chain');
+        if (cancelled) u?.();
+        else peopleBalUnsub = u;
+      }
+    });
+
+    return () => {
+      cancelled = true;
+      if (ahBalUnsub) ahBalUnsub();
+      if (peopleBalUnsub) peopleBalUnsub();
+      unsubAhConn();
+      unsubPeopleConn();
+    };
+  }, [address]);
 
   // Initialize with default tokens immediately (no API required)
   const [tokens, setTokens] = useState<TokenBalance[]>(() =>
