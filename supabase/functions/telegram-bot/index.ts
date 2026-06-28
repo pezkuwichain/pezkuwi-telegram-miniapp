@@ -26,6 +26,8 @@ const MINI_APP_URLS: Record<string, string> = {
 };
 
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY') || '';
+// AI provider: Groq (free) is primary; Claude is fallback when it has credit.
+const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY') || '';
 
 function getBotId(req: Request): string {
   const url = new URL(req.url);
@@ -234,33 +236,65 @@ async function handleAIChat(token: string, chatId: number, userMessage: string, 
   });
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1024,
-        system: CLAUDE_SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: userMessage }],
-      }),
-    });
+    // Primary provider: Groq (free). Fallback: Claude when it has credit.
+    let aiReply: string | null = null;
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[AI] Claude API error:', response.status, errorText);
+    if (GROQ_API_KEY) {
+      try {
+        const gr = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + GROQ_API_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model: 'llama-3.3-70b-versatile',
+            temperature: 0.3,
+            max_tokens: 900,
+            messages: [
+              { role: 'system', content: CLAUDE_SYSTEM_PROMPT },
+              { role: 'user', content: userMessage },
+            ],
+          }),
+        });
+        if (gr.ok) {
+          const gd = await gr.json();
+          aiReply = gd.choices?.[0]?.message?.content || null;
+        } else {
+          console.error('[AI] Groq error:', gr.status, await gr.text());
+        }
+      } catch (e) {
+        console.error('[AI] Groq exception:', e);
+      }
+    }
+
+    if (!aiReply && ANTHROPIC_API_KEY) {
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 1024,
+          system: CLAUDE_SYSTEM_PROMPT,
+          messages: [{ role: 'user', content: userMessage }],
+        }),
+      });
+      if (response.ok) {
+        const result = await response.json();
+        aiReply = result.content?.[0]?.text || null;
+      } else {
+        console.error('[AI] Claude API error:', response.status, await response.text());
+      }
+    }
+
+    if (!aiReply) {
       await sendTelegramRequest(token, 'sendMessage', {
         chat_id: chatId,
         text: 'Sorry, I could not process your question right now. Please try again.',
       });
       return;
     }
-
-    const result = await response.json();
-    const aiReply = result.content?.[0]?.text || 'No response generated.';
 
     // Telegram message limit is 4096 chars
     if (aiReply.length <= 4096) {
