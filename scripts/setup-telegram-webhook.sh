@@ -2,8 +2,14 @@
 
 # PezkuwiChain Telegram Bot Webhook Setup
 # Run this script from a machine that can access Telegram API
+# Usage: BOT_TOKEN="..." ./scripts/setup-telegram-webhook.sh
 
-BOT_TOKEN="8548408481:AAEsoyiVBllk_x0T3Jelj8N8VrUiuc9jXQw"
+if [ -z "$BOT_TOKEN" ]; then
+  echo "Error: BOT_TOKEN environment variable is not set."
+  echo "Usage: BOT_TOKEN=\"<token>\" ./scripts/setup-telegram-webhook.sh"
+  exit 1
+fi
+
 WEBHOOK_URL="https://vbhftvdayqfmcgmzdxfv.supabase.co/functions/v1/telegram-bot"
 
 echo "Setting up Telegram webhook..."
