@@ -13,14 +13,14 @@ interface SocialLink {
 const SOCIAL_LINKS: SocialLink[] = [
   {
     name: 'Instagram',
-    url: 'https://www.instagram.com/pezkuwichain',
+    url: 'https://www.instagram.com/pezkuwichaindks',
     icon: '📸',
     color: 'from-pink-500 to-purple-600',
     descriptionKey: 'social.instagram',
   },
   {
     name: 'TikTok',
-    url: 'https://www.tiktok.com/@pezkuwi.chain',
+    url: 'https://www.tiktok.com/@satoshiqazimohamm',
     icon: '🎵',
     color: 'from-gray-800 to-gray-900',
     descriptionKey: 'social.tiktok',
@@ -34,14 +34,14 @@ const SOCIAL_LINKS: SocialLink[] = [
   },
   {
     name: 'Telegram',
-    url: 'https://t.me/dijitalkurdistan',
+    url: 'https://t.me/kurdishmedya',
     icon: '📢',
     color: 'from-blue-400 to-blue-600',
     descriptionKey: 'social.telegram',
   },
   {
     name: 'X (Twitter)',
-    url: 'https://x.com/pezkuwichain',
+    url: 'https://x.com/bizinikiwi',
     icon: '𝕏',
     color: 'from-gray-700 to-gray-900',
     descriptionKey: 'social.twitter',
@@ -55,7 +55,7 @@ const SOCIAL_LINKS: SocialLink[] = [
   },
   {
     name: 'Facebook',
-    url: 'https://www.facebook.com/people/Pezkuwi-Chain/61587122224932/',
+    url: 'https://www.facebook.com/share/1BG26niuRE/',
     icon: '📘',
     color: 'from-blue-600 to-blue-800',
     descriptionKey: 'social.facebook',

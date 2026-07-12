@@ -203,7 +203,7 @@ LINKS:
 Website: pezkuwichain.io
 GitHub: github.com/pezkuwichain/pezkuwi-sdk
 Discord: discord.gg/Y3VyEC6h8W
-Telegram Channel: t.me/dijitalkurdistan
+Telegram Channel: t.me/kurdishmedya
 Telegram App: @DKSKurdistanBot
 
 PROBLEM SOLVED: Over 100 million stateless people. Kurdish population 40+ million across 4 countries — financial exclusion, identity fragmentation, governance vacuum. PezkuwiChain provides digital nation-state infrastructure.
@@ -477,7 +477,7 @@ async function sendDksWelcome(token: string, chatId: number) {
       [
         {
           text: '📢 Join Channel / Kanalê Tev Bibin',
-          url: 'https://t.me/dijitalkurdistan',
+          url: 'https://t.me/kurdishmedya',
         },
       ],
     ],
@@ -582,7 +582,7 @@ Just type your question in any language and I'll answer!
 
 <b>Links:</b>
 🌐 Website: pezkuwichain.io
-📢 Channel: t.me/dijitalkurdistan
+📢 Channel: t.me/kurdishmedya
 💬 Discord: discord.gg/Y3VyEC6h8W
 `;
     await sendTelegramRequest(token, 'sendMessage', {
