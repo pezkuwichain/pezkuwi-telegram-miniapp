@@ -118,17 +118,6 @@ async function checkTonDeposits(
 
         if (amount < MIN_DEPOSIT) continue;
 
-        // Check if already processed
-        const { data: existing } = await supabase
-          .from('tg_deposits')
-          .select('id')
-          .eq('tx_hash', txHash)
-          .single();
-
-        if (existing) continue;
-
-        result.found++;
-
         // Find user by memo code
         const { data: depositCode } = await supabase
           .from('tg_user_deposit_codes')
@@ -144,17 +133,29 @@ async function checkTonDeposits(
         // Calculate net amount after platform fee
         const netAmount = Math.max(0, amount - TON_FEE);
 
-        // Create deposit record with net amount
-        const { error } = await supabase.from('tg_deposits').insert({
-          user_id: depositCode.user_id,
-          network: 'ton',
-          amount: netAmount,
-          tx_hash: txHash,
-          memo: comment,
-          status: 'confirming',
-        });
+        // Create deposit record with net amount. tx_hash has a unique DB
+        // constraint - on conflict (already processed on a prior run) this
+        // is a no-op, avoiding the check-then-insert race that used to
+        // produce runaway duplicate rows.
+        const { error, data: inserted } = await supabase
+          .from('tg_deposits')
+          .upsert(
+            {
+              user_id: depositCode.user_id,
+              network: 'ton',
+              amount: netAmount,
+              tx_hash: txHash,
+              memo: comment,
+              status: 'confirming',
+            },
+            { onConflict: 'tx_hash', ignoreDuplicates: true }
+          )
+          .select('id');
 
-        if (!error) result.processed++;
+        if (!error && inserted && inserted.length > 0) {
+          result.found++;
+          result.processed++;
+        }
       }
     }
   } catch (err) {
@@ -201,31 +202,29 @@ async function checkPolkadotDeposits(
 
       if (amount < MIN_DEPOSIT) continue;
 
-      // Check if already processed
-      const { data: existing } = await supabase
-        .from('tg_deposits')
-        .select('id')
-        .eq('tx_hash', txHash)
-        .single();
-
-      if (existing) continue;
-
-      result.found++;
-
       // Calculate net amount after platform fee
       const netAmount = Math.max(0, amount - POLKADOT_FEE);
 
       // For Polkadot, memo might be in extrinsic data
       // Try to find user by checking system.remark in same block
       // For now, create as pending without user
-      const { error } = await supabase.from('tg_deposits').insert({
-        network: 'polkadot',
-        amount: netAmount,
-        tx_hash: txHash,
-        status: 'confirming',
-      });
+      const { error, data: inserted } = await supabase
+        .from('tg_deposits')
+        .upsert(
+          {
+            network: 'polkadot',
+            amount: netAmount,
+            tx_hash: txHash,
+            status: 'confirming',
+          },
+          { onConflict: 'tx_hash', ignoreDuplicates: true }
+        )
+        .select('id');
 
-      if (!error) result.processed++;
+      if (!error && inserted && inserted.length > 0) {
+        result.found++;
+        result.processed++;
+      }
     }
   } catch (err) {
     result.errors.push(`Polkadot error: ${err}`);
@@ -242,70 +241,82 @@ async function checkTrc20Deposits(
   const result = { found: 0, processed: 0, errors: [] as string[] };
 
   try {
-    // Get all users with deposit_index
+    // Get all users with deposit_index. deposit_index 0 belongs to the
+    // platform admin account and doubles as the treasury sweep destination -
+    // excluded here so internal sweep transfers landing on it are never
+    // mistaken for a customer deposit.
     const { data: users } = await supabase
       .from('tg_users')
       .select('id, deposit_index')
       .not('deposit_index', 'is', null)
+      .neq('deposit_index', 0)
       .order('deposit_index', { ascending: true });
 
     if (!users || users.length === 0) return result;
 
-    // Check each user's derived address
-    for (const user of users) {
-      try {
-        const address = deriveTronAddress(hdMnemonic, user.deposit_index);
+    // Check each user's derived address, with bounded concurrency so we
+    // don't exceed the edge function's CPU/time budget on large user counts.
+    const CONCURRENCY = 8;
+    for (let i = 0; i < users.length; i += CONCURRENCY) {
+      const batch = users.slice(i, i + CONCURRENCY);
+      await Promise.all(
+        batch.map(async (user) => {
+          try {
+            const address = deriveTronAddress(hdMnemonic, user.deposit_index);
 
-        // Get TRC20 transfers to this address
-        const response = await fetch(
-          `${TRON_API}/v1/accounts/${address}/transactions/trc20?limit=20&contract_address=${TRON_USDT_CONTRACT}`,
-          {
-            headers: { 'TRON-PRO-API-KEY': Deno.env.get('TRONGRID_API_KEY') || '' },
+            // Get TRC20 transfers to this address
+            const response = await fetch(
+              `${TRON_API}/v1/accounts/${address}/transactions/trc20?limit=20&contract_address=${TRON_USDT_CONTRACT}`,
+              {
+                headers: { 'TRON-PRO-API-KEY': Deno.env.get('TRONGRID_API_KEY') || '' },
+              }
+            );
+
+            if (!response.ok) return;
+
+            const data = await response.json();
+            const transfers = data.data || [];
+
+            for (const tx of transfers) {
+              // Only incoming transfers
+              if (tx.to?.toLowerCase() !== address.toLowerCase()) continue;
+
+              const txHash = tx.transaction_id;
+              const amount = parseInt(tx.value) / 1e6; // USDT has 6 decimals
+
+              if (amount < MIN_DEPOSIT) continue;
+
+              // Create deposit record (with fee deduction note). tx_hash
+              // has a unique DB constraint - on conflict this is a no-op,
+              // avoiding the check-then-insert race that used to produce
+              // runaway duplicate rows.
+              const netAmount = Math.max(0, amount - TRC20_FEE);
+
+              const { error, data: inserted } = await supabase
+                .from('tg_deposits')
+                .upsert(
+                  {
+                    user_id: user.id,
+                    network: 'trc20',
+                    amount: netAmount, // Store net amount after fee
+                    tx_hash: txHash,
+                    status: 'confirming',
+                  },
+                  { onConflict: 'tx_hash', ignoreDuplicates: true }
+                )
+                .select('id');
+
+              if (!error && inserted && inserted.length > 0) {
+                result.found++;
+                result.processed++;
+              }
+            }
+          } catch (err) {
+            // Skip individual user errors
+            return;
           }
-        );
-
-        if (!response.ok) continue;
-
-        const data = await response.json();
-        const transfers = data.data || [];
-
-        for (const tx of transfers) {
-          // Only incoming transfers
-          if (tx.to?.toLowerCase() !== address.toLowerCase()) continue;
-
-          const txHash = tx.transaction_id;
-          const amount = parseInt(tx.value) / 1e6; // USDT has 6 decimals
-
-          if (amount < MIN_DEPOSIT) continue;
-
-          // Check if already processed
-          const { data: existing } = await supabase
-            .from('tg_deposits')
-            .select('id')
-            .eq('tx_hash', txHash)
-            .single();
-
-          if (existing) continue;
-
-          result.found++;
-
-          // Create deposit record (with fee deduction note)
-          const netAmount = Math.max(0, amount - TRC20_FEE);
-
-          const { error } = await supabase.from('tg_deposits').insert({
-            user_id: user.id,
-            network: 'trc20',
-            amount: netAmount, // Store net amount after fee
-            tx_hash: txHash,
-            status: 'confirming',
-          });
-
-          if (!error) result.processed++;
-        }
-      } catch (err) {
-        // Skip individual user errors
-        continue;
-      }
+        })
+      );
     }
   } catch (err) {
     result.errors.push(`TRC20 error: ${err}`);
