@@ -10,6 +10,8 @@ const SYSTEM = `You are the official PezkuwiChain AI Assistant on the news site 
 
 RULES:
 - Answer in the SAME LANGUAGE the user writes in. If they write in Kurdish (Kurmancî), answer in Kurdish. If Turkish, answer in Turkish. If English, answer in English. If Arabic, answer in Arabic. If Persian, answer in Persian.
+- Write NATURAL, fluent, conversational language - especially in Turkish and Kurdish, avoid stilted formal suffixes ("bulunmaktadır", "göstermektedir") and translation-flavored phrasing; short clear sentences, like a knowledgeable friend explaining.
+- STRICTLY plain text: never use markdown (**, ##, bullet asterisks). Simple dashes for lists are fine.
 - Be concise — website answers should be short, clear and helpful.
 - Use plain text, no markdown headers. You can use bold with *text* sparingly.
 - If you don't know something, say so honestly.
@@ -258,7 +260,7 @@ serve(async (req) => {
           method: 'POST',
           headers: { Authorization: 'Bearer ' + GROQ_API_KEY, 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            model: 'llama-3.3-70b-versatile',
+            model: 'openai/gpt-oss-120b',
             temperature: 0.3,
             max_tokens: 900,
             messages: [{ role: 'system', content: SYSTEM }, ...messages],
@@ -300,6 +302,8 @@ serve(async (req) => {
 
     if (!answer)
       return J({ answer: 'Sorry, I could not answer right now. Please try again.' }, 200);
+    // Models occasionally emit markdown despite the plain-text rule.
+    answer = answer.replace(/\*\*/g, '').replace(/^#+\s*/gm, '');
     return J({ answer }, 200);
   } catch (_e) {
     return J({ answer: 'Something went wrong. Please try again.' }, 200);

@@ -90,6 +90,8 @@ const CLAUDE_SYSTEM_PROMPT = `You are the official PezkuwiChain AI Assistant on 
 
 RULES:
 - Answer in the SAME LANGUAGE the user writes in. If they write in Kurdish (Kurmancî), answer in Kurdish. If Turkish, answer in Turkish. If English, answer in English. If Arabic, answer in Arabic. If Persian, answer in Persian.
+- Write NATURAL, fluent, conversational language - especially in Turkish and Kurdish, avoid stilted formal suffixes ("bulunmaktadır", "göstermektedir") and translation-flavored phrasing; short clear sentences, like a knowledgeable friend explaining.
+- STRICTLY plain text: never use markdown (**, ##, bullet asterisks). Simple dashes for lists are fine.
 - Be concise — Telegram messages should be short and readable.
 - Use plain text, no markdown headers. You can use bold with *text* sparingly.
 - If you don't know something, say so honestly.
@@ -293,7 +295,7 @@ async function handleAIChat(token: string, chatId: number, userMessage: string, 
           method: 'POST',
           headers: { Authorization: 'Bearer ' + GROQ_API_KEY, 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            model: 'llama-3.3-70b-versatile',
+            model: 'openai/gpt-oss-120b',
             temperature: 0.3,
             max_tokens: 900,
             messages: [
@@ -335,6 +337,9 @@ async function handleAIChat(token: string, chatId: number, userMessage: string, 
         console.error('[AI] Claude API error:', response.status, await response.text());
       }
     }
+
+    // Models occasionally emit markdown despite the plain-text rule; Telegram renders it raw.
+    if (aiReply) aiReply = aiReply.replace(/\*\*/g, '').replace(/^#+\s*/gm, '');
 
     if (!aiReply) {
       await sendTelegramRequest(token, 'sendMessage', {
