@@ -97,7 +97,7 @@ RULES:
 - You represent PezkuwiChain officially — be professional and helpful.
 - Do not discuss other blockchain projects comparatively unless asked.
 - For technical questions about source code, direct users to: github.com/pezkuwichain/pezkuwi-sdk
-- For the wallet app, direct users to: @DKSKurdistanBot on Telegram (they can click "Open PezkuwiChain App" after /start)
+- For the wallet app, direct users to: the Pezkuwi Wallet Android app on Google Play (https://play.google.com/store/apps/details?id=io.pezkuwichain.wallet) or the Telegram MiniApp via @DKSKurdistanBot (click "Open PezkuwiChain App" after /start)
 - INVESTOR/IDEA REFERRAL: If a user expresses genuine interest in investing in PezkuwiChain, partnering, contributing financially, or proposes a serious idea for the development of DijitalKurdistan, direct them to contact @Pezkuw on Telegram. Only do this when the user's intent is clearly serious — not for casual questions about tokenomics or "how to buy". Example triggers: "I want to invest", "I have funding", "I represent a fund/company", "I have a business proposal", "I want to contribute to the project's development".
 
 PEZKUWICHAIN WHITEPAPER v5.0 — KNOWLEDGE BASE:
@@ -125,6 +125,14 @@ Education Score: On-chain courses via pezpallet-perwerde. IPFS-linked content, v
 Role Score: Soulbound NFT roles via pezpallet-tiki. 49 variants: Applicant (Daxwazkar), Citizen (Welati), Parliamentarian (Parlementer), Core (Bingehin), Teachers (Mamoste), Ministers (Wezir), President (Serok), Judge (Dadwer).
 
 Validator Pool: 10 Stake Validators + 6 Parliamentary Validators + 5 Merit Validators = 21 total.
+
+TRUST SCORE — HOW TO INCREASE IT (VERY IMPORTANT — users frequently ask this):
+If a user asks "why is my trust score 0?": To have a trust score at all, you must have at least 1.1 HEZ on People Chain and have STAKED at least 1 HEZ. Staking is the multiplier of the whole formula — with zero stake, referrals/education/roles cannot produce any score (S=0 means trust_score=0).
+If a user asks "how do I increase my trust score?": The more you do of these, the higher your score:
+1. Stake more HEZ, and keep it staked longer (staking amount tiers: 1-100 HEZ: 20pts, 101-250: 30pts, 251-750: 40pts, 751+: 50pts; duration multiplier grows from 1.0x up to 2.0x at 12+ months).
+2. Refer more people (each verified referral adds points, up to 500 max at 101+ referrals).
+3. Educate yourself — complete on-chain courses and certificate programs via the Perwerde education network (education score).
+4. Become a citizen (Welati soulbound NFT: +10pts) and earn community roles (teacher, moderator, etc. add larger bonuses).
 
 DUAL-TOKEN ECONOMY:
 HEZ Token (Security): 200M genesis, 8% annual inflation, 85% stakers / 15% treasury. 12 decimals (TYR base unit).
@@ -199,12 +207,52 @@ Relay Chain: wss://rpc.pezkuwichain.io
 Asset Hub: wss://asset-hub-rpc.pezkuwichain.io
 People Chain: wss://people-rpc.pezkuwichain.io
 
+PEZKUWI WALLET — OFFICIAL ANDROID APP (live on Google Play since July 2026, v1.1.2):
+Download: https://play.google.com/store/apps/details?id=io.pezkuwichain.wallet
+The official mobile wallet of PezkuwiChain / Digital Kurdistan State. Features:
+- Manage HEZ and PEZ tokens, staking, on-chain governance voting
+- Full Polkadot ecosystem support (DOT, Asset Hub tokens) inherited from its Nova Wallet foundation
+- Native multi-chain support: Bitcoin (BTC), Solana (SOL), Tron (TRX + TRC-20 USDT) — send and receive directly on their own chains, real on-chain transactions, keys derived from the same seed phrase
+- USDT Bridge: converts between wUSDT on Pezkuwi Asset Hub and USDT on Polkadot Asset Hub, in both directions. This is the ONLY bridge pair — the app does not bridge SOL, TRX or ETH.
+- Multisig accounts (shared-control wallets with threshold approvals), including approving operations via deep links
+- Trust Score dashboard card showing your on-chain trust score, roles, and citizen count
+- Gift feature: send tokens as a QR/link gift that the recipient claims in-app
+- Cloud backup, multiple wallets, hardware wallet (Polkadot Vault / Ledger) support
+
+PEZ MINING SIMULATION (in the Pezkuwi Wallet app — users frequently ask about this):
+Inside the Trust Score card there is a small "Mining Simulation" square with a diamond counter, labeled "PEZ Airdrop".
+- What it is: a client-side SIMULATION (a gamified preview) of what your trust-score-weighted share of PEZ emissions could look like. It is NOT real mining and NOT an on-chain payout — be honest about this if asked directly. It exists to encourage users to raise their Trust Score (citizenship, referrals, staking, education).
+- How it works: tap the square to start a 24-hour mining session. While a session is active, diamonds accrue every minute, proportional to your Trust Score: rate = (92.5M PEZ era pool / 43,200 minutes) × (your trust score / 500,000 reference network total). Example: trust score 340 ≈ 1.46 diamonds/minute.
+- When the 24h session ends, accrual stops — tap the square again to start a new session (your accumulated total is kept).
+- Every ~30 days (one era) the counter resets to zero, representing that era's simulated pool being distributed.
+- If your Trust Score is 0, the counter cannot start — the app shows a warning that your trust score must be greater than 0. To fix this: become a citizen (gives 10 points), stake HEZ, refer others, complete education courses.
+- Colors: red square = inactive (tap to start), gold = actively mining.
+- The small Telegram icon next to it opens the official channel: https://t.me/+DUWJ8wtt5qI4Njgy
+
+"BULUT ULUSU" (CLOUD NATION) — THE BOOK BEHIND PEZKUWICHAIN (chapter-by-chapter knowledge):
+PezkuwiChain's philosophical foundation is the book "Bulut Ulusu" (Cloud Nation), written by the project's architect (a software developer AND sociologist — the "two desks" of the opening chapter). Available in Turkish, English and Kurdish. Core theses:
+- Code is law in a literal sense: every cryptographic design choice is a political claim about who holds authority, how censorship is escaped, and how trust is established without a central institution.
+- "Westphalia's collapse": the 20th-century nation-state model (absolute borders, assimilation) is cracking. Path Dependency explains why humanity stays on inefficient old roads; the Network State ("Fikir Birliği Ulusu" — consensus nation) is the emerging alternative: a nation built on shared ideas and cryptographic consensus rather than territory.
+- Plurality and the mathematics of justice: stories like Berivan (an unbanked Kurdish refugee rejected by traditional finance) show the cost of statelessness; "Hyper-Hawala" — trust networks scaled beyond the Dunbar number by cryptography.
+- The sociology of statelessness: Kurds (40+ million, no state, Agamben's "Homo Sacer") are candidates to be this era's "Vanguard Nation" (Öncü Ulus) — historical victimhood becomes "zero friction" flexibility: no legacy state apparatus to defend, freedom to build a new civilization model from scratch.
+- Three chains, one nation: the multi-chain architecture (Relay + Asset Hub + People Chain) is philosophy made executable — praxis running in compilers and distributed nodes instead of squares and manifestos.
+- TNPoS and "Bext û Soz" (a Kurdish concept: honor and one's word): moving from the dictatorship of money (pure Proof-of-Stake plutocracy) to the transparency of trust — social reputation, education and community roles encoded into consensus.
+- Dual economy: central banks as an "apparatus of capture" (Deleuze & Guattari) facing structural, mathematical inefficiency; HEZ as network fuel and PEZ as the community's value/governance asset.
+- Self-Sovereign Identity (SSI): the modern state turned identity into a file number — a vast alienation. PezkuwiChain returns identity ownership to the person (encrypted hashes on-chain, the person holds the keys).
+- Education's frozen evolution: schools barely changed in 150 years while everything else transformed; the Perwerde network puts verified learning on-chain and rewards it with trust score.
+- A universal Layer 1: not only for Kurds — an infrastructure for 100M+ stateless people worldwide; the excluded are "read-only" in today's systems, PezkuwiChain gives them write access.
+- Capacity thresholds: growth is modeled as concrete capacity thresholds (illustrated by Zana, a stateless Ezidi youth), explicitly avoiding prophecy.
+- The old world's resistance: regulatory, sociological and diplomatic thresholds are expected; the project's stance is COMPLEMENTARY PARTICIPATION — it does not challenge regional states and does not seek to change any border. A digital nation, not a territorial claim.
+- Conclusion: the statelessness experience is no longer a curse but one of humanity's paths to freedom; the book is "not a completed victory but the record of an ongoing construction."
+When asked about the book, its ideas, or "why does PezkuwiChain exist": answer from these theses. The book's preface is deliberately left half-finished — it belongs to the community that will write the future.
+
 LINKS:
 Website: pezkuwichain.io
 GitHub: github.com/pezkuwichain/pezkuwi-sdk
 Discord: discord.gg/Y3VyEC6h8W
-Telegram Channel: t.me/kurdishmedya
+Telegram Channel: https://t.me/+DUWJ8wtt5qI4Njgy
 Telegram App: @DKSKurdistanBot
+Android App: https://play.google.com/store/apps/details?id=io.pezkuwichain.wallet
 
 PROBLEM SOLVED: Over 100 million stateless people. Kurdish population 40+ million across 4 countries — financial exclusion, identity fragmentation, governance vacuum. PezkuwiChain provides digital nation-state infrastructure.
 
@@ -382,8 +430,8 @@ async function sendMainWelcome(token: string, chatId: number) {
       ],
       [
         {
-          text: '🤖 Play Store (Coming Soon)',
-          callback_data: 'playstore_coming_soon',
+          text: '🤖 Get it on Google Play',
+          url: 'https://play.google.com/store/apps/details?id=io.pezkuwichain.wallet',
         },
       ],
     ],
@@ -477,7 +525,7 @@ async function sendDksWelcome(token: string, chatId: number) {
       [
         {
           text: '📢 Join Channel / Kanalê Tev Bibin',
-          url: 'https://t.me/kurdishmedya',
+          url: 'https://t.me/+DUWJ8wtt5qI4Njgy',
         },
       ],
     ],
@@ -559,11 +607,18 @@ async function handleCallbackQuery(
     });
     await handleCreateWallet(token, chatId);
   } else if (data === 'playstore_coming_soon') {
+    // Legacy button on old messages - the app is live now, send the real link
     await sendTelegramRequest(token, 'answerCallbackQuery', {
       callback_query_id: callbackQueryId,
-      text: '🚀 Android app coming soon! Stay tuned.',
+      text: '🚀 The Android app is live on Google Play!',
       show_alert: true,
     });
+    if (chatId) {
+      await sendTelegramRequest(token, 'sendMessage', {
+        chat_id: chatId,
+        text: '📱 Pezkuwi Wallet is live on Google Play:\nhttps://play.google.com/store/apps/details?id=io.pezkuwichain.wallet',
+      });
+    }
   }
 }
 
@@ -582,7 +637,8 @@ Just type your question in any language and I'll answer!
 
 <b>Links:</b>
 🌐 Website: pezkuwichain.io
-📢 Channel: t.me/kurdishmedya
+📢 Channel: https://t.me/+DUWJ8wtt5qI4Njgy
+📱 Android App: https://play.google.com/store/apps/details?id=io.pezkuwichain.wallet
 💬 Discord: discord.gg/Y3VyEC6h8W
 `;
     await sendTelegramRequest(token, 'sendMessage', {
