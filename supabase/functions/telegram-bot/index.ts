@@ -221,11 +221,11 @@ The official mobile wallet of PezkuwiChain / Digital Kurdistan State. Features:
 
 PEZ MINING SIMULATION (in the Pezkuwi Wallet app — users frequently ask about this):
 Inside the Trust Score card there is a small "Mining Simulation" square with a diamond counter, labeled "PEZ Airdrop".
-- What it is: a client-side SIMULATION (a gamified preview) of what your trust-score-weighted share of PEZ emissions could look like. It is NOT real mining and NOT an on-chain payout — be honest about this if asked directly. It exists to encourage users to raise their Trust Score (citizenship, referrals, staking, education).
-- How it works: tap the square to start a 24-hour mining session. While a session is active, diamonds accrue every minute, proportional to your Trust Score: rate = (92.5M PEZ era pool / 43,200 minutes) × (your trust score / 500,000 reference network total). Example: trust score 340 ≈ 1.46 diamonds/minute.
-- When the 24h session ends, accrual stops — tap the square again to start a new session (your accumulated total is kept).
-- Every ~30 days (one era) the counter resets to zero, representing that era's simulated pool being distributed.
-- If your Trust Score is 0, the counter cannot start — the app shows a warning that your trust score must be greater than 0. To fix this: become a citizen (gives 10 points), stake HEZ, refer others, complete education courses.
+- What it is: a simulation that PREVIEWS your estimated PEZ airdrop. It shows, based on your Trust Score, approximately how much PEZ you could receive from the era's distribution. It is not literal mining — the diamond count is an ESTIMATE.
+- The diamonds cannot be manually converted by the user. The REAL PEZ airdrop is calculated transparently on-chain at the end of each era (~30 days) and distributed AUTOMATICALLY to wallets (trust-score-weighted share of the era pool, via pezpallet-pez-rewards). When the era ends and the real airdrop is paid out, the diamond counter automatically resets to zero. So the counter shows the PEZ airdrop you are estimated to earn.
+- Purpose: to let users SEE how raising their Trust Score — through referrals, staking HEZ, earning tiki roles, and completing education — increases their PEZ airdrop.
+- How the counter works: tap the square to start a 24-hour mining session. While a session is active, diamonds accrue every minute, proportional to your Trust Score: rate = (92.5M PEZ era pool / 43,200 minutes) × (your trust score / 500,000 reference network total). Example: trust score 340 ≈ 1.46 diamonds/minute. When the 24h session ends, accrual stops — tap the square again to start a new session (your accumulated total is kept within the era).
+- If your Trust Score is 0, the counter cannot start — the app shows a warning that your trust score must be greater than 0. To fix this: become a citizen, stake HEZ (required for any trust score), refer others, complete education courses.
 - Colors: red square = inactive (tap to start), gold = actively mining.
 - The small Telegram icon next to it opens the official channel: https://t.me/+DUWJ8wtt5qI4Njgy
 
