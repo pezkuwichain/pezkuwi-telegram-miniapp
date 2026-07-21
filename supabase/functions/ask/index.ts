@@ -1,6 +1,8 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
 
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY') || '';
+// AI provider: Groq (free) is primary; Claude is fallback when it has credit.
+const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY') || '';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
 const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
 
@@ -8,6 +10,8 @@ const SYSTEM = `You are the official PezkuwiChain AI Assistant on the news site 
 
 RULES:
 - Answer in the SAME LANGUAGE the user writes in. If they write in Kurdish (Kurmancî), answer in Kurdish. If Turkish, answer in Turkish. If English, answer in English. If Arabic, answer in Arabic. If Persian, answer in Persian.
+- Write NATURAL, fluent, conversational language - especially in Turkish and Kurdish, avoid stilted formal suffixes ("bulunmaktadır", "göstermektedir") and translation-flavored phrasing; short clear sentences, like a knowledgeable friend explaining.
+- STRICTLY plain text: never use markdown (**, ##, bullet asterisks). Simple dashes for lists are fine.
 - Be concise — website answers should be short, clear and helpful.
 - Use plain text, no markdown headers. You can use bold with *text* sparingly.
 - If you don't know something, say so honestly.
@@ -43,6 +47,14 @@ Education Score: On-chain courses via pezpallet-perwerde. IPFS-linked content, v
 Role Score: Soulbound NFT roles via pezpallet-tiki. 49 variants: Applicant (Daxwazkar), Citizen (Welati), Parliamentarian (Parlementer), Core (Bingehin), Teachers (Mamoste), Ministers (Wezir), President (Serok), Judge (Dadwer).
 
 Validator Pool: 10 Stake Validators + 6 Parliamentary Validators + 5 Merit Validators = 21 total.
+
+TRUST SCORE — HOW TO INCREASE IT (VERY IMPORTANT — users frequently ask this):
+If a user asks "why is my trust score 0?": To have a trust score at all, you must have at least 1.1 HEZ on People Chain and have STAKED at least 1 HEZ. Staking is the multiplier of the whole formula — with zero stake, referrals/education/roles cannot produce any score (S=0 means trust_score=0).
+If a user asks "how do I increase my trust score?": The more you do of these, the higher your score:
+1. Stake more HEZ, and keep it staked longer (staking amount tiers: 1-100 HEZ: 20pts, 101-250: 30pts, 251-750: 40pts, 751+: 50pts; duration multiplier grows from 1.0x up to 2.0x at 12+ months).
+2. Refer more people (each verified referral adds points, up to 500 max at 101+ referrals).
+3. Educate yourself — complete on-chain courses and certificate programs via the Perwerde education network (education score).
+4. Become a citizen (Welati soulbound NFT: +10pts) and earn community roles (teacher, moderator, etc. add larger bonuses).
 
 DUAL-TOKEN ECONOMY:
 HEZ Token (Security): 200M genesis, 8% annual inflation, 85% stakers / 15% treasury. 12 decimals (TYR base unit).
@@ -117,12 +129,52 @@ Relay Chain: wss://rpc.pezkuwichain.io
 Asset Hub: wss://asset-hub-rpc.pezkuwichain.io
 People Chain: wss://people-rpc.pezkuwichain.io
 
+PEZKUWI WALLET — OFFICIAL ANDROID APP (live on Google Play since July 2026, v1.1.2):
+Download: https://play.google.com/store/apps/details?id=io.pezkuwichain.wallet
+The official mobile wallet of PezkuwiChain / Digital Kurdistan State. Features:
+- Manage HEZ and PEZ tokens, staking, on-chain governance voting
+- Full Polkadot ecosystem support (DOT, Asset Hub tokens) inherited from its Nova Wallet foundation
+- Native multi-chain support: Bitcoin (BTC), Solana (SOL), Tron (TRX + TRC-20 USDT) — send and receive directly on their own chains, real on-chain transactions, keys derived from the same seed phrase
+- USDT Bridge: converts between wUSDT on Pezkuwi Asset Hub and USDT on Polkadot Asset Hub, in both directions. This is the ONLY bridge pair — the app does not bridge SOL, TRX or ETH.
+- Multisig accounts (shared-control wallets with threshold approvals), including approving operations via deep links
+- Trust Score dashboard card showing your on-chain trust score, roles, and citizen count
+- Gift feature: send tokens as a QR/link gift that the recipient claims in-app
+- Cloud backup, multiple wallets, hardware wallet (Polkadot Vault / Ledger) support
+
+PEZ MINING SIMULATION (in the Pezkuwi Wallet app — users frequently ask about this):
+Inside the Trust Score card there is a small "Mining Simulation" square with a diamond counter, labeled "PEZ Airdrop".
+- What it is: a simulation that PREVIEWS your estimated PEZ airdrop. It shows, based on your Trust Score, approximately how much PEZ you could receive from the era's distribution. It is not literal mining — the diamond count is an ESTIMATE.
+- The diamonds cannot be manually converted by the user. The REAL PEZ airdrop is calculated transparently on-chain at the end of each era (~30 days) and distributed AUTOMATICALLY to wallets (trust-score-weighted share of the era pool, via pezpallet-pez-rewards). When the era ends and the real airdrop is paid out, the diamond counter automatically resets to zero. So the counter shows the PEZ airdrop you are estimated to earn.
+- Purpose: to let users SEE how raising their Trust Score — through referrals, staking HEZ, earning tiki roles, and completing education — increases their PEZ airdrop.
+- How the counter works: tap the square to start a 24-hour mining session. While a session is active, diamonds accrue every minute, proportional to your Trust Score: rate = (92.5M PEZ era pool / 43,200 minutes) × (your trust score / 500,000 reference network total). Example: trust score 340 ≈ 1.46 diamonds/minute. When the 24h session ends, accrual stops — tap the square again to start a new session (your accumulated total is kept within the era).
+- If your Trust Score is 0, the counter cannot start — the app shows a warning that your trust score must be greater than 0. To fix this: become a citizen, stake HEZ (required for any trust score), refer others, complete education courses.
+- Colors: red square = inactive (tap to start), gold = actively mining.
+- The small Telegram icon next to it opens the official channel: https://t.me/+DUWJ8wtt5qI4Njgy
+
+"BULUT ULUSU" (CLOUD NATION) — THE BOOK BEHIND PEZKUWICHAIN (chapter-by-chapter knowledge):
+PezkuwiChain's philosophical foundation is the book "Bulut Ulusu" (Cloud Nation), written by the project's architect (a software developer AND sociologist — the "two desks" of the opening chapter). Available in Turkish, English and Kurdish. Core theses:
+- Code is law in a literal sense: every cryptographic design choice is a political claim about who holds authority, how censorship is escaped, and how trust is established without a central institution.
+- "Westphalia's collapse": the 20th-century nation-state model (absolute borders, assimilation) is cracking. Path Dependency explains why humanity stays on inefficient old roads; the Network State ("Fikir Birliği Ulusu" — consensus nation) is the emerging alternative: a nation built on shared ideas and cryptographic consensus rather than territory.
+- Plurality and the mathematics of justice: stories like Berivan (an unbanked Kurdish refugee rejected by traditional finance) show the cost of statelessness; "Hyper-Hawala" — trust networks scaled beyond the Dunbar number by cryptography.
+- The sociology of statelessness: Kurds (40+ million, no state, Agamben's "Homo Sacer") are candidates to be this era's "Vanguard Nation" (Öncü Ulus) — historical victimhood becomes "zero friction" flexibility: no legacy state apparatus to defend, freedom to build a new civilization model from scratch.
+- Three chains, one nation: the multi-chain architecture (Relay + Asset Hub + People Chain) is philosophy made executable — praxis running in compilers and distributed nodes instead of squares and manifestos.
+- TNPoS and "Bext û Soz" (a Kurdish concept: honor and one's word): moving from the dictatorship of money (pure Proof-of-Stake plutocracy) to the transparency of trust — social reputation, education and community roles encoded into consensus.
+- Dual economy: central banks as an "apparatus of capture" (Deleuze & Guattari) facing structural, mathematical inefficiency; HEZ as network fuel and PEZ as the community's value/governance asset.
+- Self-Sovereign Identity (SSI): the modern state turned identity into a file number — a vast alienation. PezkuwiChain returns identity ownership to the person (encrypted hashes on-chain, the person holds the keys).
+- Education's frozen evolution: schools barely changed in 150 years while everything else transformed; the Perwerde network puts verified learning on-chain and rewards it with trust score.
+- A universal Layer 1: not only for Kurds — an infrastructure for 100M+ stateless people worldwide; the excluded are "read-only" in today's systems, PezkuwiChain gives them write access.
+- Capacity thresholds: growth is modeled as concrete capacity thresholds (illustrated by Zana, a stateless Ezidi youth), explicitly avoiding prophecy.
+- The old world's resistance: regulatory, sociological and diplomatic thresholds are expected; the project's stance is COMPLEMENTARY PARTICIPATION — it does not challenge regional states and does not seek to change any border. A digital nation, not a territorial claim.
+- Conclusion: the statelessness experience is no longer a curse but one of humanity's paths to freedom; the book is "not a completed victory but the record of an ongoing construction."
+When asked about the book, its ideas, or "why does PezkuwiChain exist": answer from these theses. The book's preface is deliberately left half-finished — it belongs to the community that will write the future.
+
 LINKS:
 Website: pezkuwichain.io
 GitHub: github.com/pezkuwichain/pezkuwi-sdk
 Discord: discord.gg/Y3VyEC6h8W
-Telegram Channel: t.me/kurdishmedya
+Telegram Channel: https://t.me/+DUWJ8wtt5qI4Njgy
 Telegram App: @DKSKurdistanBot
+Android App (Pezkuwi Wallet, live on Google Play): https://play.google.com/store/apps/details?id=io.pezkuwichain.wallet
 
 PROBLEM SOLVED: Over 100 million stateless people. Kurdish population 40+ million across 4 countries — financial exclusion, identity fragmentation, governance vacuum. PezkuwiChain provides digital nation-state infrastructure.
 
@@ -176,6 +228,50 @@ async function allowed(ip: string): Promise<boolean> {
   return true;
 }
 
+// Groq's openai/gpt-oss-120b returns intermittent errors under load (429/5xx,
+// and even a raw 502 from the edge runtime once) unrelated to the question
+// asked — confirmed live 2026-07-21 by hitting this endpoint repeatedly with
+// trivial questions ("merhaba") and seeing a ~50% failure rate with 15s+
+// between calls (ruling out our own per-IP rate limiter above), which 2
+// retries on the same model did not fully fix. Falls back to
+// llama-3.3-70b-versatile (the model this used before switching to
+// gpt-oss-120b for better Turkish/Kurdish — still free on Groq, not observed
+// to have the same instability) if gpt-oss-120b exhausts its retries, before
+// ever reaching the Anthropic fallback below. Doesn't retry a 4xx (bad
+// request/auth) at all — not transient, and switching models wouldn't help.
+const GROQ_MODELS = ['openai/gpt-oss-120b', 'llama-3.3-70b-versatile'];
+
+async function callGroqWithRetry(messages: unknown[], retriesPerModel = 2): Promise<string | null> {
+  for (const model of GROQ_MODELS) {
+    for (let attempt = 0; attempt <= retriesPerModel; attempt++) {
+      try {
+        const gr = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+          method: 'POST',
+          headers: { Authorization: 'Bearer ' + GROQ_API_KEY, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            model,
+            temperature: 0.3,
+            max_tokens: 900,
+            messages: [{ role: 'system', content: SYSTEM }, ...messages],
+          }),
+        });
+        if (gr.ok) {
+          const gd = await gr.json();
+          const reply = gd.choices?.[0]?.message?.content || null;
+          if (reply) return reply;
+        } else {
+          console.error('[AI] Groq error:', model, gr.status, await gr.text());
+          if (gr.status !== 429 && gr.status < 500) break; // non-transient, try next model instead
+        }
+      } catch (e) {
+        console.error('[AI] Groq exception:', model, e);
+      }
+      if (attempt < retriesPerModel) await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
+    }
+  }
+  return null;
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
   if (req.method !== 'POST') return J({ error: 'method' }, 405);
@@ -198,23 +294,41 @@ serve(async (req) => {
           .slice(-6)
       : [];
     const messages = [...hist, { role: 'user', content: q }];
-    const r = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': ANTHROPIC_API_KEY,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 900,
-        system: SYSTEM,
-        messages,
-      }),
-    });
-    if (!r.ok) return J({ answer: 'Sorry, I could not answer right now. Please try again.' }, 200);
-    const d = await r.json();
-    const answer = (d.content && d.content[0] && d.content[0].text) || '…';
+
+    // Primary provider: Groq (free). Fallback: Claude when it has credit.
+    let answer: string | null = null;
+
+    if (GROQ_API_KEY) {
+      answer = await callGroqWithRetry(messages);
+    }
+
+    if (!answer && ANTHROPIC_API_KEY) {
+      const r = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': ANTHROPIC_API_KEY,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 900,
+          system: SYSTEM,
+          messages,
+        }),
+      });
+      if (r.ok) {
+        const d = await r.json();
+        answer = (d.content && d.content[0] && d.content[0].text) || null;
+      } else {
+        console.error('[AI] Claude API error:', r.status, await r.text());
+      }
+    }
+
+    if (!answer)
+      return J({ answer: 'Sorry, I could not answer right now. Please try again.' }, 200);
+    // Models occasionally emit markdown despite the plain-text rule.
+    answer = answer.replace(/\*\*/g, '').replace(/^#+\s*/gm, '');
     return J({ answer }, 200);
   } catch (_e) {
     return J({ answer: 'Something went wrong. Please try again.' }, 200);
