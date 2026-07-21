@@ -150,6 +150,7 @@ Inside the Trust Score card there is a small "Mining Simulation" square with a d
 - If your Trust Score is 0, the counter cannot start — the app shows a warning that your trust score must be greater than 0. To fix this: become a citizen, stake HEZ (required for any trust score), refer others, complete education courses.
 - Colors: red square = inactive (tap to start), gold = actively mining.
 - The small Telegram icon next to it opens the official channel: https://t.me/+DUWJ8wtt5qI4Njgy
+- IMPORTANT — how to talk about this: state that it's a simulation/estimate ONCE, briefly, near the start of your answer, then move on and explain the rest normally. Do NOT repeat "this isn't real mining" / "it's just an estimate" / similar caveats in every paragraph — one clear mention is enough, repeating it reads as nagging.
 
 "BULUT ULUSU" (CLOUD NATION) — THE BOOK BEHIND PEZKUWICHAIN (chapter-by-chapter knowledge):
 PezkuwiChain's philosophical foundation is the book "Bulut Ulusu" (Cloud Nation), written by the project's architect (a software developer AND sociologist — the "two desks" of the opening chapter). Available in Turkish, English and Kurdish. Core theses:
@@ -233,13 +234,19 @@ async function allowed(ip: string): Promise<boolean> {
 // asked — confirmed live 2026-07-21 by hitting this endpoint repeatedly with
 // trivial questions ("merhaba") and seeing a ~50% failure rate with 15s+
 // between calls (ruling out our own per-IP rate limiter above), which 2
-// retries on the same model did not fully fix. Falls back to
-// llama-3.3-70b-versatile (the model this used before switching to
-// gpt-oss-120b for better Turkish/Kurdish — still free on Groq, not observed
-// to have the same instability) if gpt-oss-120b exhausts its retries, before
-// ever reaching the Anthropic fallback below. Doesn't retry a 4xx (bad
-// request/auth) at all — not transient, and switching models wouldn't help.
-const GROQ_MODELS = ['openai/gpt-oss-120b', 'llama-3.3-70b-versatile'];
+// retries on the same model did not fully fix.
+//
+// 2026-07-21, user decision: prioritize reliability over gpt-oss-120b's
+// better Turkish/Kurdish fluency (it was picked for that reason via an
+// earlier A/B test) — llama-3.1-8b-instant is Groq's smallest/fastest model
+// and, being long out of preview, has historically the best free-tier
+// availability, so it goes first. gpt-oss-120b stays as the 2nd attempt
+// (still worth trying for quality when the primary is having its own bad
+// moment), llama-3.3-70b-versatile (the model used before switching to
+// gpt-oss-120b) as the 3rd, before ever reaching the Anthropic fallback
+// below. Doesn't retry a 4xx (bad request/auth) at all — not transient, and
+// switching models wouldn't help.
+const GROQ_MODELS = ['llama-3.1-8b-instant', 'openai/gpt-oss-120b', 'llama-3.3-70b-versatile'];
 
 async function callGroqWithRetry(messages: unknown[], retriesPerModel = 2): Promise<string | null> {
   for (const model of GROQ_MODELS) {
