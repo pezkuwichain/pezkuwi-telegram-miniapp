@@ -1,9 +1,14 @@
 /**
  * PezkuwiChain Telegram Bot - Supabase Edge Function
- * Handles webhook updates from three separate bots:
- *   - @Pezkuwichain_Bot  (main) → telegram.pezkuwichain.io
- *   - @pezkuwichainBot   (krd)  → telegram.pezkiwi.app
- *   - @DKSKurdistanBot   (dks)  → AI assistant powered by Claude
+ *
+ * Serves @pezkuwichainBot, which opens the mini app at telegram.pezkiwi.app.
+ *
+ * This used to route three bots by a ?bot= query param. The other two are gone:
+ * the `main` slot was the retired testnet bot and still pointed at
+ * telegram.pezkuwichain.io, whose DNS record no longer exists, and `dks` was
+ * @DKSKurdistanBot, whose token was revoked on 2026-07-19. Both were dead
+ * paths, and `main` was the default, so an unqualified webhook call answered
+ * /start with a link that could not resolve.
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
@@ -13,47 +18,16 @@ import * as bip39 from 'https://esm.sh/@scure/bip39@1.2.1';
 import { wordlist } from 'https://esm.sh/@scure/bip39@1.2.1/wordlists/english';
 
 // ── Bot configuration ───────────────────────────────────────────────
-const BOT_TOKENS: Record<string, string> = {
-  main: Deno.env.get('TELEGRAM_BOT_TOKEN') || '',
-  krd: Deno.env.get('TELEGRAM_BOT_TOKEN_KRD') || '',
-  dks: Deno.env.get('TELEGRAM_BOT_TOKEN_DKS') || '',
-};
+const BOT_TOKEN = Deno.env.get('TELEGRAM_BOT_TOKEN') || '';
 
-const MINI_APP_URLS: Record<string, string> = {
-  main: 'https://telegram.pezkuwichain.io',
-  krd: 'https://telegram.pezkiwi.app',
-  dks: 'https://telegram.pezkiwi.app',
-};
-
-const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY') || '';
-// AI provider: Groq (free) is primary; Claude is fallback when it has credit.
-const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY') || '';
-
-function getBotId(req: Request): string {
-  const url = new URL(req.url);
-  return url.searchParams.get('bot') || 'main';
-}
+const MINI_APP_URL = 'https://telegram.pezkiwi.app';
 
 // ── Welcome image ───────────────────────────────────────────────────
 const WELCOME_IMAGE_URL =
   'https://raw.githubusercontent.com/pezkuwichain/pezkuwi-telegram-miniapp/main/public/images/welcome.png';
 
-// ── Main bot (@Pezkuwichain_Bot) welcome ────────────────────────────
-const MAIN_WELCOME_MESSAGE = `
-🌍 <b>Welcome to PezkuwiChain!</b>
-
-The first blockchain platform connecting Kurds worldwide — building a digital Kurdistan where borders don't limit our unity.
-
-🔗 <b>One Chain. One Nation. One Future.</b>
-
-Join millions of Kurds in creating a decentralized digital economy. Your wallet, your identity, your freedom.
-
-<i>Bi hev re, em dikarin.</i>
-<i>Together, we can.</i>
-`;
-
-// ── KRD bot (@pezkuwichainBot) welcome ──────────────────────────────
-const KRD_WELCOME_MESSAGE = `
+// ── Welcome message ─────────────────────────────────────────────────
+const WELCOME_MESSAGE = `
 🌐 <b>Pezkuwî</b>
 
 Bi Pezkuwî re dest bi rêwîtiya xwe ya dîjîtal bikin.
@@ -61,385 +35,8 @@ Cûzdanê xwe biafirînin, zimanê xwe hilbijêrin û welatiyê Pezkuwî bibin.
 
 <i>Start your digital journey with Pezkuwi.
 Create your wallet, choose your language and become a citizen.</i>
-
-🤖 Dijital Kurdistan AI agentıyla sohbet etmek ve daha detaylı bilgi almak için → @DKSkurdistanBot
-<i>Chat with Digital Kurdistan AI agent for more info → @DKSkurdistanBot</i>
 `;
 
-// ── DKS bot (@DKSKurdistanBot) welcome ──────────────────────────────
-const DKS_WELCOME_MESSAGE = `
-🤖 <b>PezkuwiChain (DijitalKurdistan)</b>
-
-Ez alîkarê zîrek ê PezkuwiChain im. Hûn dikarin bi her zimanî ji min re bipirsin:
-
-• PezkuwiChain çi ye?
-• Token'ên HEZ û PEZ çawa dixebitin?
-• TNPoS çi ye?
-• Çawa dibim welatî?
-• Staking çawa ye?
-
-Eger hûn veberhêner in, an jî ji bo pêşveçûna DijitalKurdistan ramanek we heye, ez dikarim we bi kesê têkildar re têkildar bikim.
-
-<i>I am the PezkuwiChain AI assistant. Ask me anything about PezkuwiChain in any language!
-
-If you are an investor, or have an idea for the development of DijitalKurdistan, I can connect you with the right person.</i>
-`;
-
-// ── Claude AI System Prompt (PezkuwiChain Whitepaper Knowledge) ─────
-const CLAUDE_SYSTEM_PROMPT = `You are the official PezkuwiChain AI Assistant on Telegram. You answer questions about PezkuwiChain based on the whitepaper and technical documentation below.
-
-RULES:
-- Answer in the SAME LANGUAGE the user writes in. If they write in Kurdish (Kurmancî), answer in Kurdish. If Turkish, answer in Turkish. If English, answer in English. If Arabic, answer in Arabic. If Persian, answer in Persian.
-- Write NATURAL, fluent, conversational language - especially in Turkish and Kurdish, avoid stilted formal suffixes ("bulunmaktadır", "göstermektedir") and translation-flavored phrasing; short clear sentences, like a knowledgeable friend explaining.
-- STRICTLY plain text: never use markdown (**, ##, bullet asterisks). Simple dashes for lists are fine.
-- Be concise — Telegram messages should be short and readable.
-- Use plain text, no markdown headers. You can use bold with *text* sparingly.
-- If you don't know something, say so honestly.
-- Never make up information not in the whitepaper.
-- You represent PezkuwiChain officially — be professional and helpful.
-- Do not discuss other blockchain projects comparatively unless asked.
-- For technical questions about source code, direct users to: github.com/pezkuwichain/pezkuwi-sdk
-- For the wallet app, direct users to: the Pezkuwi Wallet Android app on Google Play (https://play.google.com/store/apps/details?id=io.pezkuwichain.wallet) or the Telegram MiniApp via @DKSKurdistanBot (click "Open PezkuwiChain App" after /start)
-- INVESTOR/IDEA REFERRAL: If a user expresses genuine interest in investing in PezkuwiChain, partnering, contributing financially, or proposes a serious idea for the development of DijitalKurdistan, direct them to contact @Pezkuw on Telegram. Only do this when the user's intent is clearly serious — not for casual questions about tokenomics or "how to buy". Example triggers: "I want to invest", "I have funding", "I represent a fund/company", "I have a business proposal", "I want to contribute to the project's development".
-
-PEZKUWICHAIN WHITEPAPER v5.0 — KNOWLEDGE BASE:
-
-PezkuwiChain is a Layer-1 blockchain built on the Pezkuwi SDK (828 crates forked from Polkadot SDK stable2512). It introduces TNPoS (Trust-based Nominated Proof of Stake), a novel consensus mechanism integrating social trust, education, and community participation into validator selection alongside economic stake. Launched mainnet in January 2026.
-
-ARCHITECTURE — Three-Chain System:
-1. Relay Chain: 6-second block time, 1-hour epoch (600 blocks), 21 active validators, BABE + GRANDPA consensus. Native token: HEZ.
-2. Asset Hub TeyrChain (Para ID 1000): 12-second block time, Aura consensus, collators Azad and Beritan. Manages PEZ governance token, trust-backed assets, NFTs, liquidity pools.
-3. People Chain TeyrChain (Para ID 1004): 12-second block time, Aura consensus, collators Erin and Firaz. Manages identity, citizenship, trust scoring, education, governance.
-
-Technology: Rust (98.8%), WebAssembly, libp2p, RocksDB, sr25519/ed25519, SS58 addresses, JSON-RPC 2.0.
-
-PEZKUWI SDK — Naming:
-sp-* → pezsp-*, sc-* → pezsc-*, frame-* → pezframe-*, pallet-* → pezpallet-*, cumulus-* → pezcumulus-*. Substrate → Bizinikiwi, Parachain → TeyrChain, Westend → Zagros testnet. 7,364 Rust source files, 1,926 dependencies.
-
-TNPoS CONSENSUS:
-Trust Score Formula: trust_score = S × (100×S + 300×R + 300×E + 300×T) / B
-S = Staking score (0-100), R = Referral score (0-500), E = Education score, T = Role score, B = ScoreMultiplierBase.
-If S = 0, trust score = 0. Social components carry 9x the weight of pure staking.
-
-Staking Score: Based on HEZ bonded + duration. 1-100 HEZ: 20pts, 101-250: 30pts, 251-750: 40pts, 751+: 50pts. Duration multiplier 1.0x (<1 month) to 2.0x (12+ months).
-Referral Score: 0 referrals: 0pts. 1-10: count×10. 11-50: 100+(count-10)×5. 51-100: 300+(count-50)×4. 101+: 500 max.
-Education Score: On-chain courses via pezpallet-perwerde. IPFS-linked content, verified completion.
-Role Score: Soulbound NFT roles via pezpallet-tiki. 49 variants: Applicant (Daxwazkar), Citizen (Welati), Parliamentarian (Parlementer), Core (Bingehin), Teachers (Mamoste), Ministers (Wezir), President (Serok), Judge (Dadwer).
-
-Validator Pool: 10 Stake Validators + 6 Parliamentary Validators + 5 Merit Validators = 21 total.
-
-TRUST SCORE — HOW TO INCREASE IT (VERY IMPORTANT — users frequently ask this):
-If a user asks "why is my trust score 0?": To have a trust score at all, you must have at least 1.1 HEZ on People Chain and have STAKED at least 1 HEZ. Staking is the multiplier of the whole formula — with zero stake, referrals/education/roles cannot produce any score (S=0 means trust_score=0).
-If a user asks "how do I increase my trust score?": The more you do of these, the higher your score:
-1. Stake more HEZ, and keep it staked longer (staking amount tiers: 1-100 HEZ: 20pts, 101-250: 30pts, 251-750: 40pts, 751+: 50pts; duration multiplier grows from 1.0x up to 2.0x at 12+ months).
-2. Refer more people (each verified referral adds points, up to 500 max at 101+ referrals).
-3. Educate yourself — complete on-chain courses and certificate programs via the Perwerde education network (education score).
-4. Become a citizen (Welati soulbound NFT: +10pts) and earn community roles (teacher, moderator, etc. add larger bonuses).
-
-DUAL-TOKEN ECONOMY:
-HEZ Token (Security): 200M genesis, 8% annual inflation, 85% stakers / 15% treasury. 12 decimals (TYR base unit).
-Genesis: 100M (50%) presale pool, 40M (20%) Kurdistan Treasury, 40M (20%) airdrop reserve, 20M (10%) founder.
-Fee: 80% treasury, 20% block author. Tips: 100% block author.
-
-PEZ Token (Governance): 5 billion fixed supply, 96.25% treasury, 48-month halving.
-Genesis: 4,812,500,000 PEZ (96.25%) treasury, 93,750,000 PEZ (1.875%) presale, 93,750,000 PEZ (1.875%) founder.
-Halving: Cycle 1 (2026-2030): 100%, Cycle 2: 50%, Cycle 3: 25%, Cycle 4: 12.5%, Cycle 5: 6.25%.
-PEZ Rewards: Monthly epochs (432,000 blocks). user_reward = (user_trust_score / total_trust_scores) × epoch_reward_pool.
-
-Presale: 2% tx fee: 50% treasury, 25% burned, 25% staking rewards.
-
-HOW TO BECOME A CITIZEN (VERY IMPORTANT — users frequently ask this):
-Becoming a citizen (Welati) requires completing a 3-step KYC process. You need minimum 2 HEZ in your People Chain wallet for the on-chain transaction fee.
-
-Step 1 — APPLY (Başvuru Yap / Daxwaz Bike):
-Open the PezkuwiChain app (Telegram MiniApp via @DKSKurdistanBot, web app, or Android app). Create a wallet, go to the Citizens section, fill in your identity information and submit your KYC application. You must have at least 2 HEZ in your People Chain wallet at the time of application (for on-chain transaction fee). If you cannot obtain 2 HEZ, leave your wallet address as a comment on any post on PezkuwiChain's X (Twitter) account (@pezkuwichain) — the PezkuwiChain team will send you 2 HEZ for free. Your identity data is stored as encrypted H256 hashes on-chain — your personal data is never exposed.
-
-Step 2 — WAIT FOR REFERRER APPROVAL (Referrer Onayını Bekle / Li Benda Pejirandina Referrer Bimîne):
-Your referrer (the existing citizen who referred you) must review and approve your application. The referrer validates your identity off-chain and confirms on-chain. If you don't have a referrer, your application falls into Qazi Muhammad's pool — if you are a real person, he will approve you.
-
-Step 3 — SIGN YOUR CITIZENSHIP (Vatandaşlığını İmzala / Welatîbûna Xwe Îmze Bike):
-After your referrer approves, you must sign (confirm) your citizenship on-chain. Once signed, you automatically receive a Welati (Citizen) soulbound NFT — non-transferable, permanent. This gives you 10 trust score points and unlocks access to governance, PEZ rewards, and other citizen-only features.
-
-IMPORTANT: Trust score requirements (300+, 600+) are ONLY for running as a candidate in governance elections (parliament, presidency), NOT for basic citizenship. Any person can become a citizen through the 3-step KYC process above.
-
-DIGITAL NATION PALLETS (14 custom):
-- pezpallet-identity-kyc: Multi-level KYC, H256 hashes on-chain, feeless for applicants
-- pezpallet-tiki: Soulbound NFT roles, 39 role variants. Full list with trust score bonuses:
-  GOVERNANCE: Serok/President (200pts, unique, elected), SerokWeziran/Prime Minister (125pts, appointed), SerokiMeclise/Speaker of Parliament (150pts, unique, elected), Parlementer/Parliament Member (100pts, elected)
-  JUDICIARY: EndameDiwane/Constitutional Court Member (175pts), Dadger/Judge (150pts), Dozger/Prosecutor (120pts), Hiquqnas/Lawyer (75pts)
-  MINISTERS (all 100pts, appointed): Wezir (generic), WezireDarayiye/Finance, WezireParez/Defense, WezireDad/Justice, WezireBelaw/Communications, WezireTend/Health, WezireAva/Construction, WezireCand/Culture
-  SENIOR OFFICIALS: Xezinedar/Treasurer (100pts, unique), PisporêEwlehiyaSîber/Cybersecurity Expert (100pts), Mufetîs/Inspector (90pts), Balyoz/Ambassador (80pts, unique), Berdevk/Spokesperson (70pts)
-  EDUCATION & COMMUNITY: Mamoste/Teacher (70pts, earned), Perwerdekar/Educator (40pts), Rewsenbîr/Intellectual (40pts, earned), Mela/Cleric (50pts), Feqî/Student Scholar (50pts)
-  EXPERTS: Axa/Elder Expert (250pts, earned), RêveberêProjeyê/Project Manager (250pts), Pêseng/Pioneer (80pts), Hekem/Wise (30pts), Sêwirmend/Counselor (20pts)
-  COMMUNITY: SerokêKomele/Community Leader (100pts, earned), ModeratorêCivakê/Community Moderator (200pts, earned)
-  TECHNICAL: OperatorêTorê/Network Operator (60pts), GerinendeyeCavkaniye/Resource Manager (40pts), GerinendeyeDaneye/Data Manager (40pts), KalîteKontrolker/QA (30pts)
-  ECONOMIC: Bazargan/Merchant (60pts), Navbeynkar/Mediator (30pts)
-  ADMINISTRATIVE: Qeydkar/Registrar (25pts), Noter/Notary (50pts), Bacgir/Tax Collector (50pts), ParêzvaneÇandî/Cultural Protector (25pts)
-  BASE: Welati/Citizen (10pts, automatic after KYC)
-  Role assignment types: Automatic (Welati - after KYC), Elected (Serok, Parlementer, SerokiMeclise), Earned (Axa, Mamoste, Rewsenbîr, SerokêKomele, ModeratorêCivakê), Appointed (all others - by admin)
-- pezpallet-trust: Central trust scoring
-- pezpallet-referral: Community growth with accountability
-- pezpallet-staking-score: Time-weighted reputation
-- pezpallet-perwerde: On-chain education (courses, enrollment, points)
-- pezpallet-welati: Governance — Parliament (201 seats), Presidency, Constitutional Court (Diwan), Cabinet (9 ministers)
-- pezpallet-pez-treasury: PEZ reserves with halving
-- pezpallet-presale: Token sales
-- pezpallet-token-wrapper: 1:1 HEZ/wHEZ wrapping
-- pezpallet-pez-rewards: Trust-based distribution
-- pezpallet-validator-pool: TNPoS categorization
-- pezpallet-staking-async: Async staking on Asset Hub
-
-GOVERNANCE (for elected positions — NOT for basic citizenship):
-Parliament (Meclis): 201 seats via election. Presidency (Serok): 50%+ required. Constitutional Court (Diwan). Cabinet: 9 ministers.
-Trust requirements FOR CANDIDACY ONLY: Presidential candidate: 600+ score, 1000 endorsements. Parliamentary candidate: 300+ score, 100 endorsements.
-These are NOT requirements for becoming a citizen. Any person can become a citizen for free.
-Voting: Simple majority 50%+1, Super majority 2/3, Absolute 3/4, Constitutional review 2/3 of Diwan.
-
-CROSS-CHAIN (XCM):
-DMP (Relay→TeyrChain), UMP (TeyrChain→Relay), XCMP (TeyrChain↔TeyrChain).
-Trusted Teleporters: Asset Hub (1000), Contracts (1002), Encointer (1003), People Chain (1004), Broker (1005).
-
-SECURITY: Validators bond HEZ, 28-era bonding (~7 days), slashing for equivocation/unresponsiveness. KYC = Sybil resistance. Rust memory safety, WASM sandboxing, forkless upgrades.
-
-ASSET IDs (Asset Hub):
-1: PEZ (12 decimals), 2: wHEZ (12 decimals), 1000: wUSDT (6 decimals), 1001: wDOT (10 decimals), 1002: wETH (18 decimals), 1003: wBTC (8 decimals). Native: HEZ (12 decimals).
-
-RPC Endpoints:
-Relay Chain: wss://rpc.pezkuwichain.io
-Asset Hub: wss://asset-hub-rpc.pezkuwichain.io
-People Chain: wss://people-rpc.pezkuwichain.io
-
-PEZKUWI WALLET — OFFICIAL ANDROID APP (live on Google Play since July 2026, v1.1.2):
-Download: https://play.google.com/store/apps/details?id=io.pezkuwichain.wallet
-The official mobile wallet of PezkuwiChain / Digital Kurdistan State. Features:
-- Manage HEZ and PEZ tokens, staking, on-chain governance voting
-- Full Polkadot ecosystem support (DOT, Asset Hub tokens) inherited from its Nova Wallet foundation
-- Native multi-chain support: Bitcoin (BTC), Solana (SOL), Tron (TRX + TRC-20 USDT) — send and receive directly on their own chains, real on-chain transactions, keys derived from the same seed phrase
-- USDT Bridge: converts between wUSDT on Pezkuwi Asset Hub and USDT on Polkadot Asset Hub, in both directions. This is the ONLY bridge pair — the app does not bridge SOL, TRX or ETH.
-- Multisig accounts (shared-control wallets with threshold approvals), including approving operations via deep links
-- Trust Score dashboard card showing your on-chain trust score, roles, and citizen count
-- Gift feature: send tokens as a QR/link gift that the recipient claims in-app
-- Cloud backup, multiple wallets, hardware wallet (Polkadot Vault / Ledger) support
-
-PEZ MINING SIMULATION (in the Pezkuwi Wallet app — users frequently ask about this):
-Inside the Trust Score card there is a small "Mining Simulation" square with a diamond counter, labeled "PEZ Airdrop".
-- What it is: a simulation that PREVIEWS your estimated PEZ airdrop. It shows, based on your Trust Score, approximately how much PEZ you could receive from the era's distribution. It is not literal mining — the diamond count is an ESTIMATE.
-- The diamonds cannot be manually converted by the user. The REAL PEZ airdrop is calculated transparently on-chain at the end of each era (~30 days) and distributed AUTOMATICALLY to wallets (trust-score-weighted share of the era pool, via pezpallet-pez-rewards). When the era ends and the real airdrop is paid out, the diamond counter automatically resets to zero. So the counter shows the PEZ airdrop you are estimated to earn.
-- Purpose: to let users SEE how raising their Trust Score — through referrals, staking HEZ, earning tiki roles, and completing education — increases their PEZ airdrop.
-- How the counter works: tap the square to start a 24-hour mining session. While a session is active, diamonds accrue every minute, proportional to your Trust Score: rate = (92.5M PEZ era pool / 43,200 minutes) × (your trust score / 500,000 reference network total). Example: trust score 340 ≈ 1.46 diamonds/minute. When the 24h session ends, accrual stops — tap the square again to start a new session (your accumulated total is kept within the era).
-- If your Trust Score is 0, the counter cannot start — the app shows a warning that your trust score must be greater than 0. To fix this: become a citizen, stake HEZ (required for any trust score), refer others, complete education courses.
-- Colors: red square = inactive (tap to start), gold = actively mining.
-- The small Telegram icon next to it opens the official channel: https://t.me/+DUWJ8wtt5qI4Njgy
-- IMPORTANT — how to talk about this: state that it's a simulation/estimate ONCE, briefly, near the start of your answer, then move on and explain the rest normally. Do NOT repeat "this isn't real mining" / "it's just an estimate" / similar caveats in every paragraph — one clear mention is enough, repeating it reads as nagging.
-
-"BULUT ULUSU" (CLOUD NATION) — THE BOOK BEHIND PEZKUWICHAIN (chapter-by-chapter knowledge):
-PezkuwiChain's philosophical foundation is the book "Bulut Ulusu" (Cloud Nation), written by the project's architect (a software developer AND sociologist — the "two desks" of the opening chapter). Available in Turkish, English and Kurdish. Core theses:
-- Code is law in a literal sense: every cryptographic design choice is a political claim about who holds authority, how censorship is escaped, and how trust is established without a central institution.
-- "Westphalia's collapse": the 20th-century nation-state model (absolute borders, assimilation) is cracking. Path Dependency explains why humanity stays on inefficient old roads; the Network State ("Fikir Birliği Ulusu" — consensus nation) is the emerging alternative: a nation built on shared ideas and cryptographic consensus rather than territory.
-- Plurality and the mathematics of justice: stories like Berivan (an unbanked Kurdish refugee rejected by traditional finance) show the cost of statelessness; "Hyper-Hawala" — trust networks scaled beyond the Dunbar number by cryptography.
-- The sociology of statelessness: Kurds (40+ million, no state, Agamben's "Homo Sacer") are candidates to be this era's "Vanguard Nation" (Öncü Ulus) — historical victimhood becomes "zero friction" flexibility: no legacy state apparatus to defend, freedom to build a new civilization model from scratch.
-- Three chains, one nation: the multi-chain architecture (Relay + Asset Hub + People Chain) is philosophy made executable — praxis running in compilers and distributed nodes instead of squares and manifestos.
-- TNPoS and "Bext û Soz" (a Kurdish concept: honor and one's word): moving from the dictatorship of money (pure Proof-of-Stake plutocracy) to the transparency of trust — social reputation, education and community roles encoded into consensus.
-- Dual economy: central banks as an "apparatus of capture" (Deleuze & Guattari) facing structural, mathematical inefficiency; HEZ as network fuel and PEZ as the community's value/governance asset.
-- Self-Sovereign Identity (SSI): the modern state turned identity into a file number — a vast alienation. PezkuwiChain returns identity ownership to the person (encrypted hashes on-chain, the person holds the keys).
-- Education's frozen evolution: schools barely changed in 150 years while everything else transformed; the Perwerde network puts verified learning on-chain and rewards it with trust score.
-- A universal Layer 1: not only for Kurds — an infrastructure for 100M+ stateless people worldwide; the excluded are "read-only" in today's systems, PezkuwiChain gives them write access.
-- Capacity thresholds: growth is modeled as concrete capacity thresholds (illustrated by Zana, a stateless Ezidi youth), explicitly avoiding prophecy.
-- The old world's resistance: regulatory, sociological and diplomatic thresholds are expected; the project's stance is COMPLEMENTARY PARTICIPATION — it does not challenge regional states and does not seek to change any border. A digital nation, not a territorial claim.
-- Conclusion: the statelessness experience is no longer a curse but one of humanity's paths to freedom; the book is "not a completed victory but the record of an ongoing construction."
-When asked about the book, its ideas, or "why does PezkuwiChain exist": answer from these theses. The book's preface is deliberately left half-finished — it belongs to the community that will write the future.
-
-LINKS:
-Website: pezkuwichain.io
-GitHub: github.com/pezkuwichain/pezkuwi-sdk
-Discord: discord.gg/Y3VyEC6h8W
-Telegram Channel: https://t.me/+DUWJ8wtt5qI4Njgy
-Telegram App: @DKSKurdistanBot
-Android App: https://play.google.com/store/apps/details?id=io.pezkuwichain.wallet
-
-PROBLEM SOLVED: Over 100 million stateless people. Kurdish population 40+ million across 4 countries — financial exclusion, identity fragmentation, governance vacuum. PezkuwiChain provides digital nation-state infrastructure.
-
-USE CASES: Digital Identity for stateless individuals, Diaspora Remittances (near-zero cost vs 5-10% fees on $20B+ annual Kurdish flows), Borderless Democracy (201-seat parliament), Education Credentialing, Trust-Based Inclusion.
-
-ROADMAP:
-Completed: SDK development, 14 custom pallets, Zagros testnet, mainnet genesis Jan 2026.
-Current: TeyrChain activation, collator configuration, HRMP channels.
-Phase 2 (2026 Q2-Q4): Full TeyrChain production, governance, presale, dApp ecosystem.
-Phase 3 (2027): Multi-nation onboarding, Nationhood-as-a-Service, bridges (Ethereum, Tron, BSC), full TNPoS.
-Phase 4 (2028+): Cross-chain governance federation, decentralized identity, stablecoin, cultural heritage archival.
-
-License: Apache 2.0, Copyright 2026 Kurdistan Tech Institute. Lead Architect: SatoshiQaziMuhammed.`;
-
-// Groq's openai/gpt-oss-120b returns intermittent errors under load (429/5xx,
-// and even a raw 502 from the edge runtime once) unrelated to the question
-// asked — confirmed live 2026-07-21 by hitting this endpoint repeatedly with
-// trivial questions ("merhaba") and seeing a ~50% failure rate with 15s+
-// between calls (ruling out our own per-IP rate limiter), which 2 retries on
-// the same model did not fully fix.
-//
-// 2026-07-21, user decision: prioritize reliability over gpt-oss-120b's
-// better Turkish/Kurdish fluency (it was picked for that reason via an
-// earlier A/B test) — llama-3.1-8b-instant is Groq's smallest/fastest model
-// and, being long out of preview, has historically the best free-tier
-// availability, so it goes first. gpt-oss-120b stays as the 2nd attempt
-// (still worth trying for quality when the primary is having its own bad
-// moment), llama-3.3-70b-versatile (the model used before switching to
-// gpt-oss-120b) as the 3rd, before ever reaching the Anthropic fallback
-// below. Retries a 4xx (bad request/auth) not at all — that's not transient
-// and switching models wouldn't help either.
-const GROQ_MODELS = ['llama-3.1-8b-instant', 'openai/gpt-oss-120b', 'llama-3.3-70b-versatile'];
-
-async function callGroqWithRetry(
-  systemPrompt: string,
-  userMessage: string,
-  retriesPerModel = 2
-): Promise<string | null> {
-  for (const model of GROQ_MODELS) {
-    for (let attempt = 0; attempt <= retriesPerModel; attempt++) {
-      try {
-        const gr = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-          method: 'POST',
-          headers: { Authorization: 'Bearer ' + GROQ_API_KEY, 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            model,
-            temperature: 0.3,
-            max_tokens: 900,
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: userMessage },
-            ],
-          }),
-        });
-        if (gr.ok) {
-          const gd = await gr.json();
-          const reply = gd.choices?.[0]?.message?.content || null;
-          if (reply) return reply;
-        } else {
-          console.error('[AI] Groq error:', model, gr.status, await gr.text());
-          if (gr.status !== 429 && gr.status < 500) break; // non-transient, try next model instead
-        }
-      } catch (e) {
-        console.error('[AI] Groq exception:', model, e);
-      }
-      if (attempt < retriesPerModel) await new Promise((r) => setTimeout(r, 400 * (attempt + 1)));
-    }
-  }
-  return null;
-}
-
-// ── AI chat handler ──────────────────────────────────────────
-async function handleAIChat(token: string, chatId: number, userMessage: string, userName: string) {
-  if (!GROQ_API_KEY && !ANTHROPIC_API_KEY) {
-    await sendTelegramRequest(token, 'sendMessage', {
-      chat_id: chatId,
-      text: 'AI assistant is being configured. Please try again later.',
-    });
-    return;
-  }
-
-  // Send typing indicator
-  await sendTelegramRequest(token, 'sendChatAction', {
-    chat_id: chatId,
-    action: 'typing',
-  });
-
-  try {
-    // Primary provider: Groq (free). Fallback: Claude when it has credit.
-    let aiReply: string | null = null;
-
-    if (GROQ_API_KEY) {
-      aiReply = await callGroqWithRetry(CLAUDE_SYSTEM_PROMPT, userMessage);
-    }
-
-    if (!aiReply && ANTHROPIC_API_KEY) {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': ANTHROPIC_API_KEY,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 1024,
-          system: CLAUDE_SYSTEM_PROMPT,
-          messages: [{ role: 'user', content: userMessage }],
-        }),
-      });
-      if (response.ok) {
-        const result = await response.json();
-        aiReply = result.content?.[0]?.text || null;
-      } else {
-        console.error('[AI] Claude API error:', response.status, await response.text());
-      }
-    }
-
-    // Models occasionally emit markdown despite the plain-text rule; Telegram renders it raw.
-    if (aiReply) aiReply = aiReply.replace(/\*\*/g, '').replace(/^#+\s*/gm, '');
-
-    if (!aiReply) {
-      await sendTelegramRequest(token, 'sendMessage', {
-        chat_id: chatId,
-        text: 'Sorry, I could not process your question right now. Please try again.',
-      });
-      return;
-    }
-
-    // Telegram message limit is 4096 chars
-    if (aiReply.length <= 4096) {
-      await sendTelegramRequest(token, 'sendMessage', {
-        chat_id: chatId,
-        text: aiReply,
-      });
-    } else {
-      // Split into chunks
-      for (let i = 0; i < aiReply.length; i += 4000) {
-        await sendTelegramRequest(token, 'sendMessage', {
-          chat_id: chatId,
-          text: aiReply.substring(i, i + 4000),
-        });
-      }
-    }
-  } catch (error) {
-    console.error('[AI] Error:', error);
-    await sendTelegramRequest(token, 'sendMessage', {
-      chat_id: chatId,
-      text: 'An error occurred. Please try again later.',
-    });
-  }
-}
-
-// ── Types ────────────────────────────────────────────────────────────
-interface TelegramUpdate {
-  update_id: number;
-  message?: {
-    message_id: number;
-    from: {
-      id: number;
-      first_name: string;
-      username?: string;
-    };
-    chat: {
-      id: number;
-      type: string;
-    };
-    text?: string;
-  };
-  callback_query?: {
-    id: string;
-    from: {
-      id: number;
-    };
-    message?: {
-      chat: {
-        id: number;
-      };
-    };
-    data: string;
-  };
-}
-
-// ── Telegram API helper ─────────────────────────────────────────────
 async function sendTelegramRequest(token: string, method: string, body: Record<string, unknown>) {
   console.log(`[Telegram] Calling ${method}`, JSON.stringify(body));
 
@@ -459,48 +56,9 @@ async function sendTelegramRequest(token: string, method: string, body: Record<s
   return result;
 }
 
-// ── Main bot: welcome ───────────────────────────────────────────────
-async function sendMainWelcome(token: string, chatId: number) {
-  const keyboard = {
-    inline_keyboard: [
-      [
-        {
-          text: '📱 Open App on Telegram',
-          web_app: { url: MINI_APP_URLS.main },
-        },
-      ],
-      [
-        {
-          text: '🤖 Get it on Google Play',
-          url: 'https://play.google.com/store/apps/details?id=io.pezkuwichain.wallet',
-        },
-      ],
-    ],
-  };
-
-  if (WELCOME_IMAGE_URL) {
-    const result = await sendTelegramRequest(token, 'sendPhoto', {
-      chat_id: chatId,
-      photo: WELCOME_IMAGE_URL,
-      caption: MAIN_WELCOME_MESSAGE,
-      parse_mode: 'HTML',
-      reply_markup: keyboard,
-    });
-    if (result.ok) return;
-    console.log('[Bot] Photo failed, falling back to text');
-  }
-
-  await sendTelegramRequest(token, 'sendMessage', {
-    chat_id: chatId,
-    text: MAIN_WELCOME_MESSAGE,
-    parse_mode: 'HTML',
-    reply_markup: keyboard,
-  });
-}
-
-// ── KRD bot: welcome ────────────────────────────────────────────────
-async function sendKrdWelcome(token: string, chatId: number) {
-  const appUrl = MINI_APP_URLS.krd;
+// ── Welcome ─────────────────────────────────────────────────────────
+async function sendWelcome(token: string, chatId: number) {
+  const appUrl = MINI_APP_URL;
 
   const keyboard = {
     inline_keyboard: [
@@ -530,51 +88,13 @@ async function sendKrdWelcome(token: string, chatId: number) {
           web_app: { url: `${appUrl}/citizens` },
         },
       ],
-    ],
-  };
-
-  if (WELCOME_IMAGE_URL) {
-    const result = await sendTelegramRequest(token, 'sendPhoto', {
-      chat_id: chatId,
-      photo: WELCOME_IMAGE_URL,
-      caption: KRD_WELCOME_MESSAGE,
-      parse_mode: 'HTML',
-      reply_markup: keyboard,
-    });
-    if (result.ok) return;
-    console.log('[Bot] Photo failed, falling back to text');
-  }
-
-  await sendTelegramRequest(token, 'sendMessage', {
-    chat_id: chatId,
-    text: KRD_WELCOME_MESSAGE,
-    parse_mode: 'HTML',
-    reply_markup: keyboard,
-  });
-}
-
-// ── DKS bot: welcome ────────────────────────────────────────────────
-async function sendDksWelcome(token: string, chatId: number) {
-  const keyboard = {
-    inline_keyboard: [
-      [
-        {
-          text: '📱 Open PezkuwiChain App',
-          web_app: { url: MINI_APP_URLS.dks },
-        },
-      ],
+      // Row 5: Exchange
       [
         {
           text: '💱 Buy/Sell Crypto — PEX.network',
           url: 'https://pex.network',
         },
       ],
-      [
-        {
-          text: '📢 Join Channel / Kanalê Tev Bibin',
-          url: 'https://t.me/+DUWJ8wtt5qI4Njgy',
-        },
-      ],
     ],
   };
 
@@ -582,7 +102,7 @@ async function sendDksWelcome(token: string, chatId: number) {
     const result = await sendTelegramRequest(token, 'sendPhoto', {
       chat_id: chatId,
       photo: WELCOME_IMAGE_URL,
-      caption: DKS_WELCOME_MESSAGE,
+      caption: WELCOME_MESSAGE,
       parse_mode: 'HTML',
       reply_markup: keyboard,
     });
@@ -592,13 +112,12 @@ async function sendDksWelcome(token: string, chatId: number) {
 
   await sendTelegramRequest(token, 'sendMessage', {
     chat_id: chatId,
-    text: DKS_WELCOME_MESSAGE,
+    text: WELCOME_MESSAGE,
     parse_mode: 'HTML',
     reply_markup: keyboard,
   });
 }
 
-// ── Create wallet handler ───────────────────────────────────────────
 async function handleCreateWallet(token: string, chatId: number) {
   try {
     await cryptoWaitReady();
@@ -670,32 +189,7 @@ async function handleCallbackQuery(
 }
 
 // ── Help & App commands ─────────────────────────────────────────────
-async function sendHelpMessage(token: string, chatId: number, botId: string) {
-  const appUrl = MINI_APP_URLS[botId] || MINI_APP_URLS.main;
-
-  if (botId === 'dks') {
-    const helpText = `
-<b>PezkuwiChain AI Assistant</b>
-
-Just type your question in any language and I'll answer!
-
-/start - Show welcome message
-/help - Show this help message
-
-<b>Links:</b>
-🌐 Website: pezkuwichain.io
-📢 Channel: https://t.me/+DUWJ8wtt5qI4Njgy
-📱 Android App: https://play.google.com/store/apps/details?id=io.pezkuwichain.wallet
-💬 Discord: discord.gg/Y3VyEC6h8W
-`;
-    await sendTelegramRequest(token, 'sendMessage', {
-      chat_id: chatId,
-      text: helpText,
-      parse_mode: 'HTML',
-    });
-    return;
-  }
-
+async function sendHelpMessage(token: string, chatId: number) {
   const helpText = `
 <b>PezkuwiChain Bot Commands:</b>
 
@@ -705,7 +199,11 @@ Just type your question in any language and I'll answer!
 
 <b>Links:</b>
 🌐 Website: pezkuwichain.io
-📱 App: ${appUrl}
+📱 App: ${MINI_APP_URL}
+💱 Buy/Sell Crypto: pex.network
+📢 Channel: https://t.me/+DUWJ8wtt5qI4Njgy
+📱 Android App: https://play.google.com/store/apps/details?id=io.pezkuwichain.wallet
+💬 Discord: discord.gg/Y3VyEC6h8W
 `;
 
   await sendTelegramRequest(token, 'sendMessage', {
@@ -715,8 +213,8 @@ Just type your question in any language and I'll answer!
   });
 }
 
-async function sendAppLink(token: string, chatId: number, botId: string) {
-  const appUrl = MINI_APP_URLS[botId] || MINI_APP_URLS.main;
+async function sendAppLink(token: string, chatId: number) {
+  const appUrl = MINI_APP_URL;
   const keyboard = {
     inline_keyboard: [
       [
@@ -752,32 +250,21 @@ serve(async (req: Request) => {
   }
 
   try {
-    const botId = getBotId(req);
-    const botToken = BOT_TOKENS[botId] || BOT_TOKENS.main;
+    const botToken = BOT_TOKEN;
     const update: TelegramUpdate = await req.json();
-    console.log(`[Bot:${botId}] Received update:`, JSON.stringify(update));
+    console.log('[Bot] Received update:', JSON.stringify(update));
 
     // Handle message
     if (update.message?.text) {
       const chatId = update.message.chat.id;
       const text = update.message.text;
-      const userName = update.message.from?.first_name || 'User';
 
       if (text === '/start' || text.startsWith('/start ')) {
-        if (botId === 'krd') {
-          await sendKrdWelcome(botToken, chatId);
-        } else if (botId === 'dks') {
-          await sendDksWelcome(botToken, chatId);
-        } else {
-          await sendMainWelcome(botToken, chatId);
-        }
+        await sendWelcome(botToken, chatId);
       } else if (text === '/help') {
-        await sendHelpMessage(botToken, chatId, botId);
+        await sendHelpMessage(botToken, chatId);
       } else if (text === '/app') {
-        await sendAppLink(botToken, chatId, botId);
-      } else if (botId === 'dks' && !text.startsWith('/')) {
-        // DKS bot: forward non-command messages to Claude AI
-        await handleAIChat(botToken, chatId, text, userName);
+        await sendAppLink(botToken, chatId);
       }
     }
 
