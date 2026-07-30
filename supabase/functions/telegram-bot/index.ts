@@ -565,6 +565,12 @@ async function sendDksWelcome(token: string, chatId: number) {
       ],
       [
         {
+          text: '💱 Buy/Sell Crypto — PEX.network',
+          url: 'https://pex.network',
+        },
+      ],
+      [
+        {
           text: '📢 Join Channel / Kanalê Tev Bibin',
           url: 'https://t.me/+DUWJ8wtt5qI4Njgy',
         },
