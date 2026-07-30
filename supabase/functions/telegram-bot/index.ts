@@ -1,7 +1,7 @@
 /**
  * PezkuwiChain Telegram Bot - Supabase Edge Function
  * Handles webhook updates from three separate bots:
- *   - @Pezkuwichain_Bot  (main) → telegram.pezkuwichain.io
+ *   - @Pezkuwichain_Bot  (main) → retired testnet bot; slot kept as a fallback
  *   - @pezkuwichainBot   (krd)  → telegram.pezkiwi.app
  *   - @DKSKurdistanBot   (dks)  → AI assistant powered by Claude
  */
@@ -20,7 +20,10 @@ const BOT_TOKENS: Record<string, string> = {
 };
 
 const MINI_APP_URLS: Record<string, string> = {
-  main: 'https://telegram.pezkuwichain.io',
+  // The testnet domain this used to point at was removed on 2026-07-12 and no
+  // longer resolves. Live webhooks arrive as ?bot=krd and ?bot=dks so this
+  // default is never hit today, but it should not hand out a dead link if it is.
+  main: 'https://telegram.pezkiwi.app',
   krd: 'https://telegram.pezkiwi.app',
   dks: 'https://telegram.pezkiwi.app',
 };
@@ -528,6 +531,13 @@ async function sendKrdWelcome(token: string, chatId: number) {
         {
           text: '🏛️ Be Citizen / Bibe Welatî',
           web_app: { url: `${appUrl}/citizens` },
+        },
+      ],
+      // Row 5: Exchange
+      [
+        {
+          text: '💱 Buy/Sell Crypto — PEX.network',
+          url: 'https://pex.network',
         },
       ],
     ],
