@@ -28,7 +28,13 @@ interface P2PDisputeRequest {
   reason?: string;
   category?: 'payment_not_received' | 'wrong_amount' | 'fake_payment_proof' | 'other';
   evidenceUrl?: string;
-  evidenceType?: 'screenshot' | 'receipt' | 'bank_statement' | 'chat_log' | 'transaction_proof' | 'other';
+  evidenceType?:
+    | 'screenshot'
+    | 'receipt'
+    | 'bank_statement'
+    | 'chat_log'
+    | 'transaction_proof'
+    | 'other';
   description?: string;
 }
 
@@ -97,7 +103,16 @@ serve(async (req) => {
 
   try {
     const body: P2PDisputeRequest = await req.json();
-    const { sessionToken, action, tradeId, reason, category, evidenceUrl, evidenceType, description } = body;
+    const {
+      sessionToken,
+      action,
+      tradeId,
+      reason,
+      category,
+      evidenceUrl,
+      evidenceType,
+      description,
+    } = body;
 
     // Get bot tokens for session verification (dual bot support)
     const botTokens: string[] = [];
@@ -141,10 +156,13 @@ serve(async (req) => {
     }
 
     if (!['open', 'add_evidence'].includes(action)) {
-      return new Response(JSON.stringify({ error: 'Invalid action. Must be "open" or "add_evidence"' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      });
+      return new Response(
+        JSON.stringify({ error: 'Invalid action. Must be "open" or "add_evidence"' }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        }
+      );
     }
 
     // Create Supabase admin client (bypasses RLS)
@@ -152,21 +170,22 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get auth user ID for this telegram user
-    const telegramEmail = `telegram_${telegramId}@pezkuwichain.io`;
-    const {
-      data: { users: authUsers },
-    } = await supabase.auth.admin.listUsers({ perPage: 1000 });
-    const authUser = authUsers?.find((u: { email?: string }) => u.email === telegramEmail);
+    // Resolve P2P user ID: prefer p2p_user_id (citizen/visa UUID, same as pwap/web)
+    // fallback to tg_users.id (legacy Supabase Auth UUID)
+    const { data: tgUser, error: tgUserError } = await supabase
+      .from('tg_users')
+      .select('id, p2p_user_id')
+      .eq('telegram_id', telegramId)
+      .single();
 
-    if (!authUser) {
+    if (tgUserError || !tgUser) {
       return new Response(JSON.stringify({ error: 'User not found. Please authenticate first.' }), {
         status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const userId = authUser.id;
+    const userId = tgUser.p2p_user_id ?? tgUser.id;
 
     // Verify user is a party to this trade
     const { data: trade, error: tradeError } = await supabase
@@ -193,20 +212,35 @@ serve(async (req) => {
     if (action === 'open') {
       // Trade must be in active status to dispute
       if (!['pending', 'payment_sent'].includes(trade.status)) {
-        return new Response(JSON.stringify({ error: `Cannot open dispute: trade status is '${trade.status}', must be 'pending' or 'payment_sent'` }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return new Response(
+          JSON.stringify({
+            error: `Cannot open dispute: trade status is '${trade.status}', must be 'pending' or 'payment_sent'`,
+          }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
       }
 
       // Validate category
-      const validCategories = ['payment_not_received', 'wrong_amount', 'fake_payment_proof', 'other'];
+      const validCategories = [
+        'payment_not_received',
+        'wrong_amount',
+        'fake_payment_proof',
+        'other',
+      ];
       const disputeCategory = category || 'other';
       if (!validCategories.includes(disputeCategory)) {
-        return new Response(JSON.stringify({ error: `Invalid category. Must be one of: ${validCategories.join(', ')}` }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return new Response(
+          JSON.stringify({
+            error: `Invalid category. Must be one of: ${validCategories.join(', ')}`,
+          }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
       }
 
       const disputeReason = reason || 'No reason provided';
@@ -300,13 +334,25 @@ serve(async (req) => {
         });
       }
 
-      const validEvidenceTypes = ['screenshot', 'receipt', 'bank_statement', 'chat_log', 'transaction_proof', 'other'];
+      const validEvidenceTypes = [
+        'screenshot',
+        'receipt',
+        'bank_statement',
+        'chat_log',
+        'transaction_proof',
+        'other',
+      ];
       const evType = evidenceType || 'other';
       if (!validEvidenceTypes.includes(evType)) {
-        return new Response(JSON.stringify({ error: `Invalid evidence type. Must be one of: ${validEvidenceTypes.join(', ')}` }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+        return new Response(
+          JSON.stringify({
+            error: `Invalid evidence type. Must be one of: ${validEvidenceTypes.join(', ')}`,
+          }),
+          {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          }
+        );
       }
 
       // Find the dispute for this trade

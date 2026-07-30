@@ -160,21 +160,22 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get auth user ID for this telegram user
-    const telegramEmail = `telegram_${telegramId}@pezkuwichain.io`;
-    const {
-      data: { users: authUsers },
-    } = await supabase.auth.admin.listUsers({ perPage: 1000 });
-    const authUser = authUsers?.find((u: { email?: string }) => u.email === telegramEmail);
+    // Resolve P2P user ID: prefer p2p_user_id (citizen/visa UUID, same as pwap/web)
+    // fallback to tg_users.id (legacy Supabase Auth UUID)
+    const { data: tgUser, error: tgUserError } = await supabase
+      .from('tg_users')
+      .select('id, p2p_user_id')
+      .eq('telegram_id', telegramId)
+      .single();
 
-    if (!authUser) {
+    if (tgUserError || !tgUser) {
       return new Response(JSON.stringify({ error: 'User not found. Please authenticate first.' }), {
         status: 404,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
 
-    const userId = authUser.id;
+    const userId = tgUser.p2p_user_id ?? tgUser.id;
 
     // 1. Lock escrow from internal balance
     const { data: lockResult, error: lockError } = await supabase.rpc('lock_escrow_internal', {

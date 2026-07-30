@@ -162,44 +162,55 @@ async function sendTokens(
     return new Promise((resolve) => {
       let txHash: string;
 
-      tx.signAndSend(hotWallet, { nonce }, (result: { txHash: { toHex: () => string }; status: { isInBlock: boolean; asInBlock: { toHex: () => string }; isFinalized: boolean }; dispatchError: { isModule: boolean; asModule: unknown; toString: () => string } | undefined; isError: boolean }) => {
-        txHash = result.txHash.toHex();
+      tx.signAndSend(
+        hotWallet,
+        { nonce },
+        (result: {
+          txHash: { toHex: () => string };
+          status: { isInBlock: boolean; asInBlock: { toHex: () => string }; isFinalized: boolean };
+          dispatchError:
+            | { isModule: boolean; asModule: unknown; toString: () => string }
+            | undefined;
+          isError: boolean;
+        }) => {
+          txHash = result.txHash.toHex();
 
-        if (result.status.isInBlock) {
-          console.log(`TX in block: ${result.status.asInBlock.toHex()}`);
-        }
+          if (result.status.isInBlock) {
+            console.log(`TX in block: ${result.status.asInBlock.toHex()}`);
+          }
 
-        if (result.status.isFinalized) {
-          const dispatchError = result.dispatchError;
+          if (result.status.isFinalized) {
+            const dispatchError = result.dispatchError;
 
-          if (dispatchError) {
-            if (dispatchError.isModule) {
-              const decoded = api.registry.findMetaError(dispatchError.asModule);
-              resolve({
-                success: false,
-                txHash,
-                error: `${decoded.section}.${decoded.name}: ${decoded.docs.join(' ')}`,
-              });
+            if (dispatchError) {
+              if (dispatchError.isModule) {
+                const decoded = api.registry.findMetaError(dispatchError.asModule);
+                resolve({
+                  success: false,
+                  txHash,
+                  error: `${decoded.section}.${decoded.name}: ${decoded.docs.join(' ')}`,
+                });
+              } else {
+                resolve({
+                  success: false,
+                  txHash,
+                  error: dispatchError.toString(),
+                });
+              }
             } else {
-              resolve({
-                success: false,
-                txHash,
-                error: dispatchError.toString(),
-              });
+              resolve({ success: true, txHash });
             }
-          } else {
-            resolve({ success: true, txHash });
+          }
+
+          if (result.isError) {
+            resolve({
+              success: false,
+              txHash,
+              error: 'Transaction failed',
+            });
           }
         }
-
-        if (result.isError) {
-          resolve({
-            success: false,
-            txHash,
-            error: 'Transaction failed',
-          });
-        }
-      }).catch((error: Error) => {
+      ).catch((error: Error) => {
         resolve({ success: false, error: error.message });
       });
 
@@ -250,18 +261,18 @@ serve(async (req) => {
     if (_mainToken) botTokens.push(_mainToken);
     if (_krdToken) botTokens.push(_krdToken);
     if (botTokens.length === 0) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Server configuration error' }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ success: false, error: 'Server configuration error' }), {
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     // Validate session token
     if (!sessionToken) {
-      return new Response(
-        JSON.stringify({ success: false, error: 'Missing session token' }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      return new Response(JSON.stringify({ success: false, error: 'Missing session token' }), {
+        status: 401,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
     }
 
     let telegramId: number | null = null;
@@ -281,21 +292,22 @@ serve(async (req) => {
     const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
     const serviceClient = createClient(supabaseUrl, supabaseServiceKey);
 
-    // Get auth user for telegram user
-    const telegramEmail = `telegram_${telegramId}@pezkuwichain.io`;
-    const {
-      data: { users: existingUsers },
-    } = await serviceClient.auth.admin.listUsers({ perPage: 1000 });
-    const authUser = existingUsers?.find((u: { email?: string }) => u.email === telegramEmail);
+    // Resolve P2P user ID: prefer p2p_user_id (citizen/visa UUID, same as pwap/web)
+    // fallback to tg_users.id (legacy Supabase Auth UUID)
+    const { data: tgUser, error: tgUserError } = await serviceClient
+      .from('tg_users')
+      .select('id, p2p_user_id')
+      .eq('telegram_id', telegramId)
+      .single();
 
-    if (!authUser) {
+    if (tgUserError || !tgUser) {
       return new Response(
         JSON.stringify({ success: false, error: 'User not found. Please deposit first.' }),
         { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const userId = authUser.id;
+    const userId = tgUser.p2p_user_id ?? tgUser.id;
 
     // Validate input
     if (!token || !amount || !walletAddress) {
