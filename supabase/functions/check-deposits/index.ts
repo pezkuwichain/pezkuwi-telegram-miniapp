@@ -67,9 +67,23 @@ function base58CheckEncode(payload: Uint8Array): string {
 }
 
 // Derive TRC20 address from HD wallet
+// mnemonicToSeedSync is PBKDF2 with 2048 iterations and the seed depends only
+// on the mnemonic, so deriving it per user burned that cost once per account on
+// every run. With ~50 accounts and a one-minute schedule that was enough to hit
+// the isolate's CPU ceiling on nearly every invocation, cutting the scan short.
+// Derive the master key once and reuse it; only the path varies per user.
+let cachedMasterKey: HDKey | null = null;
+
+function getMasterKey(mnemonic: string): HDKey {
+  if (!cachedMasterKey) {
+    const seed = bip39.mnemonicToSeedSync(mnemonic, '');
+    cachedMasterKey = HDKey.fromMasterSeed(seed);
+  }
+  return cachedMasterKey;
+}
+
 function deriveTronAddress(mnemonic: string, index: number): string {
-  const seed = bip39.mnemonicToSeedSync(mnemonic, '');
-  const hdKey = HDKey.fromMasterSeed(seed);
+  const hdKey = getMasterKey(mnemonic);
   const derivedKey = hdKey.derive(`m/44'/195'/0'/0/${index}`);
 
   if (!derivedKey.privateKey) throw new Error('Failed to derive private key');
