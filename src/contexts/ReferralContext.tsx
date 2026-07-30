@@ -14,10 +14,12 @@ import {
   subscribeToReferralEvents,
   type ReferralStats,
 } from '@/lib/referral';
+import { getPendingApprovals, getCitizenshipStatus, type PendingApproval } from '@/lib/citizenship';
 
 interface ReferralContextValue {
   stats: ReferralStats | null;
   myReferrals: string[];
+  pendingApprovals: PendingApproval[];
   loading: boolean;
   refreshStats: () => Promise<void>;
 }
@@ -31,6 +33,7 @@ export function ReferralProvider({ children }: { children: ReactNode }) {
 
   const [stats, setStats] = useState<ReferralStats | null>(null);
   const [myReferrals, setMyReferrals] = useState<string[]>([]);
+  const [pendingApprovals, setPendingApprovals] = useState<PendingApproval[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Fetch referral statistics from People Chain
@@ -38,6 +41,7 @@ export function ReferralProvider({ children }: { children: ReactNode }) {
     if (!peopleApi || !address) {
       setStats(null);
       setMyReferrals([]);
+      setPendingApprovals([]);
       setLoading(false);
       return;
     }
@@ -52,6 +56,15 @@ export function ReferralProvider({ children }: { children: ReactNode }) {
 
       setStats(fetchedStats);
       setMyReferrals(fetchedReferrals);
+
+      // Fetch pending approvals only if user is an approved citizen (can be a referrer)
+      const citizenStatus = await getCitizenshipStatus(peopleApi, address);
+      if (citizenStatus === 'Approved') {
+        const approvals = await getPendingApprovals(peopleApi, address);
+        setPendingApprovals(approvals);
+      } else {
+        setPendingApprovals([]);
+      }
     } catch (error) {
       console.error('Error fetching referral stats:', error);
       showAlert(translate('context.referralStatsError'));
@@ -92,6 +105,7 @@ export function ReferralProvider({ children }: { children: ReactNode }) {
   const value: ReferralContextValue = {
     stats,
     myReferrals,
+    pendingApprovals,
     loading,
     refreshStats: fetchStats,
   };

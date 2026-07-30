@@ -1103,14 +1103,23 @@ function SendTab({ onBack }: { onBack: () => void }) {
       let tx;
 
       if (selectedToken === 'HEZ') {
-        // HEZ transfer on main chain
+        // HEZ transfer on main chain (api guaranteed by the guard above, but
+        // narrow again here so TS knows it is non-null in this branch).
+        if (!api) {
+          setError(t('send.mainnetApiNotReady'));
+          return;
+        }
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        tx = (api!.tx.balances as any).transferKeepAlive(toAddress, amountInSmallestUnit);
+        tx = (api.tx.balances as any).transferKeepAlive(toAddress, amountInSmallestUnit);
       } else {
         // Asset transfer on Asset Hub (PEZ: asset ID 1, USDT: asset ID 1000)
+        if (!assetHubApi) {
+          setError(t('send.assetHubApiNotReady'));
+          return;
+        }
         const assetId = tokenInfo?.assetId ?? 1;
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        tx = (assetHubApi!.tx.assets as any).transfer(assetId, toAddress, amountInSmallestUnit);
+        tx = (assetHubApi.tx.assets as any).transfer(assetId, toAddress, amountInSmallestUnit);
       }
 
       const hash = await tx.signAndSend(keypair);

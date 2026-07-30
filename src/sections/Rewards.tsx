@@ -24,10 +24,12 @@ import {
   Play,
   PenTool,
   Globe2,
+  Clock,
+  Loader2,
 } from 'lucide-react';
 import { cn, formatAddress } from '@/lib/utils';
 import { useTelegram } from '@/hooks/useTelegram';
-
+import { useAuth } from '@/contexts/AuthContext';
 import { useReferral } from '@/contexts/ReferralContext';
 import { useWallet } from '@/contexts/WalletContext';
 import { SocialLinks } from '@/components/SocialLinks';
@@ -62,9 +64,11 @@ import {
   getCitizenshipStatus,
   getCitizenCount,
   confirmCitizenship,
+  approveReferral,
   type CitizenshipStatus,
 } from '@/lib/citizenship';
 import { KurdistanSun } from '@/components/KurdistanSun';
+import { CitizenshipModal } from '@/components/CitizenshipModal';
 
 // Activity tracking constants
 const ACTIVITY_STORAGE_KEY = 'pezkuwi_last_active';
@@ -72,8 +76,8 @@ const ACTIVITY_DURATION_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 export function RewardsSection() {
   const { hapticImpact, hapticNotification, shareUrl, showAlert } = useTelegram();
-
-  const { stats, myReferrals, loading, refreshStats } = useReferral();
+  const { user: authUser } = useAuth();
+  const { stats, myReferrals, pendingApprovals, loading, refreshStats } = useReferral();
   const { isConnected, address, peopleApi, assetHubApi, keypair } = useWallet();
   const { t } = useTranslation();
 
@@ -95,6 +99,8 @@ export function RewardsSection() {
   const [unclaimedRewards, setUnclaimedRewards] = useState<UnclaimedRewardsResult | null>(null);
   const [claimingStaking, setClaimingStaking] = useState(false);
   const [claimingStakingEra, setClaimingStakingEra] = useState<number | null>(null);
+  const [approvingAddress, setApprovingAddress] = useState<string | null>(null);
+  const [showCitizenshipModal, setShowCitizenshipModal] = useState(false);
 
   // Check activity status
   const checkActivityStatus = useCallback(() => {
@@ -358,9 +364,31 @@ export function RewardsSection() {
     showAlert(t('rewards.activatedAlert'));
   };
 
-  // Citizenship referral link - wallet address in start param for auto-fill
-  const referralLink = address
-    ? `https://t.me/pezkuwichainBot?start=${address}`
+  const handleApproveReferral = async (applicantAddress: string) => {
+    if (!peopleApi || !keypair) return;
+    setApprovingAddress(applicantAddress);
+    hapticImpact('medium');
+    try {
+      const result = await approveReferral(peopleApi, keypair, applicantAddress);
+      if (result.success) {
+        hapticNotification('success');
+        showAlert(t('rewards.referralApprovalSuccess'));
+        refreshStats();
+      } else {
+        hapticNotification('error');
+        showAlert(result.error || t('rewards.referralApprovalFailed'));
+      }
+    } catch (err) {
+      hapticNotification('error');
+      showAlert(err instanceof Error ? err.message : t('rewards.referralApprovalFailed'));
+    } finally {
+      setApprovingAddress(null);
+    }
+  };
+
+  // Telegram referral link (for sharing) - use authenticated user ID
+  const referralLink = authUser?.telegram_id
+    ? `https://t.me/pezkuwichainBot?start=ref_${authUser.telegram_id}`
     : 'https://t.me/pezkuwichainBot';
 
   // Full share message: invitation text + link + wallet address for manual paste
@@ -496,7 +524,7 @@ export function RewardsSection() {
                   <button
                     onClick={() => {
                       hapticImpact('medium');
-                      window.location.href = `${window.location.origin}/citizens${window.location.hash}`;
+                      setShowCitizenshipModal(true);
                     }}
                     className="w-full py-2.5 bg-white/20 hover:bg-white/30 rounded-xl text-sm font-medium flex items-center justify-center gap-2 transition-colors"
                   >
@@ -819,6 +847,53 @@ export function RewardsSection() {
                 {isActive ? t('rewards.youAreActive') : t('rewards.iAmActive')}
               </button>
             </div>
+
+            {/* Pending Approvals Section */}
+            {pendingApprovals.length > 0 && (
+              <div className="bg-gradient-to-r from-orange-500/20 to-amber-500/20 border border-orange-500/30 rounded-xl p-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Clock className="w-5 h-5 text-orange-400" />
+                  <h3 className="font-semibold text-orange-100">{t('rewards.pendingApprovals')}</h3>
+                  <span className="bg-orange-500/30 text-orange-300 text-xs font-medium px-2 py-0.5 rounded-full">
+                    {pendingApprovals.length}
+                  </span>
+                </div>
+                <div className="space-y-2">
+                  {pendingApprovals.map((approval) => (
+                    <div
+                      key={approval.applicantAddress}
+                      className="flex items-center gap-3 bg-black/20 rounded-lg p-3"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <code className="text-sm text-foreground">
+                          {formatAddress(approval.applicantAddress, 8)}
+                        </code>
+                        <p className="text-xs text-orange-300">
+                          {t('rewards.pendingReferralStatus')}
+                        </p>
+                      </div>
+                      <button
+                        onClick={() => handleApproveReferral(approval.applicantAddress)}
+                        disabled={approvingAddress !== null}
+                        className="px-4 py-2 rounded-lg text-sm font-medium bg-orange-500/30 text-orange-200 hover:bg-orange-500/40 transition-all disabled:opacity-50 flex items-center gap-2"
+                      >
+                        {approvingAddress === approval.applicantAddress ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            {t('rewards.approvingReferral')}
+                          </>
+                        ) : (
+                          <>
+                            <Check className="w-3.5 h-3.5" />
+                            {t('rewards.approveReferral')}
+                          </>
+                        )}
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {loading ? (
               <div className="space-y-3">
@@ -1302,6 +1377,17 @@ export function RewardsSection() {
           <p className="text-white/60 text-sm mt-2">{t('rewards.signingBlockchain')}</p>
         </div>
       )}
+
+      {/* Citizenship Application Modal */}
+      <CitizenshipModal
+        isOpen={showCitizenshipModal}
+        onClose={() => {
+          setShowCitizenshipModal(false);
+          if (peopleApi && address) {
+            getCitizenshipStatus(peopleApi, address).then(setCitizenshipStatus);
+          }
+        }}
+      />
     </div>
   );
 }

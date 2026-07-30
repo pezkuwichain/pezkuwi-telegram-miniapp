@@ -424,9 +424,7 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
                       }`}
                     />
                     <div className="text-sm font-medium">{chain.name}</div>
-                    <div className="text-xs text-muted-foreground">
-                      {t(chain.description as any)}
-                    </div>
+                    <div className="text-xs text-muted-foreground">{t(chain.description)}</div>
                   </button>
                 ))}
               </div>
@@ -505,7 +503,7 @@ export function FundFeesModal({ isOpen, onClose }: Props) {
                   targetChain === 'asset-hub' ? 'text-blue-400' : 'text-purple-400'
                 }`}
               >
-                {t('fees.minRecommended', { description: t(selectedChain.description as any) })}
+                {t('fees.minRecommended', { description: t(selectedChain.description) })}
               </p>
             </div>
 

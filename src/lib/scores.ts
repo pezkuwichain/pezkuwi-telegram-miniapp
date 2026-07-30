@@ -306,27 +306,33 @@ const TIKI_NAME_SCORES: Record<string, number> = {
  * Storage: tiki.userTikis(address) -> Vec<TikiRole>
  */
 export async function fetchUserTikis(peopleApi: ApiPromise, address: string): Promise<TikiInfo[]> {
+  // The `tiki` pallet is not part of the base @pezkuwi/api typings, so we
+  // describe just the storage entries we read here.
+  type TikiStorageResult = { isEmpty: boolean; toJSON(): unknown };
+  type TikiQuery = {
+    userTikis?: (address: string) => Promise<TikiStorageResult>;
+    userRoles?: (address: string) => Promise<TikiStorageResult>;
+  };
+  type TikiEntry = string | { name?: string; role?: string };
+
   try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    if (!(peopleApi?.query as any)?.tiki) {
+    const tikiQuery = (peopleApi?.query as { tiki?: TikiQuery } | undefined)?.tiki;
+    if (!tikiQuery) {
       return [];
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let result = await (peopleApi.query.tiki as any).userTikis?.(address);
+    let result = await tikiQuery.userTikis?.(address);
 
     // Fallback to userRoles if userTikis doesn't exist
-    if (!result && (peopleApi.query.tiki as any).userRoles) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      result = await (peopleApi.query.tiki as any).userRoles?.(address);
+    if (!result && tikiQuery.userRoles) {
+      result = await tikiQuery.userRoles?.(address);
     }
 
     if (!result || result.isEmpty) {
       return [];
     }
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const tikis = result.toJSON() as any[];
+    const tikis = result.toJSON() as TikiEntry[];
 
     return tikis.map((tiki, index) => {
       const name = typeof tiki === 'string' ? tiki : tiki.name || tiki.role || 'Unknown';

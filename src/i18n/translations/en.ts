@@ -171,6 +171,12 @@ const en: Translations = {
     noUnclaimedRewards: 'No unclaimed rewards',
     rewardHistory: 'Reward History',
     era: 'Era',
+    pendingApprovals: 'Pending Approvals',
+    approveReferral: 'Approve',
+    approvingReferral: 'Approving...',
+    referralApprovalSuccess: 'Referral approved!',
+    referralApprovalFailed: 'Approval failed',
+    pendingReferralStatus: 'Awaiting your approval',
   },
 
   wallet: {
@@ -829,6 +835,8 @@ const en: Translations = {
     alreadyPending: 'You already have a pending application',
     alreadyApproved: 'Your citizenship is already approved!',
     insufficientBalance: 'Insufficient balance (1 HEZ deposit required)',
+    applyingCitizenship: 'Applying for citizenship...',
+    applicationSuccess: 'Application submitted!',
     selectLanguage: 'Select language',
   },
 };

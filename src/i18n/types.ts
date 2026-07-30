@@ -173,6 +173,12 @@ export interface Translations {
     noUnclaimedRewards: string;
     rewardHistory: string;
     era: string;
+    pendingApprovals: string;
+    approveReferral: string;
+    approvingReferral: string;
+    referralApprovalSuccess: string;
+    referralApprovalFailed: string;
+    pendingReferralStatus: string;
   };
 
   // Wallet section
@@ -851,6 +857,9 @@ export interface Translations {
     alreadyPending: string;
     alreadyApproved: string;
     insufficientBalance: string;
+    // In-app modal
+    applyingCitizenship: string;
+    applicationSuccess: string;
     // Language selector
     selectLanguage: string;
   };

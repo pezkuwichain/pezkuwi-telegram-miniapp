@@ -171,6 +171,12 @@ const fa: Translations = {
     noUnclaimedRewards: 'پاداش مطالبه نشده‌ای وجود ندارد',
     rewardHistory: 'تاریخچه پاداش‌ها',
     era: 'دوره',
+    pendingApprovals: 'تأییدهای در انتظار',
+    approveReferral: 'تأیید',
+    approvingReferral: 'در حال تأیید...',
+    referralApprovalSuccess: 'دعوت تأیید شد!',
+    referralApprovalFailed: 'تأیید ناموفق بود',
+    pendingReferralStatus: 'در انتظار تأیید شما',
   },
 
   wallet: {
@@ -829,6 +835,8 @@ const fa: Translations = {
     alreadyPending: 'درخواست در انتظار دارید',
     alreadyApproved: 'شهروندی شما قبلاً تأیید شده!',
     insufficientBalance: 'موجودی ناکافی (۱ HEZ سپرده لازم است)',
+    applyingCitizenship: 'در حال ارسال درخواست شهروندی...',
+    applicationSuccess: 'درخواست ارسال شد!',
     selectLanguage: 'انتخاب زبان',
   },
 };

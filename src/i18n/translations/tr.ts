@@ -171,6 +171,12 @@ const tr: Translations = {
     noUnclaimedRewards: 'Talep edilmemiş ödül yok',
     rewardHistory: 'Ödül Geçmişi',
     era: 'Era',
+    pendingApprovals: 'Bekleyen Onaylar',
+    approveReferral: 'Onayla',
+    approvingReferral: 'Onaylanıyor...',
+    referralApprovalSuccess: 'Referans onaylandı!',
+    referralApprovalFailed: 'Onaylama başarısız',
+    pendingReferralStatus: 'Onayınızı bekliyor',
   },
 
   wallet: {
@@ -829,6 +835,8 @@ const tr: Translations = {
     alreadyPending: 'Bekleyen bir başvurunuz var',
     alreadyApproved: 'Vatandaşlığınız zaten onaylanmış!',
     insufficientBalance: 'Yetersiz bakiye (1 HEZ depozito gerekli)',
+    applyingCitizenship: 'Vatandaşlık başvurusu yapılıyor...',
+    applicationSuccess: 'Başvuru gönderildi!',
     selectLanguage: 'Dil seçin',
   },
 };

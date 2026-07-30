@@ -55,3 +55,11 @@ jobs:
           source: 'dist/*'
           target: '/var/www/telegram.pezkiwi.app'
           strip_components: 1
+
+      - name: Cleanup old assets on VPS
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.VPS2_HOST }}
+          username: ${{ secrets.VPS2_USER }}
+          key: ${{ secrets.VPS2_SSH_KEY }}
+          script: bash /opt/cleanup-miniapp.sh

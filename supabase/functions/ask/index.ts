@@ -1,105 +1,25 @@
-/**
- * PezkuwiChain Telegram Bot - Supabase Edge Function
- * Handles webhook updates from three separate bots:
- *   - @Pezkuwichain_Bot  (main) → telegram.pezkuwichain.io
- *   - @pezkuwichainBot   (krd)  → telegram.pezkiwi.app
- *   - @DKSKurdistanBot   (dks)  → AI assistant powered by Claude
- */
-
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { Keyring } from 'npm:@pezkuwi/api@16.5.36';
-import { cryptoWaitReady } from 'npm:@pezkuwi/util-crypto@14.0.25';
-import * as bip39 from 'https://esm.sh/@scure/bip39@1.2.1';
-import { wordlist } from 'https://esm.sh/@scure/bip39@1.2.1/wordlists/english';
-
-// ── Bot configuration ───────────────────────────────────────────────
-const BOT_TOKENS: Record<string, string> = {
-  main: Deno.env.get('TELEGRAM_BOT_TOKEN') || '',
-  krd: Deno.env.get('TELEGRAM_BOT_TOKEN_KRD') || '',
-  dks: Deno.env.get('TELEGRAM_BOT_TOKEN_DKS') || '',
-};
-
-const MINI_APP_URLS: Record<string, string> = {
-  main: 'https://telegram.pezkuwichain.io',
-  krd: 'https://telegram.pezkiwi.app',
-  dks: 'https://telegram.pezkiwi.app',
-};
 
 const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY') || '';
 // AI provider: Groq (free) is primary; Claude is fallback when it has credit.
 const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY') || '';
+const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
+const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
 
-function getBotId(req: Request): string {
-  const url = new URL(req.url);
-  return url.searchParams.get('bot') || 'main';
-}
-
-// ── Welcome image ───────────────────────────────────────────────────
-const WELCOME_IMAGE_URL =
-  'https://raw.githubusercontent.com/pezkuwichain/pezkuwi-telegram-miniapp/main/public/images/welcome.png';
-
-// ── Main bot (@Pezkuwichain_Bot) welcome ────────────────────────────
-const MAIN_WELCOME_MESSAGE = `
-🌍 <b>Welcome to PezkuwiChain!</b>
-
-The first blockchain platform connecting Kurds worldwide — building a digital Kurdistan where borders don't limit our unity.
-
-🔗 <b>One Chain. One Nation. One Future.</b>
-
-Join millions of Kurds in creating a decentralized digital economy. Your wallet, your identity, your freedom.
-
-<i>Bi hev re, em dikarin.</i>
-<i>Together, we can.</i>
-`;
-
-// ── KRD bot (@pezkuwichainBot) welcome ──────────────────────────────
-const KRD_WELCOME_MESSAGE = `
-🌐 <b>Pezkuwî</b>
-
-Bi Pezkuwî re dest bi rêwîtiya xwe ya dîjîtal bikin.
-Cûzdanê xwe biafirînin, zimanê xwe hilbijêrin û welatiyê Pezkuwî bibin.
-
-<i>Start your digital journey with Pezkuwi.
-Create your wallet, choose your language and become a citizen.</i>
-
-🤖 Dijital Kurdistan AI agentıyla sohbet etmek ve daha detaylı bilgi almak için → @DKSkurdistanBot
-<i>Chat with Digital Kurdistan AI agent for more info → @DKSkurdistanBot</i>
-`;
-
-// ── DKS bot (@DKSKurdistanBot) welcome ──────────────────────────────
-const DKS_WELCOME_MESSAGE = `
-🤖 <b>PezkuwiChain (DijitalKurdistan)</b>
-
-Ez alîkarê zîrek ê PezkuwiChain im. Hûn dikarin bi her zimanî ji min re bipirsin:
-
-• PezkuwiChain çi ye?
-• Token'ên HEZ û PEZ çawa dixebitin?
-• TNPoS çi ye?
-• Çawa dibim welatî?
-• Staking çawa ye?
-
-Eger hûn veberhêner in, an jî ji bo pêşveçûna DijitalKurdistan ramanek we heye, ez dikarim we bi kesê têkildar re têkildar bikim.
-
-<i>I am the PezkuwiChain AI assistant. Ask me anything about PezkuwiChain in any language!
-
-If you are an investor, or have an idea for the development of DijitalKurdistan, I can connect you with the right person.</i>
-`;
-
-// ── Claude AI System Prompt (PezkuwiChain Whitepaper Knowledge) ─────
-const CLAUDE_SYSTEM_PROMPT = `You are the official PezkuwiChain AI Assistant on Telegram. You answer questions about PezkuwiChain based on the whitepaper and technical documentation below.
+const SYSTEM = `You are the official PezkuwiChain AI Assistant on the news site news.pex.mom. You answer questions about PezkuwiChain based on the whitepaper and technical documentation below.
 
 RULES:
 - Answer in the SAME LANGUAGE the user writes in. If they write in Kurdish (Kurmancî), answer in Kurdish. If Turkish, answer in Turkish. If English, answer in English. If Arabic, answer in Arabic. If Persian, answer in Persian.
 - Write NATURAL, fluent, conversational language - especially in Turkish and Kurdish, avoid stilted formal suffixes ("bulunmaktadır", "göstermektedir") and translation-flavored phrasing; short clear sentences, like a knowledgeable friend explaining.
 - STRICTLY plain text: never use markdown (**, ##, bullet asterisks). Simple dashes for lists are fine.
-- Be concise — Telegram messages should be short and readable.
+- Be concise — website answers should be short, clear and helpful.
 - Use plain text, no markdown headers. You can use bold with *text* sparingly.
 - If you don't know something, say so honestly.
 - Never make up information not in the whitepaper.
 - You represent PezkuwiChain officially — be professional and helpful.
 - Do not discuss other blockchain projects comparatively unless asked.
 - For technical questions about source code, direct users to: github.com/pezkuwichain/pezkuwi-sdk
-- For the wallet app, direct users to: the Pezkuwi Wallet Android app on Google Play (https://play.google.com/store/apps/details?id=io.pezkuwichain.wallet) or the Telegram MiniApp via @DKSKurdistanBot (click "Open PezkuwiChain App" after /start)
+- For the wallet app, direct users to: @DKSKurdistanBot on Telegram (they can click "Open PezkuwiChain App" after /start)
 - INVESTOR/IDEA REFERRAL: If a user expresses genuine interest in investing in PezkuwiChain, partnering, contributing financially, or proposes a serious idea for the development of DijitalKurdistan, direct them to contact @Pezkuw on Telegram. Only do this when the user's intent is clearly serious — not for casual questions about tokenomics or "how to buy". Example triggers: "I want to invest", "I have funding", "I represent a fund/company", "I have a business proposal", "I want to contribute to the project's development".
 
 PEZKUWICHAIN WHITEPAPER v5.0 — KNOWLEDGE BASE:
@@ -255,7 +175,7 @@ GitHub: github.com/pezkuwichain/pezkuwi-sdk
 Discord: discord.gg/Y3VyEC6h8W
 Telegram Channel: https://t.me/+DUWJ8wtt5qI4Njgy
 Telegram App: @DKSKurdistanBot
-Android App: https://play.google.com/store/apps/details?id=io.pezkuwichain.wallet
+Android App (Pezkuwi Wallet, live on Google Play): https://play.google.com/store/apps/details?id=io.pezkuwichain.wallet
 
 PROBLEM SOLVED: Over 100 million stateless people. Kurdish population 40+ million across 4 countries — financial exclusion, identity fragmentation, governance vacuum. PezkuwiChain provides digital nation-state infrastructure.
 
@@ -268,14 +188,53 @@ Phase 2 (2026 Q2-Q4): Full TeyrChain production, governance, presale, dApp ecosy
 Phase 3 (2027): Multi-nation onboarding, Nationhood-as-a-Service, bridges (Ethereum, Tron, BSC), full TNPoS.
 Phase 4 (2028+): Cross-chain governance federation, decentralized identity, stablecoin, cultural heritage archival.
 
-License: Apache 2.0, Copyright 2026 Kurdistan Tech Institute. Lead Architect: SatoshiQaziMuhammed.`;
+License: Apache 2.0, Copyright 2026 Kurdistan Tech Institute. Lead Architect: SatoshiQaziMuhammed.
+
+You are embedded as a chat assistant on the Pezkuwichain news site. Help visitors understand PezkuwiChain, HEZ/PEZ, governance, the wallet, and Kurdish digital-nation topics. If asked something you don't know, say so briefly. Never invent prices or figures.`;
+
+const CORS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+};
+const J = (o: unknown, s = 200) =>
+  new Response(JSON.stringify(o), {
+    status: s,
+    headers: { ...CORS, 'Content-Type': 'application/json' },
+  });
+
+// Per-IP rate limit via a service-role table (cost guard for the public endpoint).
+async function allowed(ip: string): Promise<boolean> {
+  if (!SUPABASE_URL || !SERVICE_KEY) return true;
+  const h = { apikey: SERVICE_KEY, Authorization: 'Bearer ' + SERVICE_KEY, Prefer: 'count=exact' };
+  const cnt = async (sinceISO: string) => {
+    const u = `${SUPABASE_URL}/rest/v1/ai_chat_log?ip=eq.${encodeURIComponent(ip)}&created_at=gte.${sinceISO}&select=id`;
+    const r = await fetch(u, { headers: { ...h, Range: '0-0' } });
+    const cr = r.headers.get('content-range') || '*/0';
+    return parseInt(cr.split('/')[1] || '0', 10);
+  };
+  const minAgo = new Date(Date.now() - 60_000).toISOString();
+  const dayAgo = new Date(Date.now() - 86_400_000).toISOString();
+  if ((await cnt(minAgo)) >= 8) return false; // 8 / minute
+  if ((await cnt(dayAgo)) >= 120) return false; // 120 / day
+  await fetch(`${SUPABASE_URL}/rest/v1/ai_chat_log`, {
+    method: 'POST',
+    headers: {
+      apikey: SERVICE_KEY,
+      Authorization: 'Bearer ' + SERVICE_KEY,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ ip }),
+  });
+  return true;
+}
 
 // Groq's openai/gpt-oss-120b returns intermittent errors under load (429/5xx,
 // and even a raw 502 from the edge runtime once) unrelated to the question
 // asked — confirmed live 2026-07-21 by hitting this endpoint repeatedly with
 // trivial questions ("merhaba") and seeing a ~50% failure rate with 15s+
-// between calls (ruling out our own per-IP rate limiter), which 2 retries on
-// the same model did not fully fix.
+// between calls (ruling out our own per-IP rate limiter above), which 2
+// retries on the same model did not fully fix.
 //
 // 2026-07-21, user decision: prioritize reliability over gpt-oss-120b's
 // better Turkish/Kurdish fluency (it was picked for that reason via an
@@ -285,15 +244,11 @@ License: Apache 2.0, Copyright 2026 Kurdistan Tech Institute. Lead Architect: Sa
 // (still worth trying for quality when the primary is having its own bad
 // moment), llama-3.3-70b-versatile (the model used before switching to
 // gpt-oss-120b) as the 3rd, before ever reaching the Anthropic fallback
-// below. Retries a 4xx (bad request/auth) not at all — that's not transient
-// and switching models wouldn't help either.
+// below. Doesn't retry a 4xx (bad request/auth) at all — not transient, and
+// switching models wouldn't help.
 const GROQ_MODELS = ['llama-3.1-8b-instant', 'openai/gpt-oss-120b', 'llama-3.3-70b-versatile'];
 
-async function callGroqWithRetry(
-  systemPrompt: string,
-  userMessage: string,
-  retriesPerModel = 2
-): Promise<string | null> {
+async function callGroqWithRetry(messages: unknown[], retriesPerModel = 2): Promise<string | null> {
   for (const model of GROQ_MODELS) {
     for (let attempt = 0; attempt <= retriesPerModel; attempt++) {
       try {
@@ -304,10 +259,7 @@ async function callGroqWithRetry(
             model,
             temperature: 0.3,
             max_tokens: 900,
-            messages: [
-              { role: 'system', content: systemPrompt },
-              { role: 'user', content: userMessage },
-            ],
+            messages: [{ role: 'system', content: SYSTEM }, ...messages],
           }),
         });
         if (gr.ok) {
@@ -327,32 +279,38 @@ async function callGroqWithRetry(
   return null;
 }
 
-// ── AI chat handler ──────────────────────────────────────────
-async function handleAIChat(token: string, chatId: number, userMessage: string, userName: string) {
-  if (!GROQ_API_KEY && !ANTHROPIC_API_KEY) {
-    await sendTelegramRequest(token, 'sendMessage', {
-      chat_id: chatId,
-      text: 'AI assistant is being configured. Please try again later.',
-    });
-    return;
-  }
-
-  // Send typing indicator
-  await sendTelegramRequest(token, 'sendChatAction', {
-    chat_id: chatId,
-    action: 'typing',
-  });
-
+serve(async (req) => {
+  if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
+  if (req.method !== 'POST') return J({ error: 'method' }, 405);
   try {
+    const body = await req.json().catch(() => ({}));
+    const q = (body.q || body.question || '').toString().trim();
+    if (!q || q.length > 2000) return J({ error: 'bad_request' }, 400);
+    const ip = (req.headers.get('x-forwarded-for') || '').split(',')[0].trim() || 'unknown';
+    if (!(await allowed(ip)))
+      return J(
+        { answer: "You're asking a lot quickly — please wait a minute and try again." },
+        429
+      );
+    const hist = Array.isArray(body.history)
+      ? body.history
+          .filter(
+            (m: any) =>
+              m && (m.role === 'user' || m.role === 'assistant') && typeof m.content === 'string'
+          )
+          .slice(-6)
+      : [];
+    const messages = [...hist, { role: 'user', content: q }];
+
     // Primary provider: Groq (free). Fallback: Claude when it has credit.
-    let aiReply: string | null = null;
+    let answer: string | null = null;
 
     if (GROQ_API_KEY) {
-      aiReply = await callGroqWithRetry(CLAUDE_SYSTEM_PROMPT, userMessage);
+      answer = await callGroqWithRetry(messages);
     }
 
-    if (!aiReply && ANTHROPIC_API_KEY) {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+    if (!answer && ANTHROPIC_API_KEY) {
+      const r = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -361,439 +319,25 @@ async function handleAIChat(token: string, chatId: number, userMessage: string, 
         },
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514',
-          max_tokens: 1024,
-          system: CLAUDE_SYSTEM_PROMPT,
-          messages: [{ role: 'user', content: userMessage }],
+          max_tokens: 900,
+          system: SYSTEM,
+          messages,
         }),
       });
-      if (response.ok) {
-        const result = await response.json();
-        aiReply = result.content?.[0]?.text || null;
+      if (r.ok) {
+        const d = await r.json();
+        answer = (d.content && d.content[0] && d.content[0].text) || null;
       } else {
-        console.error('[AI] Claude API error:', response.status, await response.text());
+        console.error('[AI] Claude API error:', r.status, await r.text());
       }
     }
 
-    // Models occasionally emit markdown despite the plain-text rule; Telegram renders it raw.
-    if (aiReply) aiReply = aiReply.replace(/\*\*/g, '').replace(/^#+\s*/gm, '');
-
-    if (!aiReply) {
-      await sendTelegramRequest(token, 'sendMessage', {
-        chat_id: chatId,
-        text: 'Sorry, I could not process your question right now. Please try again.',
-      });
-      return;
-    }
-
-    // Telegram message limit is 4096 chars
-    if (aiReply.length <= 4096) {
-      await sendTelegramRequest(token, 'sendMessage', {
-        chat_id: chatId,
-        text: aiReply,
-      });
-    } else {
-      // Split into chunks
-      for (let i = 0; i < aiReply.length; i += 4000) {
-        await sendTelegramRequest(token, 'sendMessage', {
-          chat_id: chatId,
-          text: aiReply.substring(i, i + 4000),
-        });
-      }
-    }
-  } catch (error) {
-    console.error('[AI] Error:', error);
-    await sendTelegramRequest(token, 'sendMessage', {
-      chat_id: chatId,
-      text: 'An error occurred. Please try again later.',
-    });
-  }
-}
-
-// ── Types ────────────────────────────────────────────────────────────
-interface TelegramUpdate {
-  update_id: number;
-  message?: {
-    message_id: number;
-    from: {
-      id: number;
-      first_name: string;
-      username?: string;
-    };
-    chat: {
-      id: number;
-      type: string;
-    };
-    text?: string;
-  };
-  callback_query?: {
-    id: string;
-    from: {
-      id: number;
-    };
-    message?: {
-      chat: {
-        id: number;
-      };
-    };
-    data: string;
-  };
-}
-
-// ── Telegram API helper ─────────────────────────────────────────────
-async function sendTelegramRequest(token: string, method: string, body: Record<string, unknown>) {
-  console.log(`[Telegram] Calling ${method}`, JSON.stringify(body));
-
-  if (!token) {
-    console.error('[Telegram] BOT_TOKEN is not set!');
-    return { ok: false, error: 'BOT_TOKEN not configured' };
-  }
-
-  const response = await fetch(`https://api.telegram.org/bot${token}/${method}`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  });
-
-  const result = await response.json();
-  console.log(`[Telegram] Response:`, JSON.stringify(result));
-  return result;
-}
-
-// ── Main bot: welcome ───────────────────────────────────────────────
-async function sendMainWelcome(token: string, chatId: number) {
-  const keyboard = {
-    inline_keyboard: [
-      [
-        {
-          text: '📱 Open App on Telegram',
-          web_app: { url: MINI_APP_URLS.main },
-        },
-      ],
-      [
-        {
-          text: '🤖 Get it on Google Play',
-          url: 'https://play.google.com/store/apps/details?id=io.pezkuwichain.wallet',
-        },
-      ],
-    ],
-  };
-
-  if (WELCOME_IMAGE_URL) {
-    const result = await sendTelegramRequest(token, 'sendPhoto', {
-      chat_id: chatId,
-      photo: WELCOME_IMAGE_URL,
-      caption: MAIN_WELCOME_MESSAGE,
-      parse_mode: 'HTML',
-      reply_markup: keyboard,
-    });
-    if (result.ok) return;
-    console.log('[Bot] Photo failed, falling back to text');
-  }
-
-  await sendTelegramRequest(token, 'sendMessage', {
-    chat_id: chatId,
-    text: MAIN_WELCOME_MESSAGE,
-    parse_mode: 'HTML',
-    reply_markup: keyboard,
-  });
-}
-
-// ── KRD bot: welcome ────────────────────────────────────────────────
-async function sendKrdWelcome(token: string, chatId: number) {
-  const appUrl = MINI_APP_URLS.krd;
-
-  const keyboard = {
-    inline_keyboard: [
-      // Row 1: Create Wallet (callback - bot generates wallet in chat)
-      [
-        {
-          text: '🔐 Create Wallet / Cûzdan Biafirîne',
-          callback_data: 'create_wallet',
-        },
-      ],
-      // Row 2: Languages (top row)
-      [
-        { text: 'Kurmancî', web_app: { url: `${appUrl}/krd` } },
-        { text: 'English', web_app: { url: `${appUrl}/en` } },
-        { text: 'Türkçe', web_app: { url: `${appUrl}/tr` } },
-      ],
-      // Row 3: Languages (bottom row)
-      [
-        { text: 'سۆرانی', web_app: { url: `${appUrl}/ckb` } },
-        { text: 'فارسی', web_app: { url: `${appUrl}/fa` } },
-        { text: 'العربية', web_app: { url: `${appUrl}/ar` } },
-      ],
-      // Row 4: Be Citizen
-      [
-        {
-          text: '🏛️ Be Citizen / Bibe Welatî',
-          web_app: { url: `${appUrl}/citizens` },
-        },
-      ],
-    ],
-  };
-
-  if (WELCOME_IMAGE_URL) {
-    const result = await sendTelegramRequest(token, 'sendPhoto', {
-      chat_id: chatId,
-      photo: WELCOME_IMAGE_URL,
-      caption: KRD_WELCOME_MESSAGE,
-      parse_mode: 'HTML',
-      reply_markup: keyboard,
-    });
-    if (result.ok) return;
-    console.log('[Bot] Photo failed, falling back to text');
-  }
-
-  await sendTelegramRequest(token, 'sendMessage', {
-    chat_id: chatId,
-    text: KRD_WELCOME_MESSAGE,
-    parse_mode: 'HTML',
-    reply_markup: keyboard,
-  });
-}
-
-// ── DKS bot: welcome ────────────────────────────────────────────────
-async function sendDksWelcome(token: string, chatId: number) {
-  const keyboard = {
-    inline_keyboard: [
-      [
-        {
-          text: '📱 Open PezkuwiChain App',
-          web_app: { url: MINI_APP_URLS.dks },
-        },
-      ],
-      [
-        {
-          text: '📢 Join Channel / Kanalê Tev Bibin',
-          url: 'https://t.me/+DUWJ8wtt5qI4Njgy',
-        },
-      ],
-    ],
-  };
-
-  if (WELCOME_IMAGE_URL) {
-    const result = await sendTelegramRequest(token, 'sendPhoto', {
-      chat_id: chatId,
-      photo: WELCOME_IMAGE_URL,
-      caption: DKS_WELCOME_MESSAGE,
-      parse_mode: 'HTML',
-      reply_markup: keyboard,
-    });
-    if (result.ok) return;
-    console.log('[Bot] Photo failed, falling back to text');
-  }
-
-  await sendTelegramRequest(token, 'sendMessage', {
-    chat_id: chatId,
-    text: DKS_WELCOME_MESSAGE,
-    parse_mode: 'HTML',
-    reply_markup: keyboard,
-  });
-}
-
-// ── Create wallet handler ───────────────────────────────────────────
-async function handleCreateWallet(token: string, chatId: number) {
-  try {
-    await cryptoWaitReady();
-
-    const mnemonic = bip39.generateMnemonic(wordlist, 128);
-    const keyring = new Keyring({ type: 'sr25519' });
-    const pair = keyring.addFromUri(mnemonic);
-    const address = pair.address;
-
-    const walletMessage = `
-🔐 <b>Cûzdanê Te Hate Afirandin!</b>
-<b>Your Wallet Has Been Created!</b>
-
-📍 <b>Address / Navnîşan:</b>
-<code>${address}</code>
-
-🔑 <b>Seed Phrase (12 words):</b>
-<code>${mnemonic}</code>
-
-⚠️ <b>GIRÎNG / IMPORTANT:</b>
-<i>Ev 12 peyvan binivîsin û li cihekî ewle bihêlin.
-Kesî re nîşan nedin! Eger winda bikin, cûzdanê xwe winda dikin.
-
-Write down these 12 words and keep them safe.
-Never share them! If you lose them, you lose your wallet.</i>
-`;
-
-    await sendTelegramRequest(token, 'sendMessage', {
-      chat_id: chatId,
-      text: walletMessage,
-      parse_mode: 'HTML',
-    });
-  } catch (error) {
-    console.error('[Bot] Wallet generation error:', error);
-    await sendTelegramRequest(token, 'sendMessage', {
-      chat_id: chatId,
-      text: '❌ Wallet creation failed. Please try again.',
-    });
-  }
-}
-
-// ── Callback handler ────────────────────────────────────────────────
-async function handleCallbackQuery(
-  token: string,
-  callbackQueryId: string,
-  data: string,
-  chatId: number | undefined
-) {
-  if (data === 'create_wallet' && chatId) {
-    await sendTelegramRequest(token, 'answerCallbackQuery', {
-      callback_query_id: callbackQueryId,
-      text: '🔐 Creating your wallet...',
-    });
-    await handleCreateWallet(token, chatId);
-  } else if (data === 'playstore_coming_soon') {
-    // Legacy button on old messages - the app is live now, send the real link
-    await sendTelegramRequest(token, 'answerCallbackQuery', {
-      callback_query_id: callbackQueryId,
-      text: '🚀 The Android app is live on Google Play!',
-      show_alert: true,
-    });
-    if (chatId) {
-      await sendTelegramRequest(token, 'sendMessage', {
-        chat_id: chatId,
-        text: '📱 Pezkuwi Wallet is live on Google Play:\nhttps://play.google.com/store/apps/details?id=io.pezkuwichain.wallet',
-      });
-    }
-  }
-}
-
-// ── Help & App commands ─────────────────────────────────────────────
-async function sendHelpMessage(token: string, chatId: number, botId: string) {
-  const appUrl = MINI_APP_URLS[botId] || MINI_APP_URLS.main;
-
-  if (botId === 'dks') {
-    const helpText = `
-<b>PezkuwiChain AI Assistant</b>
-
-Just type your question in any language and I'll answer!
-
-/start - Show welcome message
-/help - Show this help message
-
-<b>Links:</b>
-🌐 Website: pezkuwichain.io
-📢 Channel: https://t.me/+DUWJ8wtt5qI4Njgy
-📱 Android App: https://play.google.com/store/apps/details?id=io.pezkuwichain.wallet
-💬 Discord: discord.gg/Y3VyEC6h8W
-`;
-    await sendTelegramRequest(token, 'sendMessage', {
-      chat_id: chatId,
-      text: helpText,
-      parse_mode: 'HTML',
-    });
-    return;
-  }
-
-  const helpText = `
-<b>PezkuwiChain Bot Commands:</b>
-
-/start - Show welcome message
-/help - Show this help message
-/app - Open the PezkuwiChain app
-
-<b>Links:</b>
-🌐 Website: pezkuwichain.io
-📱 App: ${appUrl}
-`;
-
-  await sendTelegramRequest(token, 'sendMessage', {
-    chat_id: chatId,
-    text: helpText,
-    parse_mode: 'HTML',
-  });
-}
-
-async function sendAppLink(token: string, chatId: number, botId: string) {
-  const appUrl = MINI_APP_URLS[botId] || MINI_APP_URLS.main;
-  const keyboard = {
-    inline_keyboard: [
-      [
-        {
-          text: '📱 Open PezkuwiChain App',
-          web_app: { url: appUrl },
-        },
-      ],
-    ],
-  };
-
-  await sendTelegramRequest(token, 'sendMessage', {
-    chat_id: chatId,
-    text: 'Click below to open the app:',
-    reply_markup: keyboard,
-  });
-}
-
-// ── Main handler ────────────────────────────────────────────────────
-serve(async (req: Request) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      headers: {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type',
-      },
-    });
-  }
-
-  if (req.method !== 'POST') {
-    return new Response('Method not allowed', { status: 405 });
-  }
-
-  try {
-    const botId = getBotId(req);
-    const botToken = BOT_TOKENS[botId] || BOT_TOKENS.main;
-    const update: TelegramUpdate = await req.json();
-    console.log(`[Bot:${botId}] Received update:`, JSON.stringify(update));
-
-    // Handle message
-    if (update.message?.text) {
-      const chatId = update.message.chat.id;
-      const text = update.message.text;
-      const userName = update.message.from?.first_name || 'User';
-
-      if (text === '/start' || text.startsWith('/start ')) {
-        if (botId === 'krd') {
-          await sendKrdWelcome(botToken, chatId);
-        } else if (botId === 'dks') {
-          await sendDksWelcome(botToken, chatId);
-        } else {
-          await sendMainWelcome(botToken, chatId);
-        }
-      } else if (text === '/help') {
-        await sendHelpMessage(botToken, chatId, botId);
-      } else if (text === '/app') {
-        await sendAppLink(botToken, chatId, botId);
-      } else if (botId === 'dks' && !text.startsWith('/')) {
-        // DKS bot: forward non-command messages to Claude AI
-        await handleAIChat(botToken, chatId, text, userName);
-      }
-    }
-
-    // Handle callback query
-    if (update.callback_query) {
-      const chatId = update.callback_query.message?.chat?.id;
-      await handleCallbackQuery(
-        botToken,
-        update.callback_query.id,
-        update.callback_query.data,
-        chatId
-      );
-    }
-
-    return new Response(JSON.stringify({ ok: true }), {
-      headers: { 'Content-Type': 'application/json' },
-    });
-  } catch (error) {
-    console.error('Error processing update:', error);
-    return new Response(JSON.stringify({ ok: false, error: String(error) }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json' },
-    });
+    if (!answer)
+      return J({ answer: 'Sorry, I could not answer right now. Please try again.' }, 200);
+    // Models occasionally emit markdown despite the plain-text rule.
+    answer = answer.replace(/\*\*/g, '').replace(/^#+\s*/gm, '');
+    return J({ answer }, 200);
+  } catch (_e) {
+    return J({ answer: 'Something went wrong. Please try again.' }, 200);
   }
 });
