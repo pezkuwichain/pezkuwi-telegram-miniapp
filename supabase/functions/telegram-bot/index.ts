@@ -1,7 +1,7 @@
 /**
  * PezkuwiChain Telegram Bot - Supabase Edge Function
  * Handles webhook updates from three separate bots:
- *   - @Pezkuwichain_Bot  (main) → retired testnet bot; slot kept as a fallback
+ *   - @BizinikiwiBot     (main) → telegram.pezkiwi.app
  *   - @pezkuwichainBot   (krd)  → telegram.pezkiwi.app
  *   - @DKSKurdistanBot   (dks)  → AI assistant powered by Claude
  */
@@ -20,9 +20,10 @@ const BOT_TOKENS: Record<string, string> = {
 };
 
 const MINI_APP_URLS: Record<string, string> = {
-  // The testnet domain this used to point at was removed on 2026-07-12 and no
-  // longer resolves. Live webhooks arrive as ?bot=krd and ?bot=dks so this
-  // default is never hit today, but it should not hand out a dead link if it is.
+  // @BizinikiwiBot, created fresh under separate ownership on 2026-07-30. It is
+  // not a recovery of the compromised @pezkuwichain_bot — that account is gone
+  // and its token stays invalid. This slot is reached by a webhook with no ?bot
+  // parameter, since getBotId falls back to main.
   main: 'https://telegram.pezkiwi.app',
   krd: 'https://telegram.pezkiwi.app',
   dks: 'https://telegram.pezkiwi.app',
@@ -476,6 +477,12 @@ async function sendMainWelcome(token: string, chatId: number) {
         {
           text: '🤖 Get it on Google Play',
           url: 'https://play.google.com/store/apps/details?id=io.pezkuwichain.wallet',
+        },
+      ],
+      [
+        {
+          text: '💱 Buy/Sell Crypto — PEX.network',
+          url: 'https://pex.network',
         },
       ],
     ],
