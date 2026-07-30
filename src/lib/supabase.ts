@@ -11,7 +11,10 @@ export async function signInWithTelegram(initData: string) {
     throw new Error('No Telegram initData provided');
   }
 
-  const { data, error } = await supabase.functions.invoke('telegram-auth', {
+  // Namespaced: the shared Supabase instance also hosts pwap-web, whose own
+  // login-widget handler owns the bare 'telegram-auth' name. See
+  // /opt/supabase-self-hosted/functions-registry.json on the host.
+  const { data, error } = await supabase.functions.invoke('tgm-telegram-auth', {
     body: { initData },
   });
 

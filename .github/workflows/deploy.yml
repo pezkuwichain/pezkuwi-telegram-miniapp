@@ -63,3 +63,44 @@ jobs:
           username: ${{ secrets.VPS2_USER }}
           key: ${{ secrets.VPS2_SSH_KEY }}
           script: bash /opt/cleanup-miniapp.sh
+
+  # Edge functions live in a Supabase volume shared with other projects, so they
+  # are written through the ownership gate on the host rather than copied in
+  # directly. The gate refuses any name this project does not own, which is what
+  # stops a repeat of the 2026-06-28 incident where another project's deploy
+  # silently replaced telegram-auth and broke sign-in for a month.
+  deploy-functions:
+    name: Deploy edge functions
+    needs: deploy
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Package functions
+        run: tar czf functions.tgz -C supabase functions
+
+      - name: Copy to staging on VPS
+        uses: appleboy/scp-action@v1.0.0
+        with:
+          host: ${{ secrets.VPS2_HOST }}
+          username: ${{ secrets.VPS2_USER }}
+          key: ${{ secrets.VPS2_SSH_KEY }}
+          source: 'functions.tgz'
+          target: '/opt/miniapp-deploy-staging'
+
+      - name: Deploy through ownership gate
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.VPS2_HOST }}
+          username: ${{ secrets.VPS2_USER }}
+          key: ${{ secrets.VPS2_SSH_KEY }}
+          script: |
+            set -e
+            BASE=/opt/miniapp-deploy-staging
+            trap 'rm -rf "$BASE"' EXIT
+            rm -rf "$BASE/functions"
+            tar xzf "$BASE/functions.tgz" -C "$BASE"
+            supabase-deploy-functions \
+              --project pezkuwi-telegram-miniapp \
+              --src "$BASE/functions" \
+              --restart
