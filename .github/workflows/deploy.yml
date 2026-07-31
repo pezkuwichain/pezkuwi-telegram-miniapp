@@ -96,6 +96,21 @@ jobs:
           source: 'functions.tgz'
           target: '/opt/miniapp-deploy-staging'
 
+      # The gate and its registry are versioned here, so the server copy is
+      # replaced from source control on every deploy rather than edited in
+      # place. They previously existed only at /usr/local/bin — one copy, no
+      # history, no review, gone with the server. The mechanism built to stop
+      # silent drift was itself drifting.
+      - name: Sync ownership gate to host
+        uses: appleboy/scp-action@v1.0.0
+        with:
+          host: ${{ secrets.VPS2_HOST }}
+          username: ${{ secrets.VPS2_USER }}
+          key: ${{ secrets.VPS2_SSH_KEY }}
+          source: 'ops/supabase-deploy-functions,ops/functions-registry.json'
+          target: '/opt/miniapp-deploy-staging'
+          strip_components: 1
+
       - name: Deploy through ownership gate
         uses: appleboy/ssh-action@v1.0.0
         with:
@@ -105,6 +120,11 @@ jobs:
           script: |
             set -e
             BASE=/opt/miniapp-deploy-staging
+
+            # Install the gate before using it, so a change to the gate ships in
+            # the same deploy as the functions it validates.
+            install -m 755 "$BASE/supabase-deploy-functions" /usr/local/bin/supabase-deploy-functions
+            install -m 644 "$BASE/functions-registry.json" /opt/supabase-self-hosted/functions-registry.json
             trap 'rm -rf "$BASE"' EXIT
             rm -rf "$BASE/functions"
             tar xzf "$BASE/functions.tgz" -C "$BASE"

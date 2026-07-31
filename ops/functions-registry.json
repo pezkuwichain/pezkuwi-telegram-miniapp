@@ -1,0 +1,51 @@
+{
+  "_comment": "Ownership registry for the shared self-hosted Supabase edge-function volume.",
+  "_rule": "Every function directory under volumes/functions MUST be listed here with exactly one owning project. A project may only write the names it owns. Adding a new function requires adding it here FIRST.",
+  "_enforced_by": "/usr/local/bin/supabase-deploy-functions",
+  "_updated": "2026-07-29",
+  "projects": {
+    "pezkuwi-telegram-miniapp": [
+      "accept-p2p-offer",
+      "announcement-reaction",
+      "check-deposits",
+      "create-offer-telegram",
+      "get-deposit-code",
+      "get-deposit-info",
+      "get-deposits",
+      "get-internal-balance",
+      "get-my-offers",
+      "get-p2p-offers",
+      "get-p2p-trades",
+      "get-payment-methods",
+      "p2p-dispute",
+      "p2p-messages",
+      "process-deposits",
+      "request-withdraw-telegram",
+      "save-wallet-address",
+      "tgm-process-withdraw",
+      "tgm-telegram-auth",
+      "trade-action",
+      "verify-deposit-telegram"
+    ],
+    "pwap-web": [
+      "_shared",
+      "cleanup-proofs",
+      "confirm-payment",
+      "email-verification",
+      "lock-escrow",
+      "notifications-manager",
+      "process-withdraw",
+      "process-withdrawal",
+      "resolve-dispute",
+      "telegram-auth",
+      "two-factor-auth",
+      "verify-deposit"
+    ],
+    "_platform": ["hello", "main"]
+  },
+  "_cloud_hosted": {
+    "_comment": "These live on the CLOUD Supabase project vbhftvdayqfmcgmzdxfv (DKSapp), not here. Both Telegram bots and the news.pex.mom assistant are served from there. Copies may still sit in this volume from before the move - they are stale and serve no traffic. Do not deploy these here.",
+    "project": "vbhftvdayqfmcgmzdxfv",
+    "names": ["telegram-bot", "ask"]
+  }
+}

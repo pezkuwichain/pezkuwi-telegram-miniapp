@@ -1,0 +1,204 @@
+#!/usr/bin/env python3
+"""Guarded deploy for the shared Supabase edge-function volume.
+
+Several independent projects deploy into one edge-runtime volume. Before this
+gate existed they rsynced whole trees into it, so whoever deployed last silently
+overwrote any function name they happened to share. That is how the miniapp's
+telegram-auth disappeared on 2026-06-28 and stayed broken for a month.
+
+This is the only supported way to write into the volume. It refuses to touch a
+directory the calling project does not own, and it refuses names that are not in
+the registry at all, so a new collision cannot be introduced by accident.
+
+  supabase-deploy-functions --project <name> --src <dir> [--restart] [--dry-run]
+
+Exit codes: 0 ok, 1 refused (nothing written), 2 usage/internal error.
+"""
+
+import argparse
+import fcntl
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+import time
+from datetime import datetime, timezone
+
+REGISTRY = "/opt/supabase-self-hosted/functions-registry.json"
+VOLUME = "/opt/supabase-self-hosted/docker/volumes/functions"
+LOG = "/var/log/supabase-function-deploys.log"
+LOCK = "/var/lock/supabase-function-deploy.lock"
+CONTAINER = "supabase-edge-functions"
+COMPOSE_DIR = "/opt/supabase-self-hosted/docker"
+
+
+def fail(msg, code=1):
+    print("ERROR: " + msg, file=sys.stderr)
+    sys.exit(code)
+
+
+def load_registry():
+    try:
+        with open(REGISTRY) as fh:
+            data = json.load(fh)
+    except FileNotFoundError:
+        fail("registry not found at " + REGISTRY, 2)
+    except json.JSONDecodeError as exc:
+        fail("registry is not valid JSON: %s" % exc, 2)
+
+    projects = data.get("projects")
+    if not isinstance(projects, dict):
+        fail("registry has no 'projects' object", 2)
+
+    owner_of = {}
+    for project, names in projects.items():
+        for name in names:
+            if name in owner_of:
+                fail("registry is inconsistent: '%s' is claimed by both '%s' and '%s'"
+                     % (name, owner_of[name], project), 2)
+            owner_of[name] = project
+    return projects, owner_of
+
+
+def container_running():
+    out = subprocess.run(
+        ["docker", "inspect", "-f", "{{.State.Running}}", CONTAINER],
+        capture_output=True, text=True,
+    )
+    return out.returncode == 0 and out.stdout.strip() == "true"
+
+
+def restart_runtime():
+    """Recreate the edge runtime, tolerating a racing restart.
+
+    `docker compose up --force-recreate` fails with "No such container" when
+    something else recreated the container between compose reading state and
+    acting on it — a hand-run restart, or another project's deploy. The deploy
+    itself already succeeded at that point, so failing the whole run over it
+    reports a false failure. Retry, then fall back to checking whether the
+    runtime is actually up.
+    """
+    for attempt in (1, 2, 3):
+        r = subprocess.run(
+            ["docker", "compose", "up", "-d", "--force-recreate", "functions"],
+            cwd=COMPOSE_DIR, capture_output=True, text=True,
+        )
+        if r.returncode == 0:
+            print("Edge runtime recreated.")
+            return
+        print("restart attempt %d failed: %s" % (attempt, r.stderr.strip()[:200]), file=sys.stderr)
+        time.sleep(3)
+
+    # Compose kept failing. If the runtime is up it is serving the files we just
+    # wrote, so the deploy stands; say so rather than reporting a false failure.
+    if container_running():
+        print("WARNING: could not recreate the runtime, but %s is running and "
+              "serving the deployed files." % CONTAINER, file=sys.stderr)
+        log_line("%s RESTART-DEGRADED container=%s" % (
+            datetime.now(timezone.utc).isoformat(timespec="seconds"), CONTAINER))
+        return
+    fail("restart failed and %s is not running" % CONTAINER, 2)
+
+
+def log_line(text):
+    try:
+        with open(LOG, "a") as fh:
+            fh.write(text + "\n")
+    except OSError:
+        pass  # logging must never block a deploy
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument("--project", required=True)
+    ap.add_argument("--src", required=True, help="staging dir holding one subdir per function")
+    ap.add_argument("--restart", action="store_true", help="recreate the edge runtime afterwards")
+    ap.add_argument("--dry-run", action="store_true")
+    args = ap.parse_args()
+
+    projects, owner_of = load_registry()
+    if args.project not in projects:
+        fail("unknown project '%s'. Known: %s" % (args.project, ", ".join(sorted(projects))), 2)
+    owned = set(projects[args.project])
+
+    if not os.path.isdir(args.src):
+        fail("source dir not found: " + args.src, 2)
+
+    incoming = sorted(
+        d for d in os.listdir(args.src)
+        if os.path.isdir(os.path.join(args.src, d)) and not d.startswith("__")
+    )
+    if not incoming:
+        fail("no function directories found under " + args.src, 2)
+
+    # Validate everything before writing anything: a partial deploy is worse
+    # than a refused one.
+    foreign, unknown = [], []
+    for name in incoming:
+        if name in owned:
+            continue
+        if name in owner_of:
+            foreign.append((name, owner_of[name]))
+        else:
+            unknown.append(name)
+
+    if foreign or unknown:
+        print("Refusing to deploy — nothing was written.\n", file=sys.stderr)
+        for name, owner in foreign:
+            print("  '%s' belongs to '%s', not '%s'" % (name, owner, args.project), file=sys.stderr)
+        for name in unknown:
+            print("  '%s' is not in the registry. Add it to %s under an owner first."
+                  % (name, REGISTRY), file=sys.stderr)
+        print("\nRegistry: " + REGISTRY, file=sys.stderr)
+        log_line("%s REFUSED project=%s foreign=%s unknown=%s" % (
+            datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            args.project, [n for n, _ in foreign], unknown))
+        sys.exit(1)
+
+    if args.dry_run:
+        print("dry-run OK — %s may deploy: %s" % (args.project, ", ".join(incoming)))
+        return
+
+    # Two projects deploy into this volume and both restart the same runtime, so
+    # serialise from here on. Without it a second deploy can recreate the
+    # container while the first is mid-restart, which is exactly what turned a
+    # successful deploy into a failed job on 2026-07-30.
+    lock_fd = os.open(LOCK, os.O_CREAT | os.O_RDWR, 0o644)
+    try:
+        fcntl.flock(lock_fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except BlockingIOError:
+        print("another deploy is in progress, waiting for it to finish...")
+        fcntl.flock(lock_fd, fcntl.LOCK_EX)
+
+    os.makedirs(VOLUME, exist_ok=True)
+    for name in incoming:
+        src = os.path.join(args.src, name)
+        dst = os.path.join(VOLUME, name)
+        # Stage beside the target, then swap, so a reader never sees a half-written function.
+        staged = tempfile.mkdtemp(prefix=".deploy-%s-" % name, dir=VOLUME)
+        try:
+            tree = os.path.join(staged, name)
+            shutil.copytree(src, tree)
+            old = dst + ".old"
+            if os.path.exists(old):
+                shutil.rmtree(old)
+            if os.path.exists(dst):
+                os.rename(dst, old)
+            os.rename(tree, dst)
+            if os.path.exists(old):
+                shutil.rmtree(old)
+        finally:
+            shutil.rmtree(staged, ignore_errors=True)
+
+    stamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
+    log_line("%s DEPLOYED project=%s functions=%s" % (stamp, args.project, ",".join(incoming)))
+    print("Deployed %d function(s) for %s: %s" % (len(incoming), args.project, ", ".join(incoming)))
+
+    if args.restart:
+        restart_runtime()
+
+
+if __name__ == "__main__":
+    main()
