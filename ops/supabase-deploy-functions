@@ -258,6 +258,23 @@ def main():
             args.project, [n for n, _ in foreign], unknown))
         sys.exit(1)
 
+    # Owned, on disk, and no longer in the project's source. Neither the deploy
+    # nor the volume-vs-registry audit could see this: the registry said the name
+    # was current and the volume agreed, while the repository had dropped it. That
+    # is exactly how email-verification kept serving traffic for two days after it
+    # was deleted from pwap. A deploy is the one moment we hold the project's real
+    # source, so it is the only place the three can be compared.
+    abandoned = sorted(n for n in owned - set(incoming) if os.path.isdir(os.path.join(VOLUME, n)))
+    if abandoned:
+        print("\n%s still serves %d function(s) it no longer ships:" % (args.project, len(abandoned)))
+        for name in abandoned:
+            print("  %s  <- delete it here too:  --project %s --retire %s"
+                  % (name, args.project, name))
+        print("  (or restore it to the source tree if it was dropped by mistake)")
+        log_line("%s ABANDONED project=%s functions=%s" % (
+            datetime.now(timezone.utc).isoformat(timespec="seconds"),
+            args.project, ",".join(abandoned)))
+
     if args.dry_run:
         print("dry-run OK — %s may deploy: %s" % (args.project, ", ".join(incoming)))
         return
