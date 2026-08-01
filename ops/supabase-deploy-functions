@@ -10,9 +10,16 @@ This is the only supported way to write into the volume. It refuses to touch a
 directory the calling project does not own, and it refuses names that are not in
 the registry at all, so a new collision cannot be introduced by accident.
 
-  supabase-deploy-functions --project <name> --src <dir> [--restart] [--dry-run]
+Deploying does not delete, so that one project cannot wipe another's functions.
+The cost is that nothing ever leaves on its own: a function deleted from its
+repository keeps serving traffic until someone retires it here. `--audit` makes
+that visible and `--retire` acts on it.
 
-Exit codes: 0 ok, 1 refused (nothing written), 2 usage/internal error.
+  supabase-deploy-functions --project <name> --src <dir> [--restart] [--dry-run]
+  supabase-deploy-functions --project <name> --audit
+  supabase-deploy-functions --project <name> --retire <fn>... [--restart]
+
+Exit codes: 0 ok, 1 refused / audit found drift, 2 usage/internal error.
 """
 
 import argparse
@@ -30,6 +37,7 @@ REGISTRY = "/opt/supabase-self-hosted/functions-registry.json"
 VOLUME = "/opt/supabase-self-hosted/docker/volumes/functions"
 LOG = "/var/log/supabase-function-deploys.log"
 LOCK = "/var/lock/supabase-function-deploy.lock"
+RETIRED = "/opt/supabase-self-hosted/retired-functions"
 CONTAINER = "supabase-edge-functions"
 COMPOSE_DIR = "/opt/supabase-self-hosted/docker"
 
@@ -59,6 +67,14 @@ def load_registry():
                 fail("registry is inconsistent: '%s' is claimed by both '%s' and '%s'"
                      % (name, owner_of[name], project), 2)
             owner_of[name] = project
+
+    # Functions that were moved to the cloud project. They are declared, just not
+    # owned by anyone here — without this they read as unaccounted-for and the
+    # audit would offer to retire two live-looking directories.
+    cloud = data.get("_cloud_hosted") or {}
+    for name in cloud.get("names", []):
+        owner_of.setdefault(name, "_cloud_hosted")
+
     return projects, owner_of
 
 
@@ -110,15 +126,100 @@ def log_line(text):
         pass  # logging must never block a deploy
 
 
+def on_disk():
+    if not os.path.isdir(VOLUME):
+        return set()
+    return {
+        d for d in os.listdir(VOLUME)
+        if os.path.isdir(os.path.join(VOLUME, d)) and not d.startswith(".")
+    }
+
+
+def audit(owner_of):
+    """Compare the volume against the registry, both directions.
+
+    Deploying rsyncs without --delete, deliberately, so one project cannot wipe
+    another's functions. The cost is that nothing ever leaves: a function deleted
+    from its repository keeps serving traffic. That is not hypothetical — on
+    2026-08-01 `email-verification` was still live and reachable weeks after it
+    was removed from pwap, running under the service-role key with
+    Access-Control-Allow-Origin *.
+
+    Returns the unaccounted-for names.
+    """
+    disk, declared = on_disk(), set(owner_of)
+    extra, missing = sorted(disk - declared), sorted(declared - disk)
+
+    if extra:
+        print("\nVolume holds %d function(s) the registry does not account for:" % len(extra))
+        for name in extra:
+            print("  %s  <- retire it, or add it to the registry under an owner" % name)
+    if missing:
+        print("\nRegistry declares %d function(s) that are not on disk:" % len(missing))
+        for name in missing:
+            print("  %s  <- will appear on that project's next deploy" % name)
+    if not extra and not missing:
+        print("Volume matches the registry.")
+    return extra
+
+
+def retire(names, project, owner_of):
+    """Move functions out of the volume, into a dated quarantine directory.
+
+    Quarantined rather than deleted: retiring the wrong thing has to be a
+    one-command mistake to undo, and the copy is the only remaining record of
+    what was serving traffic.
+    """
+    stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    for name in names:
+        owner = owner_of.get(name)
+        if owner is not None and owner != project:
+            fail("'%s' belongs to '%s' — refusing. Retire it from that project."
+                 % (name, owner))
+        if not os.path.isdir(os.path.join(VOLUME, name)):
+            fail("'%s' is not in the volume" % name)
+
+    os.makedirs(RETIRED, exist_ok=True)
+    for name in names:
+        dst = os.path.join(RETIRED, "%s-%s" % (name, stamp))
+        shutil.move(os.path.join(VOLUME, name), dst)
+        print("Retired %s -> %s" % (name, dst))
+        log_line("%s RETIRED project=%s function=%s to=%s" % (
+            datetime.now(timezone.utc).isoformat(timespec="seconds"), project, name, dst))
+
+    still_declared = [n for n in names if n in owner_of]
+    if still_declared:
+        print("\nStill listed in the registry — remove them there too, or the next "
+              "audit reports them as missing: %s" % ", ".join(still_declared))
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--project", required=True)
-    ap.add_argument("--src", required=True, help="staging dir holding one subdir per function")
+    ap.add_argument("--src", help="staging dir holding one subdir per function")
     ap.add_argument("--restart", action="store_true", help="recreate the edge runtime afterwards")
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--audit", action="store_true",
+                    help="compare the volume against the registry and exit")
+    ap.add_argument("--retire", nargs="+", metavar="NAME",
+                    help="move these functions out of the volume into quarantine")
     args = ap.parse_args()
 
     projects, owner_of = load_registry()
+
+    if args.audit:
+        sys.exit(1 if audit(owner_of) else 0)
+
+    if args.retire:
+        if args.project not in projects:
+            fail("unknown project '%s'" % args.project, 2)
+        retire(args.retire, args.project, owner_of)
+        if args.restart:
+            restart_runtime()
+        return
+
+    if not args.src:
+        fail("--src is required unless --audit or --retire is given", 2)
     if args.project not in projects:
         fail("unknown project '%s'. Known: %s" % (args.project, ", ".join(sorted(projects))), 2)
     owned = set(projects[args.project])
@@ -195,6 +296,8 @@ def main():
     stamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
     log_line("%s DEPLOYED project=%s functions=%s" % (stamp, args.project, ",".join(incoming)))
     print("Deployed %d function(s) for %s: %s" % (len(incoming), args.project, ", ".join(incoming)))
+
+    audit(owner_of)
 
     if args.restart:
         restart_runtime()

@@ -2,7 +2,7 @@
   "_comment": "Ownership registry for the shared self-hosted Supabase edge-function volume.",
   "_rule": "Every function directory under volumes/functions MUST be listed here with exactly one owning project. A project may only write the names it owns. Adding a new function requires adding it here FIRST.",
   "_enforced_by": "/usr/local/bin/supabase-deploy-functions",
-  "_updated": "2026-07-29",
+  "_updated": "2026-08-01",
   "projects": {
     "pezkuwi-telegram-miniapp": [
       "accept-p2p-offer",
@@ -31,7 +31,6 @@
       "_shared",
       "cleanup-proofs",
       "confirm-payment",
-      "email-verification",
       "lock-escrow",
       "notifications-manager",
       "process-withdraw",
@@ -47,5 +46,8 @@
     "_comment": "These live on the CLOUD Supabase project vbhftvdayqfmcgmzdxfv (DKSapp), not here. Both Telegram bots and the news.pex.mom assistant are served from there. Copies may still sit in this volume from before the move - they are stale and serve no traffic. Do not deploy these here.",
     "project": "vbhftvdayqfmcgmzdxfv",
     "names": ["telegram-bot", "ask"]
+  },
+  "_retired": {
+    "email-verification": "pwap-web, 2026-08-01. Repodan 2026-07-30da silindi ama volume rsync --delete kullanmadigi icin sunucuda calismaya devam etti: anon key ile erisilebilir, service-role ile calisan, Access-Control-Allow-Origin * bir endpoint. send yolu zaten bozuktu (getUserByEmail SDKda yok) ve token tablosu bostu, yani somurulebilir degildi — ama bozuk olmasi koruyordu, tasarimi degil. /opt/supabase-self-hosted/retired-functions/ altinda karantinada."
   }
 }
