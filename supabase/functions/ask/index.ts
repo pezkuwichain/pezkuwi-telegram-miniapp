@@ -4,7 +4,16 @@ const ANTHROPIC_API_KEY = Deno.env.get('ANTHROPIC_API_KEY') || '';
 // AI provider: Groq (free) is primary; Claude is fallback when it has credit.
 const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY') || '';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
-const SERVICE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+// The project's legacy anon/service_role keys are disabled (2026-10-02, after the
+// service_role key leaked through a public commit). The secret key comes from
+// SUPABASE_SECRET_KEYS, a JSON object keyed by name; `default` is the project's.
+const SERVICE_KEY = (() => {
+  try {
+    return JSON.parse(Deno.env.get('SUPABASE_SECRET_KEYS') || '{}')['default'] || '';
+  } catch {
+    return '';
+  }
+})();
 
 const SYSTEM = `You are the official PezkuwiChain AI Assistant on the news site news.pex.mom. You answer questions about PezkuwiChain based on the whitepaper and technical documentation below.
 
@@ -205,28 +214,30 @@ const J = (o: unknown, s = 200) =>
 
 // Per-IP rate limit via a service-role table (cost guard for the public endpoint).
 async function allowed(ip: string): Promise<boolean> {
-  if (!SUPABASE_URL || !SERVICE_KEY) return true;
-  const h = { apikey: SERVICE_KEY, Authorization: 'Bearer ' + SERVICE_KEY, Prefer: 'count=exact' };
-  const cnt = async (sinceISO: string) => {
+  // This guard stands between a public endpoint and a paid model, so every way it
+  // can fail is a refusal. It used to read a missing content-range as zero: when
+  // the key stopped working, every count came back 0 and every request went
+  // through.
+  if (!SUPABASE_URL || !SERVICE_KEY) return false;
+  // A secret key goes on the apikey header only. Sent as `Authorization: Bearer`
+  // too, the gateway tries to parse it as a JWT and rejects the request.
+  const h = { apikey: SERVICE_KEY, Prefer: 'count=exact' };
+  const cnt = async (sinceISO: string): Promise<number> => {
     const u = `${SUPABASE_URL}/rest/v1/ai_chat_log?ip=eq.${encodeURIComponent(ip)}&created_at=gte.${sinceISO}&select=id`;
     const r = await fetch(u, { headers: { ...h, Range: '0-0' } });
-    const cr = r.headers.get('content-range') || '*/0';
-    return parseInt(cr.split('/')[1] || '0', 10);
+    const total = parseInt((r.headers.get('content-range') || '').split('/')[1] ?? '', 10);
+    return r.ok && Number.isFinite(total) ? total : Infinity;
   };
   const minAgo = new Date(Date.now() - 60_000).toISOString();
   const dayAgo = new Date(Date.now() - 86_400_000).toISOString();
   if ((await cnt(minAgo)) >= 8) return false; // 8 / minute
   if ((await cnt(dayAgo)) >= 120) return false; // 120 / day
-  await fetch(`${SUPABASE_URL}/rest/v1/ai_chat_log`, {
+  const w = await fetch(`${SUPABASE_URL}/rest/v1/ai_chat_log`, {
     method: 'POST',
-    headers: {
-      apikey: SERVICE_KEY,
-      Authorization: 'Bearer ' + SERVICE_KEY,
-      'Content-Type': 'application/json',
-    },
+    headers: { apikey: SERVICE_KEY, 'Content-Type': 'application/json' },
     body: JSON.stringify({ ip }),
   });
-  return true;
+  return w.ok;
 }
 
 // Groq's openai/gpt-oss-120b returns intermittent errors under load (429/5xx,
