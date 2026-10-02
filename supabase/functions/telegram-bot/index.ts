@@ -813,8 +813,9 @@ serve(async (req: Request) => {
       headers: { 'Content-Type': 'application/json' },
     });
   } catch (error) {
+    // Details stay in the function log; the caller only learns that it failed.
     console.error('Error processing update:', error);
-    return new Response(JSON.stringify({ ok: false, error: String(error) }), {
+    return new Response(JSON.stringify({ ok: false, error: 'Internal error' }), {
       status: 500,
       headers: { 'Content-Type': 'application/json' },
     });
