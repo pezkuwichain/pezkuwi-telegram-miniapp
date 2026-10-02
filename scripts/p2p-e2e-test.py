@@ -793,7 +793,7 @@ def main():
         sys.exit(1)
 
     log_info(f"Supabase: {SUPABASE_URL}")
-    log_info(f"Key: {API_KEY[:20]}...")
+    log_info("Key: SUPABASE_SERVICE_KEY is set")
 
     results = {}
     offer_id = trade_id = None
