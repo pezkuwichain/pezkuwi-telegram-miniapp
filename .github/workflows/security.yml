@@ -48,6 +48,9 @@ jobs:
         with:
           fail-on-severity: high
           deny-licenses: GPL-3.0, AGPL-3.0
+          # TruffleHog (AGPL-3.0) is the secret scanner this workflow runs; it
+          # executes in CI and is never shipped, served or distributed.
+          allow-dependencies-licenses: pkg:githubactions/trufflesecurity/trufflehog
 
   secret-scan:
     name: Secret Scan
