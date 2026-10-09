@@ -1,0 +1,50 @@
+#!/bin/bash
+# Forced command for the miniapp site deploy key. Installed root-owned at
+# /usr/local/sbin/miniapp-site-receive; authorized_keys pins the key to it:
+#
+#   restrict,command="/usr/local/sbin/miniapp-site-receive" ssh-ed25519 ...
+#
+# CI runs `ssh miniapp-deploy@<host> deploy < site.tar`. The key can do
+# nothing else: no shell, no other command, no forwarding, one web root.
+set -euo pipefail
+
+TARGET=/var/www/telegram.pezkiwi.app
+
+if [ "${SSH_ORIGINAL_COMMAND:-}" != "deploy" ]; then
+  echo "miniapp-site-receive: the only command is 'deploy', with the site tar on stdin" >&2
+  exit 2
+fi
+
+STAGE=$(mktemp -d)
+trap 'rm -rf "$STAGE"' EXIT
+
+# GNU tar drops leading slashes and refuses members containing '..'.
+tar -xf - -C "$STAGE" --no-same-owner --no-same-permissions
+
+if [ ! -f "$STAGE/index.html" ] || [ ! -d "$STAGE/assets" ]; then
+  echo "miniapp-site-receive: not a site build (index.html and assets/ are required)" >&2
+  exit 1
+fi
+
+# -rt copies regular files and directories only: a symlink in the upload is
+# skipped. --perms with --chmod sets the modes, so mktemp's 0700 never reaches
+# a directory nginx reads. Assets first, index.html last.
+rsync -rt --perms --chmod=D755,F644 --exclude=/index.html "$STAGE/" "$TARGET/"
+install -m 644 "$STAGE/index.html" "$TARGET/index.html"
+
+# Earlier deploys' assets go once nothing can still ask for them: a file of
+# this build is never removed, whatever its timestamp; a file that is not in
+# this build stays for four hours, for tabs still open on the previous build.
+# (The cleanup this replaces protected lazy chunks by their mtime and so
+# removed live ones when a build was shipped more than two hours after it was
+# made, which took seven pages down on 2026-10-09.)
+removed=0
+while IFS= read -r -d '' f; do
+  name=${f#"$TARGET/"}
+  [ -e "$STAGE/$name" ] && continue
+  if [ -z "$(find "$f" -mmin -240)" ]; then
+    rm -f "$f"
+    removed=$((removed + 1))
+  fi
+done < <(find "$TARGET/assets" -type f -print0)
+echo "miniapp-site-receive: deployed; removed $removed asset(s) of earlier builds"

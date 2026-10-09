@@ -62,11 +62,45 @@ server where nobody can see the change.
 
 ### Deployment
 
-`.github/workflows/deploy.yml` copies both to the host on every deploy, so the
-server copy is replaced from version control rather than edited in place. Before
-this, the script existed only at `/usr/local/bin/supabase-deploy-functions` — one
-copy, no history, no review, and gone with the server. The mechanism built to
-stop silent drift was itself drifting.
+The gate and its registry guard every project's functions in the shared
+volume, so no project's CI installs them; that would let one project rewrite
+the rule that protects the others. Root installs them from this directory:
+
+```bash
+install -o root -g root -m 755 ops/supabase-deploy-functions /usr/local/bin/
+install -o root -g root -m 644 ops/functions-registry.json /opt/supabase-self-hosted/
+```
+
+They are still versioned here, not edited in place on the server: before
+2026-07 the script existed only at `/usr/local/bin` — one copy, no history, no
+review. `deploy.yml` checks the host's copies against these files (`gate-sha`)
+and refuses to deploy functions while they differ.
+
+## `host/`: what the deploy keys can do
+
+CI reaches vps3 as `miniapp-deploy`, with two keys. Neither opens a shell: each
+is pinned in `authorized_keys` to one script here (`restrict,command=`).
+
+| key (secret) | forced command | input |
+|---|---|---|
+| `MINIAPP_SITE_DEPLOY_KEY` | `miniapp-site-receive` | site tar on stdin → `/var/www/telegram.pezkiwi.app`; removes earlier builds' assets after four hours, never the new build's |
+| `MINIAPP_FUNCTIONS_DEPLOY_KEY` | `miniapp-functions-ssh` → sudo `miniapp-functions-deploy` | `gate-sha`, or `deploy` with functions.tgz on stdin |
+
+Install (root, on vps3):
+
+```bash
+install -o root -g root -m 755 ops/host/miniapp-* /usr/local/sbin/
+useradd --system --create-home --shell /bin/bash miniapp-deploy
+chown -R miniapp-deploy:miniapp-deploy /var/www/telegram.pezkiwi.app
+# /etc/sudoers.d/miniapp-functions-deploy
+miniapp-deploy ALL=(root) NOPASSWD: /usr/local/sbin/miniapp-functions-deploy deploy, /usr/local/sbin/miniapp-functions-deploy gate-sha
+# ~miniapp-deploy/.ssh/authorized_keys
+restrict,command="/usr/local/sbin/miniapp-site-receive" ssh-ed25519 ... miniapp-ci-site-deploy
+restrict,command="/usr/local/sbin/miniapp-functions-ssh" ssh-ed25519 ... miniapp-ci-functions-deploy
+```
+
+`host/test-site-receive.sh` runs the site script against a scratch web root,
+including what it must refuse; CI runs it with shellcheck.
 
 ## `apply-repo-settings.sh`
 

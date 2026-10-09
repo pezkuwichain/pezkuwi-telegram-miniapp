@@ -33,7 +33,7 @@ read -r -d '' PROTECTION <<'JSON' || true
 {
   "required_status_checks": {
     "strict": true,
-    "contexts": ["Test", "ESLint", "TypeScript", "Build", "Secret Scan"]
+    "contexts": ["Test", "ESLint", "TypeScript", "Build", "Secret Scan", "Host deploy scripts"]
   },
   "enforce_admins": false,
   "required_pull_request_reviews": {
@@ -65,7 +65,7 @@ import json, sys
 d = json.loads(sys.argv[1])
 checks = d.get('required_status_checks') or {}
 rev = d.get('required_pull_request_reviews') or {}
-expected_checks = ["Test", "ESLint", "TypeScript", "Build", "Secret Scan"]
+expected_checks = ["Test", "ESLint", "TypeScript", "Build", "Secret Scan", "Host deploy scripts"]
 want = {
     'required checks': (sorted(checks.get('contexts') or []), sorted(expected_checks)),
     'strict': (checks.get('strict'), True),
@@ -88,5 +88,5 @@ PY
 fi
 
 gh api -X PUT "repos/$REPO/branches/$BRANCH/protection" --input - <<<"$PROTECTION" >/dev/null
-ok "protected: 1 approval, 5 required checks, no force push, no deletion"
+ok "protected: 1 approval, 6 required checks, no force push, no deletion"
 echo "✔ done — verify with: $0 --check"
