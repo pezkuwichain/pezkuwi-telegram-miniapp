@@ -26,9 +26,9 @@ jobs:
     runs-on: ubuntu-latest
     if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: '20'
           cache: 'npm'
@@ -37,35 +37,19 @@ jobs:
 
       - run: npm run build
 
-      # VPS1 (telegram.pezkuwichain.io) is currently running Zagros testnet - deployed manually
-      # Re-enable this step when testnet period is over
-      # - name: Deploy to telegram.pezkuwichain.io
-      #   uses: appleboy/scp-action@v1.0.0
-      #   with:
-      #     host: ${{ secrets.VPS1_HOST }}
-      #     username: ${{ secrets.VPS1_USER }}
-      #     key: ${{ secrets.VPS1_SSH_KEY }}
-      #     source: 'dist/*'
-      #     target: '/var/www/telegram.pezkuwichain.io'
-      #     strip_components: 1
-
       - name: Deploy to telegram.pezkiwi.app
-        uses: appleboy/scp-action@v1.0.0
-        with:
-          host: ${{ secrets.VPS2_HOST }}
-          username: ${{ secrets.VPS2_USER }}
-          key: ${{ secrets.VPS2_SSH_KEY }}
-          source: 'dist/*'
-          target: '/var/www/telegram.pezkiwi.app'
-          strip_components: 1
-
-      - name: Cleanup old assets on VPS
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ secrets.VPS2_HOST }}
-          username: ${{ secrets.VPS2_USER }}
-          key: ${{ secrets.VPS2_SSH_KEY }}
-          script: bash /opt/cleanup-miniapp.sh
+        env:
+          DEPLOY_KEY: ${{ secrets.MINIAPP_SITE_DEPLOY_KEY }}
+          # VPS3's host key, read from the host itself; any other key fails.
+          KNOWN_HOST: "217.77.6.126 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMxxRmMEYyng+B9O3jcUCMnUa31SyWQ+l7aj18/soWtJ"
+        run: |
+          umask 077
+          printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/deploy_key"
+          printf '%s\n' "$KNOWN_HOST" > "$RUNNER_TEMP/known_hosts"
+          # The key is pinned on the host to ops/host/miniapp-site-receive
+          # (authorized_keys restrict,command=): the site tar on stdin, then the
+          # cleanup of earlier deploys' assets; nothing else.
+          tar -C dist -cf - . | ssh -i "$RUNNER_TEMP/deploy_key" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/known_hosts" miniapp-deploy@217.77.6.126 deploy
 
   # Edge functions live in a Supabase volume shared with other projects, so they
   # are written through the ownership gate on the host rather than copied in
@@ -77,7 +61,7 @@ jobs:
     needs: deploy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       # telegram-bot and ask are excluded on purpose: both Telegram bots and the
       # news.pex.mom assistant are served from the cloud project, not from here.
@@ -90,51 +74,27 @@ jobs:
             --exclude='functions/ask' \
             functions
 
-      - name: Copy to staging on VPS
-        uses: appleboy/scp-action@v1.0.0
-        with:
-          host: ${{ secrets.VPS2_HOST }}
-          username: ${{ secrets.VPS2_USER }}
-          key: ${{ secrets.VPS2_SSH_KEY }}
-          source: 'functions.tgz'
-          target: '/opt/miniapp-deploy-staging'
-
-      # The gate and its registry are versioned here, so the server copy is
-      # replaced from source control on every deploy rather than edited in
-      # place. They previously existed only at /usr/local/bin — one copy, no
-      # history, no review, gone with the server. The mechanism built to stop
-      # silent drift was itself drifting.
-      - name: Sync ownership gate to host
-        uses: appleboy/scp-action@v1.0.0
-        with:
-          host: ${{ secrets.VPS2_HOST }}
-          username: ${{ secrets.VPS2_USER }}
-          key: ${{ secrets.VPS2_SSH_KEY }}
-          source: 'ops/supabase-deploy-functions,ops/functions-registry.json'
-          target: '/opt/miniapp-deploy-staging'
-          strip_components: 1
-
+      # The ownership gate and its registry guard every project's functions
+      # in the shared volume, so this deploy does not install them; root does,
+      # from ops/ here. What the deploy does is refuse to run when the host's
+      # copy is not the one in this repository.
       - name: Deploy through ownership gate
-        uses: appleboy/ssh-action@v1.0.0
-        with:
-          host: ${{ secrets.VPS2_HOST }}
-          username: ${{ secrets.VPS2_USER }}
-          key: ${{ secrets.VPS2_SSH_KEY }}
-          script: |
-            set -e
-            BASE=/opt/miniapp-deploy-staging
-
-            # Install the gate before using it, so a change to the gate ships in
-            # the same deploy as the functions it validates.
-            install -m 755 "$BASE/supabase-deploy-functions" /usr/local/bin/supabase-deploy-functions
-            install -m 644 "$BASE/functions-registry.json" /opt/supabase-self-hosted/functions-registry.json
-            trap 'rm -rf "$BASE"' EXIT
-            rm -rf "$BASE/functions"
-            tar xzf "$BASE/functions.tgz" -C "$BASE"
-            supabase-deploy-functions \
-              --project pezkuwi-telegram-miniapp \
-              --src "$BASE/functions" \
-              --restart
+        env:
+          DEPLOY_KEY: ${{ secrets.MINIAPP_FUNCTIONS_DEPLOY_KEY }}
+          # VPS3's host key, read from the host itself; any other key fails.
+          KNOWN_HOST: "217.77.6.126 ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMxxRmMEYyng+B9O3jcUCMnUa31SyWQ+l7aj18/soWtJ"
+        run: |
+          umask 077
+          printf '%s\n' "$DEPLOY_KEY" > "$RUNNER_TEMP/deploy_key"
+          printf '%s\n' "$KNOWN_HOST" > "$RUNNER_TEMP/known_hosts"
+          # The key is pinned on the host to ops/host/miniapp-functions-ssh.
+          want="$(sha256sum ops/supabase-deploy-functions ops/functions-registry.json | awk '{print $1}')"
+          have="$(ssh -i "$RUNNER_TEMP/deploy_key" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/known_hosts" miniapp-deploy@217.77.6.126 gate-sha)"
+          if [ "$want" != "$have" ]; then
+            echo "::error::the host's ownership gate or registry is not the one in ops/; install them as root (ops/host/README.md), then re-run"
+            exit 1
+          fi
+          ssh -i "$RUNNER_TEMP/deploy_key" -o IdentitiesOnly=yes -o BatchMode=yes -o StrictHostKeyChecking=yes -o UserKnownHostsFile="$RUNNER_TEMP/known_hosts" miniapp-deploy@217.77.6.126 deploy < functions.tgz
 
   # The two Telegram bots and the news.pex.mom assistant run on the cloud
   # Supabase project, reached by webhook at
@@ -147,7 +107,7 @@ jobs:
     needs: deploy
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Deploy telegram-bot and ask
         env:

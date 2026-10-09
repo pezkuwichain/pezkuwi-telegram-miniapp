@@ -1,0 +1,30 @@
+#!/bin/bash
+# Deploys this project's edge functions into the shared Supabase volume,
+# through the ownership gate (supabase-deploy-functions), from a functions.tgz
+# on stdin. Installed root-owned at /usr/local/sbin/miniapp-functions-deploy;
+# reached only through miniapp-functions-ssh.
+#
+# The gate and its registry guard every project's functions in that volume,
+# so CI does not install them: root does, from ops/ in this repository, and
+# CI checks with `gate-sha` that the host runs what the repository says.
+set -euo pipefail
+
+GATE=/usr/local/bin/supabase-deploy-functions
+REGISTRY=/opt/supabase-self-hosted/functions-registry.json
+
+case "${1:-}" in
+  gate-sha)
+    sha256sum "$GATE" "$REGISTRY" | awk '{print $1}'
+    ;;
+  deploy)
+    BASE=$(mktemp -d /opt/miniapp-deploy-staging.XXXXXX)
+    trap 'rm -rf "$BASE"' EXIT
+    tar -xzf - -C "$BASE" --no-same-owner
+    [ -d "$BASE/functions" ] || { echo "miniapp-functions-deploy: the bundle has no functions/" >&2; exit 1; }
+    "$GATE" --project pezkuwi-telegram-miniapp --src "$BASE/functions" --restart
+    ;;
+  *)
+    echo "usage: miniapp-functions-deploy gate-sha|deploy" >&2
+    exit 2
+    ;;
+esac

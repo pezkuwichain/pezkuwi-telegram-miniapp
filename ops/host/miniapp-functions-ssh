@@ -1,0 +1,17 @@
+#!/bin/bash
+# Forced command for the miniapp functions deploy key. Installed root-owned
+# at /usr/local/sbin/miniapp-functions-ssh:
+#
+#   restrict,command="/usr/local/sbin/miniapp-functions-ssh" ssh-ed25519 ...
+#
+#   ssh miniapp-deploy@<host> gate-sha            # sha256 of the installed gate and registry
+#   ssh miniapp-deploy@<host> deploy < functions.tgz
+#
+# miniapp-functions-deploy, which sudo lets this user run with exactly those
+# arguments and nothing else, does the work.
+set -euo pipefail
+
+case "${SSH_ORIGINAL_COMMAND:-}" in
+  deploy|gate-sha) exec sudo -n /usr/local/sbin/miniapp-functions-deploy "$SSH_ORIGINAL_COMMAND" ;;
+  *) echo "miniapp-functions-ssh: the commands are 'gate-sha' and 'deploy' (functions.tgz on stdin)" >&2; exit 2 ;;
+esac
