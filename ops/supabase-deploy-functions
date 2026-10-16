@@ -89,6 +89,11 @@ def container_running():
 def restart_runtime():
     """Recreate the edge runtime, tolerating a racing restart.
 
+    Only the runtime: --no-deps. Without it compose also starts what functions depends on
+    (kong, and through kong studio); with studio down that failed with "dependency failed
+    to start" after the old runtime had already been removed, which left the new one in
+    Created and every edge function answering 503.
+
     `docker compose up --force-recreate` fails with "No such container" when
     something else recreated the container between compose reading state and
     acting on it — a hand-run restart, or another project's deploy. The deploy
@@ -98,7 +103,7 @@ def restart_runtime():
     """
     for attempt in (1, 2, 3):
         r = subprocess.run(
-            ["docker", "compose", "up", "-d", "--force-recreate", "functions"],
+            ["docker", "compose", "up", "-d", "--force-recreate", "--no-deps", "functions"],
             cwd=COMPOSE_DIR, capture_output=True, text=True,
         )
         if r.returncode == 0:
