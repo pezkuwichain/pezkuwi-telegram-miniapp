@@ -8,6 +8,20 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
 const TRON_API = 'https://api.trongrid.io';
+
+// Keyless TronGrid calls share a low public rate limit, so a missing key must
+// show up in the logs rather than go out as an empty header.
+let warnedNoTronKey = false;
+function tronHeaders(): Record<string, string> {
+  const key = Deno.env.get('TRONGRID_API_KEY');
+  if (key) return { 'TRON-PRO-API-KEY': key };
+  if (!warnedNoTronKey) {
+    console.warn('TRONGRID_API_KEY is not set; TronGrid calls are unauthenticated');
+    warnedNoTronKey = true;
+  }
+  return {};
+}
+
 const USDT_TRC20_CONTRACT = 'TR7NHqjeKQxGTCi8q8ZY4pL8otSzgjLj6t'; // USDT TRC20 contract
 
 interface TRC20Transfer {
@@ -78,7 +92,7 @@ serve(async (req) => {
       const response = await fetch(
         `${TRON_API}/v1/accounts/${tronAddress}/transactions/trc20?limit=50&contract_address=${USDT_TRC20_CONTRACT}`,
         {
-          headers: { 'TRON-PRO-API-KEY': Deno.env.get('TRONGRID_API_KEY') || '' },
+          headers: tronHeaders(),
         }
       );
 
@@ -125,6 +139,8 @@ serve(async (req) => {
             results.trc20.processed++;
           }
         }
+      } else {
+        results.trc20.errors.push(`TronGrid HTTP ${response.status}`);
       }
     } catch (err) {
       results.trc20.errors.push(`TRC20 error: ${err}`);
