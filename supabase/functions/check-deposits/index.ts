@@ -24,6 +24,20 @@ const TRC20_FEE = 3; // $3 fee for TRC20
 // API endpoints
 const TON_API = 'https://tonapi.io/v2';
 const TRON_API = 'https://api.trongrid.io';
+
+// Keyless TronGrid calls share a low public rate limit, so a missing key must
+// show up in the logs rather than go out as an empty header.
+let warnedNoTronKey = false;
+function tronHeaders(): Record<string, string> {
+  const key = Deno.env.get('TRONGRID_API_KEY');
+  if (key) return { 'TRON-PRO-API-KEY': key };
+  if (!warnedNoTronKey) {
+    console.warn('TRONGRID_API_KEY is not set; TronGrid calls are unauthenticated');
+    warnedNoTronKey = true;
+  }
+  return {};
+}
+
 const SUBSCAN_API = 'https://assethub-polkadot.api.subscan.io';
 
 // Contract addresses - raw format from TonAPI
@@ -274,7 +288,7 @@ async function checkTrc20Deposits(
     for (let i = 0; i < users.length; i += CONCURRENCY) {
       const batch = users.slice(i, i + CONCURRENCY);
       await Promise.all(
-        batch.map(async (user) => {
+        batch.map(async (user: { id: string; deposit_index: number }) => {
           try {
             const address = deriveTronAddress(hdMnemonic, user.deposit_index);
 
@@ -282,11 +296,14 @@ async function checkTrc20Deposits(
             const response = await fetch(
               `${TRON_API}/v1/accounts/${address}/transactions/trc20?limit=20&contract_address=${TRON_USDT_CONTRACT}`,
               {
-                headers: { 'TRON-PRO-API-KEY': Deno.env.get('TRONGRID_API_KEY') || '' },
+                headers: tronHeaders(),
               }
             );
 
-            if (!response.ok) return;
+            if (!response.ok) {
+              console.error(`TronGrid ${response.status} for deposit index ${user.deposit_index}`);
+              return;
+            }
 
             const data = await response.json();
             const transfers = data.data || [];
