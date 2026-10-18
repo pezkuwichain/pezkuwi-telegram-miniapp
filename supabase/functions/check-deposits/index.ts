@@ -38,6 +38,20 @@ function tronHeaders(): Record<string, string> {
   return {};
 }
 
+// tonapi answers 401 to an empty Bearer token but serves keyless requests, so
+// the header is only sent when a key is configured.
+function tonHeaders(): Record<string, string> {
+  const key = Deno.env.get('TONAPI_KEY');
+  return key ? { Authorization: `Bearer ${key}` } : {};
+}
+
+// The status code alone hid why these calls failed; keep the start of the body.
+async function apiError(label: string, response: Response): Promise<string> {
+  const body = (await response.text().catch(() => '')).slice(0, 200);
+  console.error(`${label} ${response.status}: ${body}`);
+  return `${label} ${response.status}: ${body}`;
+}
+
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 
@@ -126,11 +140,11 @@ async function checkTonDeposits(
   try {
     // Get recent transactions
     const response = await fetch(`${TON_API}/accounts/${depositAddress}/events?limit=50`, {
-      headers: { Authorization: `Bearer ${Deno.env.get('TONAPI_KEY') || ''}` },
+      headers: tonHeaders(),
     });
 
     if (!response.ok) {
-      result.errors.push(`TON API error: ${response.status}`);
+      result.errors.push(await apiError('TON API error:', response));
       return result;
     }
 
@@ -220,7 +234,7 @@ async function checkPolkadotDeposits(
     });
 
     if (!response.ok) {
-      result.errors.push(`Polkadot API error: ${response.status}`);
+      result.errors.push(await apiError('Polkadot API error:', response));
       return result;
     }
 
