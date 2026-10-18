@@ -38,6 +38,19 @@ function tronHeaders(): Record<string, string> {
   return {};
 }
 
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// A 429 is TronGrid's per-second limit, not a verdict on the address: wait and
+// ask again rather than skip the user until the next run hits the same wall.
+async function fetchTron(url: string, retries = 2): Promise<Response> {
+  for (let attempt = 0; ; attempt++) {
+    const response = await fetch(url, { headers: tronHeaders() });
+    if (response.status !== 429 || attempt >= retries) return response;
+    await response.body?.cancel();
+    await sleep(1000 * (attempt + 1));
+  }
+}
+
 const SUBSCAN_API = 'https://assethub-polkadot.api.subscan.io';
 
 // Contract addresses - raw format from TonAPI
@@ -284,24 +297,29 @@ async function checkTrc20Deposits(
 
     // Check each user's derived address, with bounded concurrency so we
     // don't exceed the edge function's CPU/time budget on large user counts.
+    // Batches are also paced: TronGrid rate-limits a key per second, and
+    // unpaced batches of 8 got HTTP 429 from about the 24th request on, which
+    // skipped every later user (measured on two consecutive runs, 2026-10-17).
     const CONCURRENCY = 8;
+    const BATCH_INTERVAL_MS = 1100;
     for (let i = 0; i < users.length; i += CONCURRENCY) {
       const batch = users.slice(i, i + CONCURRENCY);
+      const batchStart = Date.now();
       await Promise.all(
         batch.map(async (user: { id: string; deposit_index: number }) => {
           try {
             const address = deriveTronAddress(hdMnemonic, user.deposit_index);
 
             // Get TRC20 transfers to this address
-            const response = await fetch(
-              `${TRON_API}/v1/accounts/${address}/transactions/trc20?limit=20&contract_address=${TRON_USDT_CONTRACT}`,
-              {
-                headers: tronHeaders(),
-              }
+            const response = await fetchTron(
+              `${TRON_API}/v1/accounts/${address}/transactions/trc20?limit=20&contract_address=${TRON_USDT_CONTRACT}`
             );
 
             if (!response.ok) {
               console.error(`TronGrid ${response.status} for deposit index ${user.deposit_index}`);
+              result.errors.push(
+                `TronGrid ${response.status} for deposit index ${user.deposit_index}`
+              );
               return;
             }
 
@@ -343,11 +361,14 @@ async function checkTrc20Deposits(
               }
             }
           } catch (err) {
-            // Skip individual user errors
-            return;
+            // One user's failure must not stop the others, but it must be seen.
+            console.error(`TRC20 check failed for deposit index ${user.deposit_index}: ${err}`);
+            result.errors.push(`TRC20 check failed for deposit index ${user.deposit_index}`);
           }
         })
       );
+      const wait = BATCH_INTERVAL_MS - (Date.now() - batchStart);
+      if (wait > 0 && i + CONCURRENCY < users.length) await sleep(wait);
     }
   } catch (err) {
     result.errors.push(`TRC20 error: ${err}`);
