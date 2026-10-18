@@ -40,16 +40,6 @@ function tronHeaders(): Record<string, string> {
 
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-// A 429 is TronGrid's per-second limit, not a verdict on the address: wait and
-// ask again rather than skip the user until the next run hits the same wall.
-async function fetchTron(url: string, retries = 2): Promise<Response> {
-  for (let attempt = 0; ; attempt++) {
-    const response = await fetch(url, { headers: tronHeaders() });
-    if (response.status !== 429 || attempt >= retries) return response;
-    await response.body?.cancel();
-    await sleep(1000 * (attempt + 1));
-  }
-}
 
 const SUBSCAN_API = 'https://assethub-polkadot.api.subscan.io';
 
@@ -295,29 +285,31 @@ async function checkTrc20Deposits(
 
     if (!users || users.length === 0) return result;
 
-    // Check each user's derived address, with bounded concurrency so we
-    // don't exceed the edge function's CPU/time budget on large user counts.
-    // Batches are also paced: TronGrid rate-limits a key per second, and
-    // unpaced batches of 8 got HTTP 429 from about the 24th request on, which
-    // skipped every later user (measured on two consecutive runs, 2026-10-17).
-    const CONCURRENCY = 8;
-    const BATCH_INTERVAL_MS = 1100;
-    // Once TronGrid answers 429 inside a run, every later request in that run
-    // has been refused too (measured 2026-10-18: from about the 17th user on,
-    // in a third of the runs), so the rest of the run is skipped rather than
-    // sent into the limit. The first 429's body is logged: it says which limit
-    // was hit and for how long.
+    // TronGrid allows a key 15 requests a second and, past that, refuses every
+    // request for about 30 s ("The key exceeds the frequency limit(15), and the
+    // query server is suspended for 27 s", logged 2026-10-18). Bursts of 8 hit
+    // it even below 15 a second on average, so requests go one at a time, at
+    // most 4 a second, which leaves room for anything else using the key.
+    const CONCURRENCY = 1;
+    const BATCH_INTERVAL_MS = 250;
+    // Each run starts at a different user, so a run cut short by a 429 does not
+    // leave the same users at the end of the list unchecked every time.
+    const offset = Math.floor(Date.now() / 60_000) % users.length;
+    const ordered = [...users.slice(offset), ...users.slice(0, offset)];
+    // A 429 suspends the key for the rest of the run, so the run stops there
+    // instead of sending more requests into the suspension. The first 429's
+    // body is logged: it says which limit was hit and for how long.
     let limitedAt: number | null = null;
-    for (let i = 0; i < users.length; i += CONCURRENCY) {
+    for (let i = 0; i < ordered.length; i += CONCURRENCY) {
       if (limitedAt !== null) {
-        const skipped = users.length - i;
+        const skipped = ordered.length - i;
         console.error(
           `TronGrid 429 at deposit index ${limitedAt}: ${skipped} later users not checked this run`
         );
         result.errors.push(`TronGrid 429: ${skipped} users not checked this run`);
         break;
       }
-      const batch = users.slice(i, i + CONCURRENCY);
+      const batch = ordered.slice(i, i + CONCURRENCY);
       const batchStart = Date.now();
       await Promise.all(
         batch.map(async (user: { id: string; deposit_index: number }) => {
@@ -325,8 +317,9 @@ async function checkTrc20Deposits(
             const address = deriveTronAddress(hdMnemonic, user.deposit_index);
 
             // Get TRC20 transfers to this address
-            const response = await fetchTron(
-              `${TRON_API}/v1/accounts/${address}/transactions/trc20?limit=20&contract_address=${TRON_USDT_CONTRACT}`
+            const response = await fetch(
+              `${TRON_API}/v1/accounts/${address}/transactions/trc20?limit=20&contract_address=${TRON_USDT_CONTRACT}`,
+              { headers: tronHeaders() }
             );
 
             if (!response.ok) {
@@ -387,7 +380,7 @@ async function checkTrc20Deposits(
         })
       );
       const wait = BATCH_INTERVAL_MS - (Date.now() - batchStart);
-      if (wait > 0 && i + CONCURRENCY < users.length) await sleep(wait);
+      if (wait > 0 && i + CONCURRENCY < ordered.length) await sleep(wait);
     }
   } catch (err) {
     result.errors.push(`TRC20 error: ${err}`);
