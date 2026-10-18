@@ -302,7 +302,21 @@ async function checkTrc20Deposits(
     // skipped every later user (measured on two consecutive runs, 2026-10-17).
     const CONCURRENCY = 8;
     const BATCH_INTERVAL_MS = 1100;
+    // Once TronGrid answers 429 inside a run, every later request in that run
+    // has been refused too (measured 2026-10-18: from about the 17th user on,
+    // in a third of the runs), so the rest of the run is skipped rather than
+    // sent into the limit. The first 429's body is logged: it says which limit
+    // was hit and for how long.
+    let limitedAt: number | null = null;
     for (let i = 0; i < users.length; i += CONCURRENCY) {
+      if (limitedAt !== null) {
+        const skipped = users.length - i;
+        console.error(
+          `TronGrid 429 at deposit index ${limitedAt}: ${skipped} later users not checked this run`
+        );
+        result.errors.push(`TronGrid 429: ${skipped} users not checked this run`);
+        break;
+      }
       const batch = users.slice(i, i + CONCURRENCY);
       const batchStart = Date.now();
       await Promise.all(
@@ -316,6 +330,11 @@ async function checkTrc20Deposits(
             );
 
             if (!response.ok) {
+              if (response.status === 429 && limitedAt === null) {
+                limitedAt = user.deposit_index;
+                const body = (await response.text()).slice(0, 300);
+                console.error(`TronGrid 429 body: ${body}`);
+              }
               console.error(`TronGrid ${response.status} for deposit index ${user.deposit_index}`);
               result.errors.push(
                 `TronGrid ${response.status} for deposit index ${user.deposit_index}`
