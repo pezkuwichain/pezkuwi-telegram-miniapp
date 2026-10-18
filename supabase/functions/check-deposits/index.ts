@@ -12,6 +12,7 @@ import { keccak_256 } from 'https://esm.sh/@noble/hashes@1.3.2/sha3';
 import { sha256 } from 'https://esm.sh/@noble/hashes@1.3.2/sha256';
 import { bytesToHex } from 'https://esm.sh/@noble/hashes@1.3.2/utils';
 import { secp256k1 } from 'https://esm.sh/@noble/curves@1.2.0/secp256k1';
+import { isIncomingTonTransfer } from './ton.ts';
 
 const ALLOWED_ORIGINS = ['https://telegram.pezkuwichain.io', 'https://telegram.pezkiwi.app'];
 const MIN_DEPOSIT = 10; // Minimum 10 USDT
@@ -138,6 +139,17 @@ async function checkTonDeposits(
   const result = { found: 0, processed: 0, errors: [] as string[] };
 
   try {
+    // tonapi reports recipients in raw form; the configured address may be
+    // user-friendly, so resolve it before comparing.
+    const parsed = await fetch(`${TON_API}/address/${depositAddress}/parse`, {
+      headers: tonHeaders(),
+    });
+    if (!parsed.ok) {
+      result.errors.push(await apiError('TON address parse error:', parsed));
+      return result;
+    }
+    const depositRawAddress: string = (await parsed.json()).raw_form;
+
     // Get recent transactions
     const response = await fetch(`${TON_API}/accounts/${depositAddress}/events?limit=50`, {
       headers: tonHeaders(),
@@ -156,6 +168,7 @@ async function checkTonDeposits(
       for (const action of event.actions || []) {
         if (action.type !== 'JettonTransfer') continue;
         if (action.JettonTransfer?.jetton?.address !== TON_USDT_MASTER) continue;
+        if (!isIncomingTonTransfer(action.JettonTransfer, depositRawAddress)) continue;
 
         const txHash = event.event_id;
         const amount = parseInt(action.JettonTransfer.amount) / 1e6; // USDT has 6 decimals
