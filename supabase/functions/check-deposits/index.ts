@@ -240,7 +240,8 @@ async function checkPolkadotDeposits(
       body: JSON.stringify({
         address: depositAddress,
         direction: 'received',
-        row: 50,
+        // Subscan's free plan rejects more than 25 rows with 403 row_limit_exceeded.
+        row: 25,
         page: 0,
         asset_symbol: 'USDT',
       }),
