@@ -255,6 +255,15 @@ serve(async (req) => {
       userId = newUser.id;
     }
 
+    // check-deposits checks this user's TRC20 address on every run for the
+    // next 24 hours, so a deposit made from this screen is found within
+    // minutes rather than at the next six-hourly full scan.
+    const { error: seenError } = await supabase
+      .from('tg_users')
+      .update({ deposit_info_seen_at: new Date().toISOString() })
+      .eq('id', userId);
+    if (seenError) console.error('Failed to record deposit_info_seen_at:', seenError.message);
+
     // Get or create deposit code
     let depositCode: string;
     const { data: existingCode } = await supabase
