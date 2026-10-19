@@ -13,6 +13,7 @@ import { sha256 } from 'https://esm.sh/@noble/hashes@1.3.2/sha256';
 import { bytesToHex } from 'https://esm.sh/@noble/hashes@1.3.2/utils';
 import { secp256k1 } from 'https://esm.sh/@noble/curves@1.2.0/secp256k1';
 import { isIncomingTonTransfer } from './ton.ts';
+import { selectTrc20Users } from './trc20.ts';
 
 const ALLOWED_ORIGINS = ['https://telegram.pezkuwichain.io', 'https://telegram.pezkiwi.app'];
 const MIN_DEPOSIT = 10; // Minimum 10 USDT
@@ -304,14 +305,20 @@ async function checkTrc20Deposits(
     // platform admin account and doubles as the treasury sweep destination -
     // excluded here so internal sweep transfers landing on it are never
     // mistaken for a customer deposit.
-    const { data: users } = await supabase
+    const { data: allUsers, error: usersError } = await supabase
       .from('tg_users')
-      .select('id, deposit_index')
+      .select('id, deposit_index, deposit_info_seen_at')
       .not('deposit_index', 'is', null)
       .neq('deposit_index', 0)
       .order('deposit_index', { ascending: true });
 
-    if (!users || users.length === 0) return result;
+    if (usersError) {
+      result.errors.push(`TRC20 user list error: ${usersError.message}`);
+      return result;
+    }
+    type Trc20Row = { id: string; deposit_index: number; deposit_info_seen_at: string | null };
+    const users = selectTrc20Users((allUsers ?? []) as Trc20Row[], new Date());
+    if (users.length === 0) return result;
 
     // TronGrid allows a key 15 requests a second and, past that, refuses every
     // request for about 30 s ("The key exceeds the frequency limit(15), and the
