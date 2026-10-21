@@ -291,7 +291,61 @@ License: Apache 2.0, Copyright 2026 Kurdistan Tech Institute. Lead Architect: Sa
 // gpt-oss-120b) as the 3rd, before ever reaching the Anthropic fallback
 // below. Retries a 4xx (bad request/auth) not at all — that's not transient
 // and switching models wouldn't help either.
-const GROQ_MODELS = ['llama-3.1-8b-instant', 'openai/gpt-oss-120b', 'llama-3.3-70b-versatile'];
+// 2026-09-05: both llama models were withdrawn from Groq — every call spent two
+// 404 round-trips before reaching the only survivor, which then hit its own
+// per-model rate limit, and the assistant answered "could not answer" most of
+// the time. Measured against the account's live model list; these three all
+// answer fluent Turkish and each has its own rate-limit bucket, so a busy
+// minute on one is not an outage. Left out on purpose: gpt-oss-20b returns an
+// empty content field, and qwen3.6-27b leaks its <think> reasoning.
+// Google AI Studio. Added 2026-09-05 because Groq's free tier caps the whole
+// account at 8,000 tokens a minute — with this bot's knowledge base that is
+// close to one question — so it runs first and Groq becomes the fallback
+// rather than the only road. Model names read from the live account: the 2.x
+// names in most examples are already retired for new keys.
+const GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY') || '';
+// 2026-10-22, measured on the live account: gemini-flash-latest hung past 30 s on
+// every call and the 3.1/3.8 previews answered 503 "high demand"; 3.5-flash and
+// flash-lite-latest answered in 1-6 s.
+const GEMINI_MODELS = ['gemini-3.5-flash', 'gemini-flash-lite-latest', 'gemini-3.1-flash-lite'];
+
+async function callGemini(system: string, userMessage: string): Promise<string | null> {
+  if (!GEMINI_API_KEY) return null;
+  for (const model of GEMINI_MODELS) {
+    try {
+      const r = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+        {
+          method: 'POST',
+          headers: { 'x-goog-api-key': GEMINI_API_KEY, 'Content-Type': 'application/json' },
+          signal: AbortSignal.timeout(20_000),
+          body: JSON.stringify({
+            systemInstruction: { parts: [{ text: system }] },
+            contents: [{ role: 'user', parts: [{ text: userMessage }] }],
+            generationConfig: { temperature: 0.3, maxOutputTokens: 900 },
+          }),
+        }
+      );
+      if (!r.ok) {
+        console.error('[AI] Gemini error:', model, r.status, (await r.text()).slice(0, 300));
+        continue;
+      }
+      const d = await r.json();
+      const t = (d?.candidates?.[0]?.content?.parts || [])
+        .map((p: any) => p?.text || '')
+        .join('')
+        .trim();
+      if (t) return t;
+      console.error('[AI] Gemini empty:', model, d?.candidates?.[0]?.finishReason);
+    } catch (e) {
+      console.error('[AI] Gemini exception:', model, e);
+    }
+  }
+  return null;
+}
+
+// groq/compound-mini left the account's model list by 2026-10-22.
+const GROQ_MODELS = ['openai/gpt-oss-120b', 'qwen/qwen3.8-27b'];
 
 async function callGroqWithRetry(
   systemPrompt: string,
@@ -351,7 +405,9 @@ async function handleAIChat(token: string, chatId: number, userMessage: string, 
     // Primary provider: Groq (free). Fallback: Claude when it has credit.
     let aiReply: string | null = null;
 
-    if (GROQ_API_KEY) {
+    aiReply = await callGemini(CLAUDE_SYSTEM_PROMPT, userMessage);
+
+    if (!aiReply && GROQ_API_KEY) {
       aiReply = await callGroqWithRetry(CLAUDE_SYSTEM_PROMPT, userMessage);
     }
 
@@ -364,7 +420,7 @@ async function handleAIChat(token: string, chatId: number, userMessage: string, 
           'anthropic-version': '2023-06-01',
         },
         body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
+          model: 'claude-sonnet-5',
           max_tokens: 1024,
           system: CLAUDE_SYSTEM_PROMPT,
           messages: [{ role: 'user', content: userMessage }],
@@ -379,7 +435,14 @@ async function handleAIChat(token: string, chatId: number, userMessage: string, 
     }
 
     // Models occasionally emit markdown despite the plain-text rule; Telegram renders it raw.
-    if (aiReply) aiReply = aiReply.replace(/\*\*/g, '').replace(/^#+\s*/gm, '');
+    // Some models emit their chain of thought in <think> tags; a reader must
+    // never see it, and the prompt rule alone is not a filter.
+    if (aiReply)
+      aiReply = aiReply
+        .replace(/<think>[\s\S]*?<\/think>/gi, '')
+        .replace(/\*\*/g, '')
+        .replace(/^#+\s*/gm, '')
+        .trim();
 
     if (!aiReply) {
       await sendTelegramRequest(token, 'sendMessage', {
@@ -780,7 +843,10 @@ serve(async (req: Request) => {
       const text = update.message.text;
       const userName = update.message.from?.first_name || 'User';
 
-      if (text === '/start' || text.startsWith('/start ')) {
+      // A chat that was opened before keeps no START button, so people type
+      // "Start" by hand; it has to land in the same place as the command.
+      const cmd = text.trim().toLowerCase();
+      if (cmd === '/start' || cmd.startsWith('/start ') || cmd === 'start') {
         if (botId === 'krd') {
           await sendKrdWelcome(botToken, chatId);
         } else if (botId === 'dks') {
@@ -795,6 +861,10 @@ serve(async (req: Request) => {
       } else if (botId === 'dks' && !text.startsWith('/')) {
         // DKS bot: forward non-command messages to Claude AI
         await handleAIChat(botToken, chatId, text, userName);
+      } else if (botId !== 'dks') {
+        // The app bots have no conversation; silence reads as a dead bot, so any
+        // other text gets the welcome with its app buttons.
+        await (botId === 'krd' ? sendKrdWelcome : sendMainWelcome)(botToken, chatId);
       }
     }
 
