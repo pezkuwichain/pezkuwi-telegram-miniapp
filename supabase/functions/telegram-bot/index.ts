@@ -14,10 +14,24 @@ import { wordlist } from 'https://esm.sh/@scure/bip39@1.2.1/wordlists/english';
 
 // ── Bot configuration ───────────────────────────────────────────────
 const BOT_TOKENS: Record<string, string> = {
-  main: Deno.env.get('TELEGRAM_BOT_TOKEN') || '',
+  // Not TELEGRAM_BOT_TOKEN: on vps3 that name is the miniapp's sign-in check.
+  main: Deno.env.get('TELEGRAM_BOT_TOKEN_MAIN') || '',
   krd: Deno.env.get('TELEGRAM_BOT_TOKEN_KRD') || '',
   dks: Deno.env.get('TELEGRAM_BOT_TOKEN_DKS') || '',
 };
+
+// Every webhook is registered with this as its secret_token, and Telegram sends
+// it back on each update. Without the check anyone who knows the URL could post
+// a forged update and have the bots message any chat. Unset means refuse all.
+const WEBHOOK_SECRET = Deno.env.get('TELEGRAM_WEBHOOK_SECRET') || '';
+
+function fromTelegram(req: Request): boolean {
+  const got = req.headers.get('x-telegram-bot-api-secret-token') || '';
+  if (!WEBHOOK_SECRET || got.length !== WEBHOOK_SECRET.length) return false;
+  let diff = 0;
+  for (let i = 0; i < got.length; i++) diff |= got.charCodeAt(i) ^ WEBHOOK_SECRET.charCodeAt(i);
+  return diff === 0;
+}
 
 const MINI_APP_URLS: Record<string, string> = {
   // @BizinikiwiBot, created fresh under separate ownership on 2026-07-30. It is
@@ -829,6 +843,10 @@ serve(async (req: Request) => {
 
   if (req.method !== 'POST') {
     return new Response('Method not allowed', { status: 405 });
+  }
+
+  if (!fromTelegram(req)) {
+    return new Response('Unauthorized', { status: 401 });
   }
 
   try {

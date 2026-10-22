@@ -34,6 +34,7 @@ import time
 from datetime import datetime, timezone
 
 REGISTRY = "/opt/supabase-self-hosted/functions-registry.json"
+ELSEWHERE = "_hosted_elsewhere"
 VOLUME = "/opt/supabase-self-hosted/docker/volumes/functions"
 LOG = "/var/log/supabase-function-deploys.log"
 LOCK = "/var/lock/supabase-function-deploy.lock"
@@ -68,12 +69,11 @@ def load_registry():
                      % (name, owner_of[name], project), 2)
             owner_of[name] = project
 
-    # Functions that were moved to the cloud project. They are declared, just not
-    # owned by anyone here — without this they read as unaccounted-for and the
-    # audit would offer to retire two live-looking directories.
-    cloud = data.get("_cloud_hosted") or {}
-    for name in cloud.get("names", []):
-        owner_of.setdefault(name, "_cloud_hosted")
+    # Functions served by another runtime, not from this volume. They are declared
+    # so no project can claim the name here, but nobody deploys them into it.
+    elsewhere = data.get("_hosted_elsewhere") or {}
+    for name in elsewhere.get("names", []):
+        owner_of.setdefault(name, ELSEWHERE)
 
     return projects, owner_of
 
@@ -154,6 +154,10 @@ def audit(owner_of):
     """
     disk, declared = on_disk(), set(owner_of)
     extra, missing = sorted(disk - declared), sorted(declared - disk)
+    # A copy of a function served elsewhere is never the live one; it is stale.
+    stale = sorted(n for n in disk if owner_of.get(n) == ELSEWHERE)
+    missing = [n for n in missing if owner_of.get(n) != ELSEWHERE]
+    extra = sorted(set(extra) | set(stale))
 
     if extra:
         print("\nVolume holds %d function(s) the registry does not account for:" % len(extra))
@@ -178,7 +182,8 @@ def retire(names, project, owner_of):
     stamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     for name in names:
         owner = owner_of.get(name)
-        if owner is not None and owner != project:
+        # A stale copy of a function served elsewhere belongs to no one here.
+        if owner is not None and owner not in (project, ELSEWHERE):
             fail("'%s' belongs to '%s' — refusing. Retire it from that project."
                  % (name, owner))
         if not os.path.isdir(os.path.join(VOLUME, name)):

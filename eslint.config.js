@@ -173,6 +173,7 @@ export default [
       'node_modules/**',
       'coverage/**',
       'supabase/functions/**', // Deno runtime, different globals
+      'bots/**', // same edge runtime as supabase/functions
       '*.config.js',
       '*.config.ts',
       '.*.js',

@@ -47,12 +47,45 @@ than discovered a month later.
 Current ownership: 21 names to this project, 12 to pwap-web, 2 to the platform
 (`hello`, `main`).
 
-`_cloud_hosted` lists functions that live on the **cloud** Supabase project
-(`vbhftvdayqfmcgmzdxfv`), not on vps3: `telegram-bot` and `ask`. Both Telegram
-bots reach the cloud project by webhook, and news.pex.mom's assistant calls `ask`
-there. Stale copies of both sit in the vps3 volume from before that split and
-serve no traffic — deploying them here updates a dead copy while the live one
-keeps running whatever was last pushed by hand.
+`_hosted_elsewhere` lists functions that are not served from this volume:
+`telegram-bot` and `ask`, which run in their own runtime (next section). The gate
+refuses to deploy them here, and the audit reports any copy in the volume as
+stale.
+
+## The bots runtime (`bots/`)
+
+`telegram-bot` (the webhook of all three Telegram bots) and `ask` (the assistant
+behind news.pex.mom and ick.pezkiwi.app) run in a separate edge-runtime container
+on vps3, `pezkuwi-bots`, from `/opt/pezkuwi-bots`. Until 2026-10-22 they ran on
+the free cloud project `vbhftvdayqfmcgmzdxfv`, which paused itself after a quiet
+week and took every bot down with it.
+
+They are not in the shared runtime for two reasons. It verifies a JWT on every
+request and Telegram cannot send one; and it holds the platform's wallet keys,
+which a public bot that feeds user text to a language model should not sit next
+to. This runtime holds only the keys the two functions read (listed in
+`bots/docker-compose.yml`), and each function checks its own callers:
+`telegram-bot` refuses any update without Telegram's secret-token header
+(`TELEGRAM_WEBHOOK_SECRET`, set on every webhook with `secret_token`), `ask`
+keeps its per-IP limit.
+
+nginx sends `supabase.pezkuwichain.io/functions/v1/{telegram-bot,ask}` to it
+(`bots/nginx-locations.conf`), so the public URLs did not change shape.
+
+Install (root, on vps3), once:
+
+```bash
+mkdir -p /opt/pezkuwi-bots/functions
+install -m 644 bots/docker-compose.yml /opt/pezkuwi-bots/
+install -m 600 /dev/null /opt/pezkuwi-bots/.env      # then fill it, values via stdin only
+install -m 644 bots/nginx-locations.conf /etc/nginx/snippets/pezkuwi-bots.conf
+# in the supabase.pezkuwichain.io server block, before `location /`:
+#   include /etc/nginx/snippets/pezkuwi-bots.conf;
+```
+
+CI then ships the code with `bots-deploy` (below): it replaces exactly `main`,
+`telegram-bot` and `ask` under `/opt/pezkuwi-bots/functions`, restarts the
+container, and fails unless `telegram-bot` comes back refusing an unsigned update.
 
 **pwap-web depends on this file too.** It is versioned here because this project
 owns the larger share and the gate was built for its incident, but a pwap-web
@@ -84,7 +117,7 @@ is pinned in `authorized_keys` to one script here (`restrict,command=`).
 | key (secret) | forced command | input |
 |---|---|---|
 | `MINIAPP_SITE_DEPLOY_KEY` | `miniapp-site-receive` | site tar on stdin → `/var/www/telegram.pezkiwi.app`; removes earlier builds' assets after four hours, never the new build's |
-| `MINIAPP_FUNCTIONS_DEPLOY_KEY` | `miniapp-functions-ssh` → sudo `miniapp-functions-deploy` | `gate-sha`, or `deploy` with functions.tgz on stdin |
+| `MINIAPP_FUNCTIONS_DEPLOY_KEY` | `miniapp-functions-ssh` → sudo `miniapp-functions-deploy` | `gate-sha`; `deploy` with functions.tgz on stdin; `bots-deploy` with bots.tgz on stdin |
 
 Install (root, on vps3):
 
@@ -93,7 +126,7 @@ install -o root -g root -m 755 ops/host/miniapp-* /usr/local/sbin/
 useradd --system --create-home --shell /bin/bash miniapp-deploy
 chown -R miniapp-deploy:miniapp-deploy /var/www/telegram.pezkiwi.app
 # /etc/sudoers.d/miniapp-functions-deploy
-miniapp-deploy ALL=(root) NOPASSWD: /usr/local/sbin/miniapp-functions-deploy deploy, /usr/local/sbin/miniapp-functions-deploy gate-sha
+miniapp-deploy ALL=(root) NOPASSWD: /usr/local/sbin/miniapp-functions-deploy deploy, /usr/local/sbin/miniapp-functions-deploy gate-sha, /usr/local/sbin/miniapp-functions-deploy bots-deploy
 # ~miniapp-deploy/.ssh/authorized_keys
 restrict,command="/usr/local/sbin/miniapp-site-receive" ssh-ed25519 ... miniapp-ci-site-deploy
 restrict,command="/usr/local/sbin/miniapp-functions-ssh" ssh-ed25519 ... miniapp-ci-functions-deploy
