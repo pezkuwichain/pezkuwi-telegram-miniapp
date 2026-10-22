@@ -5,7 +5,7 @@
 # .env holds only what the two functions read:
 #   TELEGRAM_BOT_TOKEN_MAIN, TELEGRAM_BOT_TOKEN_KRD, TELEGRAM_BOT_TOKEN_DKS,
 #   TELEGRAM_WEBHOOK_SECRET, GEMINI_API_KEY, GROQ_API_KEY, ANTHROPIC_API_KEY,
-#   ASK_PROXY_KEY, SUPABASE_SECRET_KEYS
+#   ASK_PROXY_KEY, SUPABASE_SECRET_KEYS ({"default":"<self-hosted service_role JWT>"})
 services:
   bots:
     container_name: pezkuwi-bots

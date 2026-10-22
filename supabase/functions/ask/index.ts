@@ -9,9 +9,10 @@ const GROQ_API_KEY = Deno.env.get('GROQ_API_KEY') || '';
 // record on our side instead.
 const PROXY_KEY = Deno.env.get('ASK_PROXY_KEY') || '';
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || '';
-// The project's legacy anon/service_role keys are disabled (2026-10-02, after the
-// service_role key leaked through a public commit). The secret key comes from
-// SUPABASE_SECRET_KEYS, a JSON object keyed by name; `default` is the project's.
+// The service key comes from SUPABASE_SECRET_KEYS, a JSON object keyed by name;
+// `default` is used. On vps3 it is the self-hosted project's service_role JWT
+// (that gateway has no opaque keys). The cloud project, where this ran until
+// 2026-10-22, had its legacy keys disabled after one leaked and used sb_secret_….
 const SERVICE_KEY = (() => {
   try {
     return JSON.parse(Deno.env.get('SUPABASE_SECRET_KEYS') || '{}')['default'] || '';
@@ -237,9 +238,14 @@ async function allowed(ip: string): Promise<boolean> {
   // the key stopped working, every count came back 0 and every request went
   // through.
   if (!SUPABASE_URL || !SERVICE_KEY) return false;
-  // A secret key goes on the apikey header only. Sent as `Authorization: Bearer`
-  // too, the gateway tries to parse it as a JWT and rejects the request.
-  const h = { apikey: SERVICE_KEY, Prefer: 'count=exact' };
+  // An opaque secret key (sb_secret_…) goes on the apikey header only: sent as
+  // `Authorization: Bearer` too, the gateway tries to parse it as a JWT and
+  // rejects it. The vps3 gateway has no opaque keys and takes the legacy
+  // service_role JWT, which it only honours as a bearer token.
+  const auth: Record<string, string> = SERVICE_KEY.startsWith('eyJ')
+    ? { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}` }
+    : { apikey: SERVICE_KEY };
+  const h = { ...auth, Prefer: 'count=exact' };
   const cnt = async (sinceISO: string): Promise<number> => {
     const u = `${SUPABASE_URL}/rest/v1/ai_chat_log?ip=eq.${encodeURIComponent(ip)}&created_at=gte.${sinceISO}&select=id`;
     const r = await fetch(u, { headers: { ...h, Range: '0-0' } });
@@ -252,7 +258,7 @@ async function allowed(ip: string): Promise<boolean> {
   if ((await cnt(dayAgo)) >= 120) return false; // 120 / day
   const w = await fetch(`${SUPABASE_URL}/rest/v1/ai_chat_log`, {
     method: 'POST',
-    headers: { apikey: SERVICE_KEY, 'Content-Type': 'application/json' },
+    headers: { ...auth, 'Content-Type': 'application/json' },
     body: JSON.stringify({ ip }),
   });
   return w.ok;
