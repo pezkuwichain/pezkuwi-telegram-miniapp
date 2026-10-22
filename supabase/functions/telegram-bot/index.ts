@@ -7,7 +7,10 @@
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-import { Keyring } from 'npm:@pezkuwi/api@16.5.36';
+// The keyring alone, not @pezkuwi/api: the API package pulls in every type
+// definition and rxjs, which made each worker boot take ~40 s and ~300 MB for
+// a bot whose only chain work is deriving an address.
+import { Keyring } from 'npm:@pezkuwi/keyring@14.0.25';
 import { cryptoWaitReady } from 'npm:@pezkuwi/util-crypto@14.0.25';
 import * as bip39 from 'https://esm.sh/@scure/bip39@1.2.1';
 import { wordlist } from 'https://esm.sh/@scure/bip39@1.2.1/wordlists/english';
@@ -522,7 +525,9 @@ interface TelegramUpdate {
 
 // ── Telegram API helper ─────────────────────────────────────────────
 async function sendTelegramRequest(token: string, method: string, body: Record<string, unknown>) {
-  console.log(`[Telegram] Calling ${method}`, JSON.stringify(body));
+  // Only the method and chat are logged. Bodies carry what users wrote, the
+  // assistant's replies and, from the create-wallet button, a seed phrase.
+  console.log(`[Telegram] Calling ${method}`, `chat=${body.chat_id ?? '-'}`);
 
   if (!token) {
     console.error('[Telegram] BOT_TOKEN is not set!');
@@ -536,7 +541,12 @@ async function sendTelegramRequest(token: string, method: string, body: Record<s
   });
 
   const result = await response.json();
-  console.log(`[Telegram] Response:`, JSON.stringify(result));
+  // A successful reply echoes the sent message back, so only failures are
+  // described.
+  console.log(
+    `[Telegram] Response: ok=${result.ok}`,
+    result.ok ? '' : `${result.error_code} ${result.description}`
+  );
   return result;
 }
 
@@ -853,7 +863,8 @@ serve(async (req: Request) => {
     const botId = getBotId(req);
     const botToken = BOT_TOKENS[botId] || BOT_TOKENS.main;
     const update: TelegramUpdate = await req.json();
-    console.log(`[Bot:${botId}] Received update:`, JSON.stringify(update));
+    const kind = update.message ? 'message' : update.callback_query ? 'callback' : 'other';
+    console.log(`[Bot:${botId}] Received update ${update.update_id} (${kind})`);
 
     // Handle message
     if (update.message?.text) {
