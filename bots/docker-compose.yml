@@ -1,0 +1,37 @@
+# The bots runtime on vps3. Root installs this file at /opt/pezkuwi-bots/ and
+# owns /opt/pezkuwi-bots/.env (600); CI only replaces the function code under
+# /opt/pezkuwi-bots/functions/ (see ops/host/miniapp-functions-deploy).
+#
+# .env holds only what the two functions read:
+#   TELEGRAM_BOT_TOKEN_MAIN, TELEGRAM_BOT_TOKEN_KRD, TELEGRAM_BOT_TOKEN_DKS,
+#   TELEGRAM_WEBHOOK_SECRET, GEMINI_API_KEY, GROQ_API_KEY, ANTHROPIC_API_KEY,
+#   ASK_PROXY_KEY, SUPABASE_SECRET_KEYS ({"default":"<self-hosted service_role JWT>"})
+services:
+  bots:
+    container_name: pezkuwi-bots
+    image: supabase/edge-runtime:v1.71.2
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      # ask's per-IP limit writes to ai_chat_log through the local gateway.
+      SUPABASE_URL: http://kong:8000
+      # Telegram cannot send a JWT; each function checks its own callers.
+      VERIFY_JWT: 'false'
+    volumes:
+      - ./functions:/home/deno/functions:ro
+      - deno-cache:/root/.cache/deno
+    # nginx (supabase.pezkuwichain.io) proxies /functions/v1/{telegram-bot,ask} here.
+    ports:
+      - '127.0.0.1:9060:9000'
+    mem_limit: 1g
+    networks:
+      - supabase
+    command: ['start', '--main-service', '/home/deno/functions/main']
+
+networks:
+  supabase:
+    name: supabase_default
+    external: true
+
+volumes:
+  deno-cache:

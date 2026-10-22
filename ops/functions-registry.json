@@ -2,7 +2,7 @@
   "_comment": "Ownership registry for the shared self-hosted Supabase edge-function volume.",
   "_rule": "Every function directory under volumes/functions MUST be listed here with exactly one owning project. A project may only write the names it owns. Adding a new function requires adding it here FIRST.",
   "_enforced_by": "/usr/local/bin/supabase-deploy-functions",
-  "_updated": "2026-08-01",
+  "_updated": "2026-10-22",
   "projects": {
     "pezkuwi-telegram-miniapp": [
       "accept-p2p-offer",
@@ -40,14 +40,20 @@
       "two-factor-auth",
       "verify-deposit"
     ],
-    "_platform": ["hello", "main"]
-  },
-  "_cloud_hosted": {
-    "_comment": "These live on the CLOUD Supabase project vbhftvdayqfmcgmzdxfv (DKSapp), not here. Both Telegram bots and the news.pex.mom assistant are served from there. Copies may still sit in this volume from before the move - they are stale and serve no traffic. Do not deploy these here.",
-    "project": "vbhftvdayqfmcgmzdxfv",
-    "names": ["telegram-bot", "ask"]
+    "_platform": [
+      "hello",
+      "main"
+    ]
   },
   "_retired": {
     "email-verification": "pwap-web, 2026-08-01. Repodan 2026-07-30da silindi ama volume rsync --delete kullanmadigi icin sunucuda calismaya devam etti: anon key ile erisilebilir, service-role ile calisan, Access-Control-Allow-Origin * bir endpoint. send yolu zaten bozuktu (getUserByEmail SDKda yok) ve token tablosu bostu, yani somurulebilir degildi — ama bozuk olmasi koruyordu, tasarimi degil. /opt/supabase-self-hosted/retired-functions/ altinda karantinada."
+  },
+  "_hosted_elsewhere": {
+    "_comment": "Served by the separate bots runtime on vps3 (/opt/pezkuwi-bots, container pezkuwi-bots), not from this volume: both Telegram bots' webhook and the assistant behind news.pex.mom and ick.pezkiwi.app. That runtime does not verify JWTs (Telegram cannot send one) and holds only the keys these two need. Copies in this volume are stale; retire them. Until 2026-10-22 these ran on the cloud project vbhftvdayqfmcgmzdxfv.",
+    "where": "/opt/pezkuwi-bots",
+    "names": [
+      "telegram-bot",
+      "ask"
+    ]
   }
 }

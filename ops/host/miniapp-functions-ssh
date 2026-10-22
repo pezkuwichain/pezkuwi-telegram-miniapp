@@ -6,12 +6,13 @@
 #
 #   ssh miniapp-deploy@<host> gate-sha            # sha256 of the installed gate and registry
 #   ssh miniapp-deploy@<host> deploy < functions.tgz
+#   ssh miniapp-deploy@<host> bots-deploy < bots.tgz   # telegram-bot + ask, own runtime
 #
 # miniapp-functions-deploy, which sudo lets this user run with exactly those
 # arguments and nothing else, does the work.
 set -euo pipefail
 
 case "${SSH_ORIGINAL_COMMAND:-}" in
-  deploy|gate-sha) exec sudo -n /usr/local/sbin/miniapp-functions-deploy "$SSH_ORIGINAL_COMMAND" ;;
-  *) echo "miniapp-functions-ssh: the commands are 'gate-sha' and 'deploy' (functions.tgz on stdin)" >&2; exit 2 ;;
+  deploy|gate-sha|bots-deploy) exec sudo -n /usr/local/sbin/miniapp-functions-deploy "$SSH_ORIGINAL_COMMAND" ;;
+  *) echo "miniapp-functions-ssh: the commands are 'gate-sha', 'deploy' (functions.tgz on stdin) and 'bots-deploy' (bots.tgz on stdin)" >&2; exit 2 ;;
 esac

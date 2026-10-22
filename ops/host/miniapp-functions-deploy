@@ -23,8 +23,42 @@ case "${1:-}" in
     [ -d "$BASE/functions" ] || { echo "miniapp-functions-deploy: the bundle has no functions/" >&2; exit 1; }
     "$GATE" --project pezkuwi-telegram-miniapp --src "$BASE/functions" --restart
     ;;
+  bots-deploy)
+    # telegram-bot and ask run in their own runtime (bots/ in the repository),
+    # not in the shared volume, so the ownership gate does not apply; this
+    # accepts exactly the three directories that runtime serves and nothing else.
+    # The runtime's compose file and .env are root's and never come from CI.
+    BOTS=/opt/pezkuwi-bots/functions
+    BASE=$(mktemp -d /opt/pezkuwi-bots/staging.XXXXXX)
+    trap 'rm -rf "$BASE"' EXIT
+    tar -xzf - -C "$BASE" --no-same-owner
+    got=$(find "$BASE" -mindepth 1 -maxdepth 1 -printf '%f\n' | sort | tr '\n' ' ')
+    [ "$got" = "ask main telegram-bot " ] || {
+      echo "miniapp-functions-deploy: bots bundle must hold exactly ask, main, telegram-bot (got: $got)" >&2
+      exit 1
+    }
+    for d in ask main telegram-bot; do
+      [ -f "$BASE/$d/index.ts" ] || { echo "miniapp-functions-deploy: $d/index.ts missing" >&2; exit 1; }
+    done
+    chmod -R a+rX "$BASE"
+    for d in ask main telegram-bot; do
+      rm -rf "$BOTS/.$d.old"
+      [ -d "$BOTS/$d" ] && mv "$BOTS/$d" "$BOTS/.$d.old"
+      mv "$BASE/$d" "$BOTS/$d"
+    done
+    docker restart pezkuwi-bots >/dev/null
+    # Up means the router answers and telegram-bot loads far enough to refuse an
+    # update that lacks Telegram's secret header.
+    for _ in $(seq 1 30); do
+      code=$(curl -s -o /dev/null -w '%{http_code}' -X POST http://127.0.0.1:9060/telegram-bot || true)
+      [ "$code" = 401 ] && { for d in ask main telegram-bot; do rm -rf "$BOTS/.$d.old"; done; echo "bots runtime up"; exit 0; }
+      sleep 2
+    done
+    echo "miniapp-functions-deploy: bots runtime did not come up (last answer: $code); previous code kept in $BOTS/.<name>.old" >&2
+    exit 1
+    ;;
   *)
-    echo "usage: miniapp-functions-deploy gate-sha|deploy" >&2
+    echo "usage: miniapp-functions-deploy gate-sha|deploy|bots-deploy" >&2
     exit 2
     ;;
 esac
