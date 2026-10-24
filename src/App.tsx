@@ -59,6 +59,9 @@ const IS_CITIZENSHIP_REFERRAL =
 const IS_CITIZEN_PAGE =
   PAGE_PARAM === 'citizen' || window.location.pathname === '/citizens' || IS_CITIZENSHIP_REFERRAL;
 const IS_EXPLORER_PAGE = window.location.pathname.replace(/\/$/, '') === '/explorer';
+// The bot's "Create Wallet" button opens ?page=wallet, so the seed is made here,
+// on the device, and never by the bot.
+const START_SECTION: Section = PAGE_PARAM === 'wallet' ? 'wallet' : 'announcements';
 
 export default function App() {
   if (IS_CITIZEN_PAGE) {
@@ -81,7 +84,7 @@ export default function App() {
 }
 
 function MainApp() {
-  const [activeSection, setActiveSection] = useState<Section>('announcements');
+  const [activeSection, setActiveSection] = useState<Section>(START_SECTION);
   const { t } = useTranslation();
 
   const handleNavClick = (item: NavItem) => {
