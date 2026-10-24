@@ -7,13 +7,6 @@
  */
 
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
-// The keyring alone, not @pezkuwi/api: the API package pulls in every type
-// definition and rxjs, which made each worker boot take ~40 s and ~300 MB for
-// a bot whose only chain work is deriving an address.
-import { Keyring } from 'npm:@pezkuwi/keyring@14.0.25';
-import { cryptoWaitReady } from 'npm:@pezkuwi/util-crypto@14.0.25';
-import * as bip39 from 'https://esm.sh/@scure/bip39@1.2.1';
-import { wordlist } from 'https://esm.sh/@scure/bip39@1.2.1/wordlists/english';
 
 // ── Bot configuration ───────────────────────────────────────────────
 const BOT_TOKENS: Record<string, string> = {
@@ -525,8 +518,8 @@ interface TelegramUpdate {
 
 // ── Telegram API helper ─────────────────────────────────────────────
 async function sendTelegramRequest(token: string, method: string, body: Record<string, unknown>) {
-  // Only the method and chat are logged. Bodies carry what users wrote, the
-  // assistant's replies and, from the create-wallet button, a seed phrase.
+  // Only the method and chat are logged. Bodies carry what users wrote and the
+  // assistant's replies.
   console.log(`[Telegram] Calling ${method}`, `chat=${body.chat_id ?? '-'}`);
 
   if (!token) {
@@ -601,11 +594,12 @@ async function sendKrdWelcome(token: string, chatId: number) {
 
   const keyboard = {
     inline_keyboard: [
-      // Row 1: Create Wallet (callback - bot generates wallet in chat)
+      // Row 1: Create Wallet. Opens the mini app's wallet screen, which makes
+      // the seed on the user's device; the bot never sees it.
       [
         {
           text: '🔐 Create Wallet / Cûzdan Biafirîne',
-          callback_data: 'create_wallet',
+          web_app: { url: walletAppUrl(appUrl) },
         },
       ],
       // Row 2: Languages (top row)
@@ -702,46 +696,12 @@ async function sendDksWelcome(token: string, chatId: number) {
   });
 }
 
-// ── Create wallet handler ───────────────────────────────────────────
-async function handleCreateWallet(token: string, chatId: number) {
-  try {
-    await cryptoWaitReady();
-
-    const mnemonic = bip39.generateMnemonic(wordlist, 128);
-    const keyring = new Keyring({ type: 'sr25519' });
-    const pair = keyring.addFromUri(mnemonic);
-    const address = pair.address;
-
-    const walletMessage = `
-🔐 <b>Cûzdanê Te Hate Afirandin!</b>
-<b>Your Wallet Has Been Created!</b>
-
-📍 <b>Address / Navnîşan:</b>
-<code>${address}</code>
-
-🔑 <b>Seed Phrase (12 words):</b>
-<code>${mnemonic}</code>
-
-⚠️ <b>GIRÎNG / IMPORTANT:</b>
-<i>Ev 12 peyvan binivîsin û li cihekî ewle bihêlin.
-Kesî re nîşan nedin! Eger winda bikin, cûzdanê xwe winda dikin.
-
-Write down these 12 words and keep them safe.
-Never share them! If you lose them, you lose your wallet.</i>
-`;
-
-    await sendTelegramRequest(token, 'sendMessage', {
-      chat_id: chatId,
-      text: walletMessage,
-      parse_mode: 'HTML',
-    });
-  } catch (error) {
-    console.error('[Bot] Wallet generation error:', error);
-    await sendTelegramRequest(token, 'sendMessage', {
-      chat_id: chatId,
-      text: '❌ Wallet creation failed. Please try again.',
-    });
-  }
+// ── Create wallet ───────────────────────────────────────────────────
+// The wallet is made in the mini app, on the user's device. The bot used to
+// generate the seed here and send it as a chat message, which put every new
+// wallet's seed through this server and left it in Telegram's cloud history.
+function walletAppUrl(appUrl: string): string {
+  return `${appUrl}/?page=wallet`;
 }
 
 // ── Callback handler ────────────────────────────────────────────────
@@ -752,11 +712,25 @@ async function handleCallbackQuery(
   chatId: number | undefined
 ) {
   if (data === 'create_wallet' && chatId) {
+    // Legacy button on old welcome messages: point it at the mini app instead
+    // of making a seed here.
     await sendTelegramRequest(token, 'answerCallbackQuery', {
       callback_query_id: callbackQueryId,
-      text: '🔐 Creating your wallet...',
     });
-    await handleCreateWallet(token, chatId);
+    await sendTelegramRequest(token, 'sendMessage', {
+      chat_id: chatId,
+      text: '🔐 Cûzdanê xwe li ser telefona xwe biafirîne. / Create your wallet on your own phone.',
+      reply_markup: {
+        inline_keyboard: [
+          [
+            {
+              text: '🔐 Create Wallet / Cûzdan Biafirîne',
+              web_app: { url: walletAppUrl(MINI_APP_URLS.krd) },
+            },
+          ],
+        ],
+      },
+    });
   } else if (data === 'playstore_coming_soon') {
     // Legacy button on old messages - the app is live now, send the real link
     await sendTelegramRequest(token, 'answerCallbackQuery', {
