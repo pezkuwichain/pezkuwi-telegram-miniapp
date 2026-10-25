@@ -142,11 +142,6 @@ export interface Translations {
     startingTracking: string;
     trackingStarted: string;
     trackingFailed: string;
-    recordTrustScore: string;
-    recordTrustDesc: string;
-    recordingTrustScore: string;
-    trustScoreRecorded: string;
-    trustScoreRecordFailed: string;
     citizenCountTitle: string;
     citizenCountDesc: string;
     beCitizen: string;
@@ -155,7 +150,6 @@ export interface Translations {
     claimPeriod: string;
     epochClosed: string;
     epochOpen: string;
-    scoreRecorded: string;
     claimablePez: string;
     claim: string;
     claimAll: string;
