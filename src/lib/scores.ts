@@ -41,8 +41,6 @@ export type EpochStatus = 'Open' | 'ClaimPeriod' | 'Closed';
 export interface PezRewardInfo {
   currentEpoch: number;
   epochStatus: EpochStatus;
-  hasRecordedThisEpoch: boolean;
-  userScoreCurrentEpoch: number;
   claimableRewards: { epoch: number; amount: string }[];
   totalClaimable: string;
   hasPendingClaim: boolean;
@@ -508,66 +506,6 @@ export async function startScoreTracking(
   }
 }
 
-/**
- * Record trust score for current epoch on People Chain.
- * Calls pezRewards.recordTrustScore() - no arguments.
- * Required for PEZ epoch rewards.
- */
-export async function recordTrustScore(
-  peopleApi: ApiPromise,
-  keypair: KeyringPair
-): Promise<{ success: boolean; error?: string }> {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const tx = peopleApi.tx as any;
-    if (!tx?.pezRewards?.recordTrustScore) {
-      return { success: false, error: 'pezRewards pallet not available' };
-    }
-
-    const result = await new Promise<{ success: boolean; error?: string }>((resolve) => {
-      tx.pezRewards
-        .recordTrustScore()
-        .signAndSend(
-          keypair,
-          { nonce: -1 },
-          ({
-            status,
-            dispatchError,
-          }: {
-            status: {
-              isInBlock: boolean;
-              isFinalized: boolean;
-            };
-            dispatchError?: { isModule: boolean; asModule: unknown; toString: () => string };
-          }) => {
-            if (status.isInBlock || status.isFinalized) {
-              if (dispatchError) {
-                let errorMessage = 'recordTrustScore failed';
-                if (dispatchError.isModule) {
-                  const decoded = peopleApi.registry.findMetaError(
-                    dispatchError.asModule as Parameters<typeof peopleApi.registry.findMetaError>[0]
-                  );
-                  errorMessage = `${decoded.section}.${decoded.name}`;
-                }
-                resolve({ success: false, error: errorMessage });
-                return;
-              }
-              resolve({ success: true });
-            }
-          }
-        )
-        .catch((error: Error) => resolve({ success: false, error: error.message }));
-    });
-
-    return result;
-  } catch (error) {
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
-  }
-}
-
 // ========================================
 // PEZ REWARDS (pezRewards pallet on People Chain)
 // ========================================
@@ -616,66 +554,65 @@ export async function getPezRewards(
       // Default to Open
     }
 
-    // Check if user has recorded their score this epoch
-    let hasRecordedThisEpoch = false;
-    let userScoreCurrentEpoch = 0;
-    try {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const userScoreResult = await (peopleApi.query as any).pezRewards.userEpochScores(
-        currentEpoch,
-        address
-      );
-      if (userScoreResult.isSome) {
-        hasRecordedThisEpoch = true;
-        const scoreCodec = userScoreResult.unwrap() as { toString: () => string };
-        userScoreCurrentEpoch = Number(scoreCodec.toString());
-      }
-    } catch {
-      // User hasn't recorded
-    }
-
-    // Check for claimable rewards from completed epochs
+    // What a claim pays, worked out the way the chain does (`pezRewards::entitlement`). There
+    // is no score to record beforehand: the roll is held still from an epoch's finalisation
+    // to the end of its claim window, so the trust score now is the one the rate was set
+    // against, and a seat is paid if it is held now and was taken by the time of the roll.
     const claimableRewards: { epoch: number; amount: string }[] = [];
     let totalClaimable = BigInt(0);
 
+    const who = peopleApi.createType('AccountId', address).toString();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const query = peopleApi.query as any;
+    const trustScore = BigInt((await query.trust.trustScores(address)).toString());
+
+    // Seat: the Parlementer tiki, not expired, and the date the seat was taken.
+    let seatTakenAt: number | null = null;
+    try {
+      const tikis = ((await query.tiki.userTikis(address)).toJSON() ?? []) as string[];
+      if (tikis.includes('Parlementer')) {
+        const expiry = (await query.tiki.tikiExpiry(address, 'Parlementer')).toJSON() as
+          | number
+          | null;
+        const now = (await peopleApi.rpc.chain.getHeader()).number.toNumber();
+        if (expiry === null || now <= expiry) {
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const members = (await query.welati.parliamentMembers()).toJSON() as any[];
+          const member = members.find(
+            (m) => peopleApi.createType('AccountId', m.account).toString() === who
+          );
+          if (member) seatTakenAt = Number(member.electedAt ?? member.elected_at);
+        }
+      }
+    } catch {
+      // No seat
+    }
+
     for (let i = Math.max(0, currentEpoch - 3); i < currentEpoch; i++) {
       try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const pastStatusResult = await (peopleApi.query as any).pezRewards.epochStatus(i);
-        const pastStatus = pastStatusResult.toString();
+        const pastStatus = (await query.pezRewards.epochStatus(i)).toString();
         if (pastStatus !== 'ClaimPeriod') continue;
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const claimedResult = await (peopleApi.query as any).pezRewards.claimedRewards(i, address);
+        const claimedResult = await query.pezRewards.claimedRewards(i, address);
         if (claimedResult.isSome) continue;
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const userScoreResult = await (peopleApi.query as any).pezRewards.userEpochScores(
-          i,
-          address
-        );
-        if (!userScoreResult.isSome) continue;
-
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const epochPoolResult = await (peopleApi.query as any).pezRewards.epochRewardPools(i);
+        const epochPoolResult = await query.pezRewards.epochRewardPools(i);
         if (!epochPoolResult.isSome) continue;
 
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const epochPool = (epochPoolResult.unwrap() as any).toJSON();
-        const userScore = BigInt(
-          (userScoreResult.unwrap() as { toString: () => string }).toString()
-        );
+        const pool = (epochPoolResult.unwrap() as any).toJSON();
         const rewardPerPoint = BigInt(
-          epochPool.rewardPerTrustPoint || epochPool.reward_per_trust_point || '0'
+          pool.rewardPerTrustPoint ?? pool.reward_per_trust_point ?? '0'
         );
+        const seatShare = BigInt(pool.seatShare ?? pool.seat_share ?? '0');
+        const finalizedAt = Number(pool.finalizedAt ?? pool.finalized_at ?? 0);
 
-        const rewardAmount = userScore * rewardPerPoint;
-        const rewardFormatted = formatBalancePlanck(rewardAmount.toString());
+        let rewardAmount = trustScore * rewardPerPoint;
+        if (seatTakenAt !== null && seatTakenAt <= finalizedAt) rewardAmount += seatShare;
+        if (rewardAmount === BigInt(0)) continue;
 
-        if (parseFloat(rewardFormatted) > 0) {
-          claimableRewards.push({ epoch: i, amount: rewardFormatted });
-          totalClaimable += rewardAmount;
-        }
+        claimableRewards.push({ epoch: i, amount: formatBalancePlanck(rewardAmount.toString()) });
+        totalClaimable += rewardAmount;
       } catch (err) {
         console.warn(`Error checking epoch ${i} rewards:`, err);
       }
@@ -684,8 +621,6 @@ export async function getPezRewards(
     return {
       currentEpoch,
       epochStatus,
-      hasRecordedThisEpoch,
-      userScoreCurrentEpoch,
       claimableRewards,
       totalClaimable: formatBalancePlanck(totalClaimable.toString()),
       hasPendingClaim: claimableRewards.length > 0,

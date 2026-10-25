@@ -22,7 +22,6 @@ import {
   Sparkles,
   GraduationCap,
   Play,
-  PenTool,
   Globe2,
   Clock,
   Loader2,
@@ -38,7 +37,6 @@ import {
   getAllScores,
   getStakingScoreStatus,
   startScoreTracking,
-  recordTrustScore,
   getPezRewards,
   claimPezReward,
   formatDuration,
@@ -224,29 +222,6 @@ export function RewardsSection() {
     } catch (err) {
       hapticNotification('error');
       showAlert(err instanceof Error ? err.message : t('rewards.trackingFailed'));
-    } finally {
-      setShowTrackingAnimation(false);
-    }
-  };
-
-  const handleRecordTrustScore = async () => {
-    if (!peopleApi || !keypair) return;
-    setTrackingAnimationText(t('rewards.recordingTrustScore'));
-    setShowTrackingAnimation(true);
-    hapticImpact('medium');
-    try {
-      const result = await recordTrustScore(peopleApi, keypair);
-      if (result.success) {
-        hapticNotification('success');
-        showAlert(t('rewards.trustScoreRecorded'));
-        fetchUserScores();
-      } else {
-        hapticNotification('error');
-        showAlert(result.error || t('rewards.trustScoreRecordFailed'));
-      }
-    } catch (err) {
-      hapticNotification('error');
-      showAlert(err instanceof Error ? err.message : t('rewards.trustScoreRecordFailed'));
     } finally {
       setShowTrackingAnimation(false);
     }
@@ -1055,7 +1030,8 @@ export function RewardsSection() {
                   </div>
                 </div>
 
-                {/* Start Tracking / Record Trust Score Button */}
+                {/* Start Tracking Button. Once tracking, there is nothing to do each month: the
+                    chain holds every score still while an epoch is claimed. */}
                 {!stakingStatus?.isTracking ? (
                   <div className="bg-secondary/30 rounded-xl p-4 border border-border/50">
                     <button
@@ -1070,21 +1046,7 @@ export function RewardsSection() {
                       {t('rewards.startTrackingDesc')}
                     </p>
                   </div>
-                ) : (
-                  <div className="bg-secondary/30 rounded-xl p-4 border border-border/50">
-                    <button
-                      onClick={handleRecordTrustScore}
-                      disabled={!keypair || !peopleApi}
-                      className="w-full py-3 rounded-lg font-medium flex items-center justify-center gap-2 bg-gradient-to-r from-green-500 to-emerald-600 text-white hover:opacity-90 transition-all disabled:opacity-50"
-                    >
-                      <PenTool className="w-5 h-5" />
-                      {t('rewards.recordTrustScore')}
-                    </button>
-                    <p className="text-xs text-muted-foreground text-center mt-2">
-                      {t('rewards.recordTrustDesc')}
-                    </p>
-                  </div>
-                )}
+                ) : null}
 
                 {/* PEZ Epoch Rewards */}
                 <div className="bg-secondary/30 rounded-xl p-4 border border-border/50">
@@ -1114,12 +1076,6 @@ export function RewardsSection() {
                           ? t('rewards.epochClosed')
                           : t('rewards.epochOpen')}
                     </span>
-                    {pezRewards?.hasRecordedThisEpoch && (
-                      <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-green-500/20 text-green-400">
-                        <Check className="w-3 h-3 inline mr-1" />
-                        {t('rewards.scoreRecorded')}
-                      </span>
-                    )}
                   </div>
 
                   {/* Claimable PEZ Rewards */}
