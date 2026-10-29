@@ -42,8 +42,6 @@
     "@pezkuwi/util-crypto": "^14.0.26",
     "@supabase/supabase-js": "^2.93.1",
     "@tanstack/react-query": "^5.56.2",
-    "@ton/crypto": "^3.3.0",
-    "@ton/ton": "^16.2.2",
     "@types/qrcode": "^1.5.6",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
